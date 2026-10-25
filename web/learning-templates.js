@@ -5,15 +5,33 @@
  const defaults=[{id:'concepts',name:'知识点总结'},{id:'solutions',name:'题目讲解'}];
  function draftOf(value){return {name:value.name||'',prompt:value.prompt||''};}
  function changed(template,draft){return JSON.stringify(draftOf(template||{}))!==JSON.stringify(draft);}
- function promptMarkup(draft,isNew=false){return `${isNew?`<input class="template-name" data-template-field="name" aria-label="模板名称" placeholder="模板名称" value="${escape(draft.name)}" maxlength="60" required>`:''}<textarea class="template-prompt" data-template-field="prompt" aria-label="模板 Prompt" placeholder="写下你的学习要求，或让右侧 AI 帮你整理…" maxlength="40000" spellcheck="false">${escape(draft.prompt)}</textarea>`;}
+ function promptMarkup(draft,isNew=false){return `${isNew?`<input class="template-name" data-template-field="name" aria-label="模板名称" placeholder="模板名称" value="${escape(draft.name)}" maxlength="60" required>`:''}<textarea class="template-prompt" data-template-field="prompt" aria-label="模板内容" placeholder="写下这种笔记的讲解和整理要求，或让 AI 帮你整理…" maxlength="40000" spellcheck="false">${escape(draft.prompt)}</textarea>`;}
  function choicesMarkup(choices,selected='',automatic=false){return `${automatic?'<option value="">自动选择</option>':''}${choices.map(row=>`<option value="${escape(row.id)}" ${row.id===selected?'selected':''}>${escape(row.name)}</option>`).join('')}`;}
  function historyFor(messages){return messages.slice(-10).map(message=>({role:message.role,content:message.content}));}
  function scopedProposal(proposal,key){return {...proposal,groups:Object.fromEntries(['course','class_type','weeks'].map(name=>[name,name===key?proposal.groups?.[name]||[]:[]])),note_types:key==='note_kind'?proposal.note_types||[]:[]};}
+ function weekRanges(values){
+  const weeks=[...new Set(values.map(Number))].sort((a,b)=>a-b),ranges=[];
+  for(const week of weeks){const last=ranges.at(-1);if(last&&Number(last.end)+1===week)last.end=String(week);else ranges.push({start:String(week),end:String(week)});}
+  return ranges;
+ }
+ function weeksFromRanges(ranges){
+  const values=[];
+  for(const row of ranges){const start=Number(row.start),end=Number(row.end);if(!/^\d+$/.test(String(row.start))||!/^\d+$/.test(String(row.end))||!Number.isInteger(start)||!Number.isInteger(end)||start<1||end>60||start>end)throw new Error('请填写有效的起始周和结束周（1–60）。');for(let week=start;week<=end;week++)values.push(String(week));}
+  return [...new Set(values)].sort((a,b)=>Number(a)-Number(b));
+ }
+ function classTypeRowsMarkup(values,defaults,noteTypes,glyph=()=> ''){
+  return `<div class="property-columns class-type-columns"><span>课程类型</span><span>默认笔记类型</span><span></span></div>${values.map((value,index)=>`<div class="property-option-row class-type-option-row"><input data-setting-index="${index}" aria-label="课程类型选项 ${index+1}" placeholder="课程类型" value="${escape(value)}" maxlength="60"><select data-type-default-index="${index}" aria-label="${escape(value||'新课程类型')}默认笔记类型"><option value="">未设置</option>${choicesMarkup(noteTypes,defaults[index]||'')}</select><button type="button" class="icon-button" data-settings-action="remove" data-index="${index}" aria-label="移除 ${escape(value||'新课程类型')}">${glyph('x')}</button></div>`).join('')}`;
+ }
+ function weekRowsMarkup(ranges,glyph=()=> ''){
+  return `<div class="property-columns week-range-columns"><span>起始周</span><span>结束周</span><span></span></div>${ranges.map((row,index)=>`<div class="property-option-row week-range-row"><input type="number" min="1" max="60" step="1" inputmode="numeric" data-week-index="${index}" data-week-part="start" aria-label="起始周 ${index+1}" value="${escape(row.start)}" placeholder="1"><input type="number" min="1" max="60" step="1" inputmode="numeric" data-week-index="${index}" data-week-part="end" aria-label="结束周 ${index+1}" value="${escape(row.end)}" placeholder="16"><button type="button" class="icon-button" data-settings-action="remove-week-range" data-index="${index}" aria-label="移除教学周范围 ${index+1}">${glyph('x')}</button></div>`).join('')}`;
+ }
+ function defaultTypeFor(name,rules){const key=Object.keys(rules||{}).find(key=>key.toLocaleLowerCase()===String(name||'').trim().toLocaleLowerCase());return key?rules[key]:'';}
+ function suggestDefault(form,rules){const field=form?.elements?.learning_kind;if(field&&!field.dataset.userEdited)field.value=defaultTypeFor(form.elements.class_type?.value,rules)||'';}
  function actionMenuMarkup(label,manual,ai,{glyph=()=>'',className='',ariaLabel=label,triggerIcon='plus'}={}){
   return `<details class="settings-action-menu ${className}"><summary class="outline-button" aria-label="${escape(ariaLabel)}">${glyph(triggerIcon)}<span>${escape(label)}</span>${glyph('chevron-down')}</summary><div class="settings-action-options">${[manual,ai].map(item=>`<button type="button" ${item.attributes}>${glyph(item.icon)}<span>${escape(item.label)}</span></button>`).join('')}</div></details>`;
  }
  const propertyNames={course:'课程归属',class_type:'课程类型',weeks:'教学周',note_kind:'笔记类型'};
- if(typeof module!=='undefined'&&module.exports){module.exports={draftOf,changed,promptMarkup,choicesMarkup,historyFor,addOptions,navigationMarkup,actionMenuMarkup,scopedProposal};return;}
+ if(typeof module!=='undefined'&&module.exports){module.exports={draftOf,changed,promptMarkup,choicesMarkup,historyFor,addOptions,navigationMarkup,actionMenuMarkup,scopedProposal,weekRanges,weeksFromRanges,classTypeRowsMarkup,weekRowsMarkup,defaultTypeFor,suggestDefault};return;}
  function addOptions(key,text){
   if(key!=='weeks')return text.split(/[,，、\n]/).map(v=>v.trim()).filter(Boolean);
   const out=[];
@@ -24,22 +42,23 @@
   return [...new Set(out)];
  }
  let installed=false,recognizer=null;
- const Q={doc:null,groups:null,noteTypes:[],ai:null,aiContexts:{},aiContext:'information:class_type',aiOpen:false,pending:{},key:'class_type',saving:false,error:'',notice:''};
- const settingsDirty=()=>!!Q.doc&&(JSON.stringify(Q.groups)!==JSON.stringify(Q.doc.groups)||JSON.stringify(Q.noteTypes)!==JSON.stringify(Q.doc.note_types));
+ const Q={doc:null,groups:null,noteTypes:[],typeDefaults:[],weekRanges:[],ai:null,aiContexts:{},aiContext:'information:class_type',aiOpen:false,pending:{},key:'class_type',saving:false,error:'',notice:''};
+ const settingsDirty=()=>!!Q.doc&&(JSON.stringify(Q.groups)!==JSON.stringify(Q.doc.groups)||JSON.stringify(Q.noteTypes)!==JSON.stringify(Q.doc.note_types)||JSON.stringify(Q.typeDefaults)!==JSON.stringify(Q.doc.groups.class_type.map(name=>Q.doc.class_type_defaults?.[name]||''))||JSON.stringify(Q.weekRanges)!==JSON.stringify(weekRanges(Q.doc.groups.weeks)));
  const V={mode:'information',owner:null,data:null,selected:'concepts',draft:null,saving:false,loading:false,error:'',notice:'',aiOpen:false,chats:{},undo:null};
  const selected=()=>V.data?.templates.find(row=>row.id===V.selected);
  const dirty=()=>!!V.draft&&(!V.selected||changed(selected(),V.draft));
  const chat=()=>V.chats[V.selected||'new']||(V.chats[V.selected||'new']={messages:[],message:'',files:[],proposal:null,busy:false,recording:false,error:''});
  const working=()=>V.saving||V.loading||Q.saving||Q.ai?.busy||chat().busy;
  function rememberChoices(doc){S.templates=doc.templates.map(({id,name})=>({id,name}));}
- async function prepare(){try{const doc=await api('/api/templates');rememberChoices(doc);return doc;}catch{return null;}}
+ async function prepare(){try{const [doc,settings]=await Promise.all([api('/api/templates'),api('/api/learning-settings')]);rememberChoices(doc);S.classTypeDefaults=settings.class_type_defaults||{};return doc;}catch{return null;}}
+ function suggestImport(form){suggestDefault(form,S.classTypeDefaults);}
  function options(id='',automatic=false){return choicesMarkup(S.templates?.length?S.templates:defaults,id,automatic);}
  function panelMarkup(){
   const state=chat(),speechSupported=!!(root.SpeechRecognition||root.webkitSpeechRecognition);
   return `<aside class="template-ai" aria-label="模板 AI 助手"><header><span>${icon('sparkles')}AI 整理</span><button type="button" class="icon-button" data-template-action="ai-toggle" aria-label="收起 AI 整理" title="收起">${icon('x')}</button></header><div class="template-ai-history" aria-live="polite">${state.messages.map(message=>`<div class="template-ai-message ${message.role}">${escape(message.content)}</div>`).join('')}${state.proposal?`<section class="template-proposal"><details><summary>查看整理结果</summary><pre>${escape(state.proposal.prompt)}</pre></details><button type="button" class="outline-button" data-template-action="apply">应用到 Prompt</button></section>`:''}${state.busy?'<p class="template-ai-working" role="status">正在整理…</p>':''}</div><div class="template-ai-composer"><div class="template-attachments">${state.files.map((file,i)=>`<span>${icon('file-text')}<span>${escape(file.filename)}</span><button type="button" class="icon-button" data-template-action="remove-file" data-index="${i}" aria-label="移除附件 ${escape(file.filename)}">${icon('x')}</button></span>`).join('')}</div><textarea data-template-field="message" aria-label="告诉 AI 你的模板要求" rows="3" maxlength="40000" placeholder="粘贴模板，或说说你想怎么学…" ${state.busy?'disabled':''}>${escape(state.message)}</textarea><div class="template-ai-tools"><button type="button" class="icon-button" data-template-action="attach" aria-label="导入到 AI 整理" title="添加文件" ${state.busy?'disabled':''}>${icon('paperclip')}</button><button type="button" class="icon-button ${state.recording?'recording':''}" data-template-action="voice" aria-label="${state.recording?'结束口述':'口述模板要求'}" title="${speechSupported?'口述，由浏览器转写':'当前浏览器不支持语音转写，可使用系统听写输入'}" ${!speechSupported||state.busy?'disabled':''}>${icon(state.recording?'square':'mic')}</button><span></span><button type="button" class="template-send" data-template-action="send" aria-label="发送给 AI 整理" title="发送" ${state.busy||state.recording?'disabled':''}>${icon('arrow-up')}</button></div><input type="file" id="template-attachments" aria-label="选择模板参考文件" accept=".md,.txt,.json,.yaml,.yml,.pdf,.docx,.pptx,.png,.jpg,.jpeg,.webp" multiple hidden><p class="template-ai-error" role="alert" ${state.error?'':'hidden'}>${escape(state.error)}</p></div></aside>`;
  }
  function navigationMarkup(mode,key,templates,selected,draftName='',glyph=()=> ''){
-  return `<aside class="study-settings-nav" aria-label="学习设置二级导航"><nav>${[['academic','calendar-days','学期管理'],['information','tags','详细信息'],['prompts','text-cursor-input','学习 Prompt']].map(([id,name,label])=>`<button type="button" data-settings-action="mode" data-mode="${id}" class="settings-section ${mode===id?'selected':''}" aria-pressed="${mode===id}">${glyph(name)}<span>${label}</span></button>`).join('')}</nav></aside>`;
+  return `<aside class="study-settings-nav" aria-label="学习设置二级导航"><nav>${[['academic','calendar-days','学期管理'],['information','tags','详细信息'],['prompts','text-cursor-input','笔记模板']].map(([id,name,label])=>`<button type="button" data-settings-action="mode" data-mode="${id}" class="settings-section ${mode===id?'selected':''}" aria-pressed="${mode===id}">${glyph(name)}<span>${label}</span></button>`).join('')}</nav></aside>`;
  }
  function useAIContext(mode){const key=mode==='academic'?'academic':'information:'+Q.key;if(Q.aiContext!==key){Q.aiContexts[Q.aiContext]=Q.ai;Q.ai=Q.aiContexts[key]||null;Q.aiContext=key;}Q.aiOpen=false;}
  function settingsAI(){return Q.ai||(Q.ai={messages:[],message:'',files:[],references:[],proposal:null,busy:false,error:''});}
@@ -55,12 +74,12 @@
  }
  function settingsPage(){
   const key=Q.key,notes=key==='note_kind',values=notes?Q.noteTypes:Q.groups[key],label=propertyNames[key];
-  return `<header class="settings-fields-bar"><nav aria-label="详细信息设置字段">${Object.entries(propertyNames).map(([id,name])=>`<button type="button" data-settings-action="category" data-key="${id}" class="${id===key?'selected':''}" aria-pressed="${id===key}">${name}</button>`).join('')}</nav><div class="settings-operation-group">${actionMenuMarkup('添加',{label:'手动添加',icon:'plus',attributes:'data-settings-action="add"'},{label:'用 AI 识别',icon:'sparkles',attributes:'data-settings-action="add-ai"'},{glyph:icon,ariaLabel:'添加'+label})}</div></header><div class="property-settings-layout ${Q.aiOpen?'with-ai':''}"><form id="property-settings-form"><fieldset ${Q.saving?'disabled':''}><div class="property-option-list">${values.map((row,index)=>{const value=notes?row.name:row;return `<div class="property-option-row">${key==='weeks'?'<span>Week</span>':''}<input data-setting-index="${index}" aria-label="${label}选项 ${index+1}" placeholder="${key==='weeks'?'如 1–16':label}" value="${escape(value)}" maxlength="${key==='course'?150:key==='weeks'?100:60}">${notes?row.id?`<button type="button" class="icon-button" data-settings-action="edit-prompt" data-id="${escape(row.id)}" aria-label="编辑 ${escape(row.name)} 的 Prompt" title="编辑 Prompt">${icon('square-pen')}</button>`:`<button type="button" class="icon-button" data-settings-action="remove" data-index="${index}" aria-label="移除新笔记类型">${icon('x')}</button>`:`<button type="button" class="icon-button" data-settings-action="remove" data-index="${index}" aria-label="移除 ${escape(key==='weeks'?'Week '+value:value||'新'+label)}" title="移出可选项">${icon('x')}</button>`}</div>`;}).join('')}</div></fieldset><p id="property-settings-error" class="template-error" role="alert" ${Q.error?'':'hidden'}>${escape(Q.error)}</p><p class="property-settings-notice" role="status" ${Q.notice?'':'hidden'}>${escape(Q.notice)}</p><footer class="property-settings-actions template-actions" ${settingsDirty()?'':'hidden'}><button type="button" class="outline-button" data-settings-action="cancel" ${Q.saving?'disabled':''}>取消</button><button type="submit" class="primary" ${Q.saving?'disabled':''}>${Q.saving?'保存中…':'保存'}</button></footer></form>${Q.aiOpen?settingsAIPanel():''}</div>`;
+  return `<header class="settings-fields-bar"><nav aria-label="详细信息设置字段">${Object.entries(propertyNames).map(([id,name])=>`<button type="button" data-settings-action="category" data-key="${id}" class="${id===key?'selected':''}" aria-pressed="${id===key}">${name}</button>`).join('')}</nav><div class="settings-operation-group">${actionMenuMarkup('添加',{label:'手动添加',icon:'plus',attributes:'data-settings-action="add"'},{label:'用 AI 识别',icon:'sparkles',attributes:'data-settings-action="add-ai"'},{glyph:icon,ariaLabel:'添加'+label})}</div></header><div class="property-settings-layout ${Q.aiOpen?'with-ai':''}"><form id="property-settings-form"><fieldset ${Q.saving?'disabled':''}><div class="property-option-list">${key==='class_type'?classTypeRowsMarkup(values,Q.typeDefaults,Q.noteTypes.filter(row=>row.id),icon):key==='weeks'?weekRowsMarkup(Q.weekRanges,icon):values.map((row,index)=>{const value=notes?row.name:row;return `<div class="property-option-row">${key==='weeks'?'<span>Week</span>':''}<input data-setting-index="${index}" aria-label="${label}选项 ${index+1}" placeholder="${key==='weeks'?'如 1–16':label}" value="${escape(value)}" maxlength="${key==='course'?150:key==='weeks'?100:60}">${notes?row.id?`<button type="button" class="icon-button" data-settings-action="edit-prompt" data-id="${escape(row.id)}" aria-label="编辑 ${escape(row.name)} 的模板" title="编辑模板">${icon('square-pen')}</button>`:`<button type="button" class="icon-button" data-settings-action="remove" data-index="${index}" aria-label="移除新笔记类型">${icon('x')}</button>`:`<button type="button" class="icon-button" data-settings-action="remove" data-index="${index}" aria-label="移除 ${escape(key==='weeks'?'Week '+value:value||'新'+label)}" title="移出可选项">${icon('x')}</button>`}</div>`;}).join('')}</div></fieldset><p id="property-settings-error" class="template-error" role="alert" ${Q.error?'':'hidden'}>${escape(Q.error)}</p><p class="property-settings-notice" role="status" ${Q.notice?'':'hidden'}>${escape(Q.notice)}</p><footer class="property-settings-actions template-actions" ${settingsDirty()?'':'hidden'}><button type="button" class="outline-button" data-settings-action="cancel" ${Q.saving?'disabled':''}>取消</button><button type="submit" class="primary" ${Q.saving?'disabled':''}>${Q.saving?'保存中…':'保存'}</button></footer></form>${Q.aiOpen?settingsAIPanel():''}</div>`;
  }
  function promptPage(){
   if(!V.data||!V.draft)return '';
   const isNew=!V.selected;
-  return `<div class="template-tabs-row"><nav class="template-tabs" aria-label="学习模板">${V.data.templates.map(row=>`<button type="button" data-template-action="select" data-id="${escape(row.id)}" class="${row.id===V.selected?'selected':''}" aria-pressed="${row.id===V.selected}" title="${escape(row.name)}">${escape(row.name)}</button>`).join('')}${isNew?`<button type="button" class="selected template-pending" aria-pressed="true">${escape(V.draft.name||'新模板')}</button>`:''}</nav><div class="settings-operation-group">${actionMenuMarkup('编辑 Prompt',{label:'手动编辑',icon:'square-pen',attributes:'data-template-action="manual-edit"'},{label:'用 AI 整理',icon:'sparkles',attributes:'data-template-action="edit-ai"'},{glyph:icon,className:'prompt-edit-menu',ariaLabel:'编辑当前 Prompt',triggerIcon:'square-pen'})}</div></div><div class="template-workspace ${V.aiOpen?'with-ai':''}"><form id="learning-template-form" aria-busy="${V.saving}">${V.undo?'<div class="template-editor-tools"><button type="button" class="outline-button" data-template-action="undo">撤销应用</button></div>':''}<fieldset ${V.saving?'disabled':''}>${promptMarkup(V.draft,isNew)}</fieldset><div class="template-save-area"><p id="template-error" class="template-error" role="alert" ${V.error?'':'hidden'}>${escape(V.error)}</p><p class="template-notice" role="status" ${V.notice?'':'hidden'}>${escape(V.notice)}</p><footer class="template-actions" ${dirty()?'':'hidden'}><button type="button" class="outline-button" data-template-action="cancel" ${V.saving?'disabled':''}>取消</button><button type="submit" class="primary" ${V.saving?'disabled':''}>${V.saving?'保存中…':'保存'}</button></footer></div></form>${V.aiOpen?panelMarkup():''}</div>`;
+  return `<div class="template-tabs-row"><nav class="template-tabs" aria-label="笔记类型">${V.data.templates.map(row=>`<button type="button" data-template-action="select" data-id="${escape(row.id)}" class="${row.id===V.selected?'selected':''}" aria-pressed="${row.id===V.selected}" title="${escape(row.name)}">${escape(row.name)}</button>`).join('')}${isNew?`<button type="button" class="selected template-pending" aria-pressed="true">${escape(V.draft.name||'新模板')}</button>`:''}</nav><div class="settings-operation-group">${actionMenuMarkup('编辑模板',{label:'手动编辑',icon:'square-pen',attributes:'data-template-action="manual-edit"'},{label:'用 AI 整理',icon:'sparkles',attributes:'data-template-action="edit-ai"'},{glyph:icon,className:'prompt-edit-menu',ariaLabel:'编辑当前笔记模板',triggerIcon:'square-pen'})}</div></div><div class="template-workspace ${V.aiOpen?'with-ai':''}"><form id="learning-template-form" aria-busy="${V.saving}">${V.undo?'<div class="template-editor-tools"><button type="button" class="outline-button" data-template-action="undo">撤销应用</button></div>':''}<fieldset ${V.saving?'disabled':''}>${promptMarkup(V.draft,isNew)}</fieldset><div class="template-save-area"><p id="template-error" class="template-error" role="alert" ${V.error?'':'hidden'}>${escape(V.error)}</p><p class="template-notice" role="status" ${V.notice?'':'hidden'}>${escape(V.notice)}</p><footer class="template-actions" ${dirty()?'':'hidden'}><button type="button" class="outline-button" data-template-action="cancel" ${V.saving?'disabled':''}>取消</button><button type="submit" class="primary" ${V.saving?'disabled':''}>${V.saving?'保存中…':'保存'}</button></footer></div></form>${V.aiOpen?panelMarkup():''}</div>`;
  }
  function page(){
   if(!V.data||!V.draft)return '';
@@ -83,7 +102,7 @@
   try{
    const [doc,settings]=await Promise.all([api('/api/templates'),api('/api/learning-settings')]);if(S.user?.id!==owner)return;
    if(V.owner!==owner){V.owner=owner;V.selected='concepts';V.chats={};V.aiOpen=false;Q.ai=null;Q.aiContexts={};Q.aiContext='information:class_type';Q.aiOpen=false;}
-   V.data=doc;rememberChoices(doc);Q.key=Object.hasOwn(propertyNames,category)?category:'class_type';useAIContext(mode);V.mode=mode;Q.doc=settings;Q.groups=JSON.parse(JSON.stringify(settings.groups));Q.noteTypes=JSON.parse(JSON.stringify(settings.note_types));Q.pending={};Q.error='';Q.notice='';
+   V.data=doc;rememberChoices(doc);Q.key=Object.hasOwn(propertyNames,category)?category:'class_type';useAIContext(mode);V.mode=mode;Q.doc=settings;Q.groups=JSON.parse(JSON.stringify(settings.groups));Q.noteTypes=JSON.parse(JSON.stringify(settings.note_types));Q.typeDefaults=settings.groups.class_type.map(name=>settings.class_type_defaults?.[name]||'');Q.weekRanges=weekRanges(settings.groups.weeks);S.classTypeDefaults=settings.class_type_defaults||{};Q.pending={};Q.error='';Q.notice='';
    if(!selected())V.selected=doc.templates[0].id;
    V.draft=draftOf(selected());V.error='';V.notice='';V.undo=null;
    if(mode==='academic')await root.StudyAcademic?.prepareSettings();if(S.user?.id!==owner)return;
@@ -128,15 +147,16 @@
     if(V.mode==='academic'&&!root.StudyAcademic?.canLeaveSettings())return false;
     if(working()||chat().recording){fail('请等待整理完成，或结束口述。');return false;}
     if(settingsDirty()){Q.error='请先保存或取消设置修改。';const el=document.getElementById('property-settings-error');if(el){el.hidden=false;el.textContent=Q.error;}return false;}
-    if(dirty()){fail('请先保存或取消 Prompt 修改。');return false;}
+    if(dirty()){fail('请先保存或取消模板修改。');return false;}
    }
    return base.canLeave();
   };
   function settingsError(message){Q.error=message;const el=document.getElementById('property-settings-error');if(el){el.hidden=!message;el.textContent=message;}}
   function settingsRefresh(){Q.notice='';const footer=document.querySelector('.property-settings-actions');if(footer)footer.hidden=!settingsDirty();const notice=document.querySelector('.property-settings-notice');if(notice)notice.hidden=true;}
   function addSetting(){
+   if(Q.key==='weeks'){Q.weekRanges.push({start:'',end:''});paint();document.querySelector(`[data-week-index="${Q.weekRanges.length-1}"][data-week-part="start"]`)?.focus();return;}
    const notes=Q.key==='note_kind',values=notes?Q.noteTypes:Q.groups[Q.key];let index=values.findIndex(row=>!(notes?row.name:row).trim());
-   if(index<0){index=values.length;values.push(notes?{id:'',name:''}:'');}
+   if(index<0){index=values.length;values.push(notes?{id:'',name:''}:'');if(Q.key==='class_type')Q.typeDefaults.push('');}
    Q.error='';Q.notice='';paint();document.querySelector(`[data-setting-index="${index}"]`)?.focus();
   }
   async function sendSettingsAI(){
@@ -158,19 +178,24 @@
    let proposal=settingsAI().proposal;if(!proposal)return;
    if(V.mode==='academic'){try{root.StudyAcademic.applyRecognition(proposal);Q.error='';paint();}catch(error){settingsAI().error=error.message;paint();}return;}
    proposal=scopedProposal(proposal,Q.key);
+   if(Q.key==='weeks')Q.groups.weeks=weeksFromRanges(Q.weekRanges);
    for(const key of ['course','class_type','weeks']){
     const seen=new Set(Q.groups[key].map(value=>String(value).trim().toLocaleLowerCase()));
-    for(const value of proposal.groups[key]||[])if(!seen.has(String(value).toLocaleLowerCase())){Q.groups[key].push(String(value));seen.add(String(value).toLocaleLowerCase());}
+    for(const value of proposal.groups[key]||[])if(!seen.has(String(value).toLocaleLowerCase())){Q.groups[key].push(String(value));if(key==='class_type')Q.typeDefaults.push('');seen.add(String(value).toLocaleLowerCase());}
    }
+   if(Q.key==='weeks')Q.weekRanges=weekRanges(Q.groups.weeks);
    const names=new Set(Q.noteTypes.map(row=>row.name.toLocaleLowerCase()));
    for(const name of proposal.note_types||[])if(!names.has(name.toLocaleLowerCase())){Q.noteTypes.push({id:'',name});names.add(name.toLocaleLowerCase());}
    Q.error='';Q.notice='';paint();
   }
   document.addEventListener('input',event=>{
    if(event.target.matches('[data-settings-message]')){settingsAI().message=event.target.value;return;}
-   if(event.target.dataset.settingIndex===undefined||S.view!=='templates')return;
+   if(S.view!=='templates')return;
+   if(event.target.dataset.weekIndex!==undefined){Q.weekRanges[Number(event.target.dataset.weekIndex)][event.target.dataset.weekPart]=event.target.value;settingsRefresh();return;}
+   if(event.target.dataset.settingIndex===undefined)return;
    if(Q.key==='note_kind')Q.noteTypes[Number(event.target.dataset.settingIndex)].name=event.target.value;else Q.groups[Q.key][Number(event.target.dataset.settingIndex)]=event.target.value;settingsRefresh();
   });
+  document.addEventListener('change',event=>{if(S.view==='templates'&&event.target.dataset.typeDefaultIndex!==undefined){Q.typeDefaults[Number(event.target.dataset.typeDefaultIndex)]=event.target.value;settingsRefresh();}});
   document.addEventListener('click',async event=>{
    const button=event.target.closest('[data-settings-action]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();if(working())return;
    try{
@@ -179,7 +204,7 @@
      if(V.mode===button.dataset.mode)return;
      if(V.mode==='academic'&&!root.StudyAcademic?.canLeaveSettings())return;
      if(settingsDirty()){settingsError('请先保存或取消设置修改。');return;}
-     if(dirty()||chat().recording){fail(chat().recording?'请先结束口述。':'请先保存或取消 Prompt 修改。');return;}
+     if(dirty()||chat().recording){fail(chat().recording?'请先结束口述。':'请先保存或取消模板修改。');return;}
      if(button.dataset.mode==='academic')await root.StudyAcademic?.prepareSettings();
      useAIContext(button.dataset.mode);V.mode=button.dataset.mode;paint();
     }else if(action==='category'){Q.key=button.dataset.key;useAIContext('information');Q.error='';Q.notice='';paint();}
@@ -194,8 +219,9 @@
      V.selected=button.dataset.id;V.draft=draftOf(selected());V.mode='prompts';V.error='';V.notice='';V.undo=null;paint();
     }
     else if(action==='add')addSetting();
-    else if(action==='remove'){(Q.key==='note_kind'?Q.noteTypes:Q.groups[Q.key]).splice(Number(button.dataset.index),1);Q.error='';Q.notice='';paint();}
-    else if(action==='cancel'){const doc=await api('/api/learning-settings');Q.doc=doc;Q.groups=JSON.parse(JSON.stringify(doc.groups));Q.noteTypes=JSON.parse(JSON.stringify(doc.note_types));Q.pending={};Q.error='';Q.notice='';paint();}
+    else if(action==='remove-week-range'){Q.weekRanges.splice(Number(button.dataset.index),1);Q.error='';paint();}
+    else if(action==='remove'){if(Q.key==='class_type')Q.typeDefaults.splice(Number(button.dataset.index),1);(Q.key==='note_kind'?Q.noteTypes:Q.groups[Q.key]).splice(Number(button.dataset.index),1);Q.error='';Q.notice='';paint();}
+    else if(action==='cancel'){const doc=await api('/api/learning-settings');Q.doc=doc;Q.groups=JSON.parse(JSON.stringify(doc.groups));Q.noteTypes=JSON.parse(JSON.stringify(doc.note_types));Q.typeDefaults=doc.groups.class_type.map(name=>doc.class_type_defaults?.[name]||'');Q.weekRanges=weekRanges(doc.groups.weeks);S.classTypeDefaults=doc.class_type_defaults||{};Q.pending={};Q.error='';Q.notice='';paint();}
    }catch(error){settingsError(error.message);}
   },true);
   document.addEventListener('pointerdown',event=>{document.querySelectorAll('.settings-action-menu[open]').forEach(menu=>{if(!menu.contains(event.target))menu.removeAttribute('open');});},true);
@@ -203,7 +229,7 @@
   document.addEventListener('submit',async event=>{
    if(event.target.id!=='property-settings-form')return;event.preventDefault();event.stopImmediatePropagation();if(working())return;
    Q.saving=true;Q.error='';paint();
-   try{const doc=await api('/api/learning-settings',{etag:Q.doc.etag,groups:{...Q.groups,weeks:Q.groups.weeks.flatMap(value=>addOptions('weeks',String(value)))},note_types:Q.noteTypes,templates_etag:Q.doc.templates_etag});Q.doc=doc;Q.groups=JSON.parse(JSON.stringify(doc.groups));Q.noteTypes=JSON.parse(JSON.stringify(doc.note_types));S.tag_catalog=await api('/api/tags');V.data=await api('/api/templates');rememberChoices(V.data);V.draft=draftOf(selected());Q.notice='已保存';}
+   try{const doc=await api('/api/learning-settings',{etag:Q.doc.etag,groups:{...Q.groups,weeks:weeksFromRanges(Q.weekRanges)},class_type_defaults:Object.fromEntries(Q.groups.class_type.map((name,index)=>[name,Q.typeDefaults[index]||''])),note_types:Q.noteTypes,templates_etag:Q.doc.templates_etag});Q.doc=doc;Q.groups=JSON.parse(JSON.stringify(doc.groups));Q.noteTypes=JSON.parse(JSON.stringify(doc.note_types));Q.typeDefaults=doc.groups.class_type.map(name=>doc.class_type_defaults?.[name]||'');Q.weekRanges=weekRanges(doc.groups.weeks);S.classTypeDefaults=doc.class_type_defaults||{};S.tag_catalog=await api('/api/tags');V.data=await api('/api/templates');rememberChoices(V.data);V.draft=draftOf(selected());Q.notice='已保存';}
    catch(error){Q.error=error.message;}
    finally{Q.saving=false;paint();}
   },true);
@@ -223,7 +249,7 @@
     else if(action==='edit-ai'){V.aiOpen=true;paint();document.querySelector('[data-template-field="message"]')?.focus();}
     else if(action==='select'||action==='new'){
      if(chat().recording){fail('请先结束口述。');return;}
-     if(dirty()){fail('请先保存或取消 Prompt 修改。');return;}
+     if(dirty()){fail('请先保存或取消模板修改。');return;}
      V.selected=action==='new'?'':button.dataset.id;V.draft=action==='new'?{name:'',prompt:''}:draftOf(selected());V.error='';V.notice='';V.undo=null;
      if(action==='new'){V.chats.new=null;V.aiOpen=true;}
      paint();if(action==='new')document.querySelector('[data-template-field="name"]')?.focus();
@@ -274,5 +300,5 @@
   },true);
   window.addEventListener('beforeunload',event=>{if(S.view==='templates'&&(working()||(V.mode==='academic'&&(root.StudyAcademic?.dirty()||root.StudyAcademic?.busy()))||settingsDirty()||dirty()||Object.values(Q.aiContexts).some(state=>state&&(state.busy||state.message.trim()||state.files.length))||Q.ai?.message.trim()||Q.ai?.files.length||chat().recording||chat().message.trim()||chat().files.length)){event.preventDefault();event.returnValue='';}});
  }
- root.StudyTemplates={install,open,prepare,options,actionMenuMarkup,openAcademicAI(){if(V.mode!=='academic'||working())return;Q.aiOpen=true;paint();document.querySelector('[data-settings-message]')?.focus();}};
+ root.StudyTemplates={install,open,prepare,options,suggestImport,actionMenuMarkup,openAcademicAI(){if(V.mode!=='academic'||working())return;Q.aiOpen=true;paint();document.querySelector('[data-settings-message]')?.focus();}};
 })(typeof window==='undefined'?{}:window);

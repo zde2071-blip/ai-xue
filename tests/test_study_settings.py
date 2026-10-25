@@ -84,3 +84,45 @@ class SettingsTests(unittest.TestCase):
         self.assertIn('本次正在添加「课程类型」',model.call_args.args[0][0]['content'])
         self.assertFalse(app.VAULT.exists())
         with self.assertRaises(app.Problem):app.settings_store().assist({'request':text,'target':'unknown'})
+
+
+    def configure_default(self,name,kind):
+        doc=app.settings_store().document();groups=copy.deepcopy(doc['groups'])
+        if name not in groups['class_type']:groups['class_type'].append(name)
+        rules={**doc['class_type_defaults'],name:kind}
+        return app.settings_store().save({'etag':doc['etag'],'groups':groups,'class_type_defaults':rules})
+
+    def test_course_type_defaults_are_readonly_validated_and_account_scoped(self):
+        doc=app.settings_store().document();self.assertEqual(doc['class_type_defaults']['Tutorial'],'solutions');self.assertFalse(app.VAULT.exists())
+        templates=app.template_store().document()
+        custom=app.template_store().save({'etag':templates['etag'],'template':{'name':'实验记录','prompt':'整理实验步骤与观察。'}})['saved_id']
+        self.configure_default('Studio',custom)
+        self.assertEqual(app.settings_store().default_note_kind(' studio '),custom)
+        doc=app.settings_store().document();before=app.settings_store().path.read_bytes()
+        with self.assertRaises(app.Problem):app.settings_store().save({'etag':doc['etag'],'groups':doc['groups'],'class_type_defaults':{'Studio':'missing-template'}})
+        self.assertEqual(app.settings_store().path.read_bytes(),before)
+        app.VAULT=Path(self.tmp.name)/'two';self.assertEqual(app.settings_store().default_note_kind('Studio'),'concepts');self.assertFalse(app.VAULT.exists())
+
+    def test_import_uses_default_prompt_and_manual_selection_wins(self):
+        self.configure_default('Studio','solutions')
+        outline={'title':'练习','overview':'总览','blocks':[{'title':'第一题','description':'求解','points':['方法']}]}
+        data={'filename':'Studio.md','text':'这是一份课程学习材料，介绍集合与关系的基本定义，并通过问题练习解释如何判断集合之间的关系。','tags':{'class_type':'Studio'}}
+        with patch.object(app,'ask',return_value=outline) as model:c=app.import_course(data)
+        self.assertEqual(c['learning_kind'],'solutions');self.assertIn('保留原题号',model.call_args.args[0][0]['content'])
+        before=(app.folder(c['id'])/'course.json').read_bytes()
+        self.configure_default('Studio','concepts');self.assertEqual((app.folder(c['id'])/'course.json').read_bytes(),before)
+        self.configure_default('Studio','solutions')
+        with patch.object(app,'ask',return_value=outline):manual=app.import_course({**data,'learning_kind':'concepts'})
+        self.assertEqual(manual['learning_kind'],'concepts')
+
+    def test_starting_existing_material_uses_rule_without_losing_explicit_override(self):
+        self.configure_default('Studio','solutions')
+        data={'kind':'originals','filename':'Studio.md','text':'课程材料包含集合、交集与并集的定义及完整例子，用来说明最基本的集合运算和它们的区别。','class_type':'Studio'}
+        item=app.upload_material(data)['item']
+        outline={'title':'集合','overview':'总览','blocks':[{'title':'定义','description':'理解','points':['集合']}]}
+        with patch.object(app,'ask',return_value=outline):c=app.unit_store().from_material({'material_id':item['id']})
+        self.assertEqual(c['learning_kind'],'solutions')
+        item=app.upload_material({**data,'filename':'Studio2.md'})['item'];details=app.details_store().get(item['id'])
+        app.details_store().save(item['id'],{'etag':details['etag'],'note_kind':'concepts','confirm_fields':['note_kind']})
+        with patch.object(app,'ask',return_value=outline):c=app.unit_store().from_material({'material_id':item['id']})
+        self.assertEqual(c['learning_kind'],'concepts')

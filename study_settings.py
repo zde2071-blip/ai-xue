@@ -4,6 +4,7 @@ import json
 
 FIELDS={'course':'课程归属','class_type':'课程类型','weeks':'教学周','custom':'自定义标签'}
 LIMITS={'course':150,'class_type':60,'custom':60}
+DEFAULT_NOTE_TYPES={'lecture':'concepts','tutorial':'solutions','exam':'solutions','workshop':'solutions','exercise':'solutions'}
 
 class Settings:
     def __init__(self,host):self.h=host
@@ -27,17 +28,33 @@ class Settings:
                 if value.casefold() not in seen:clean.append(value);seen.add(value.casefold())
             out[key]=sorted(clean,key=int) if key=='weeks' else clean
         return out
+    def type_defaults(self,groups,templates,rules=None):
+        if rules is not None and (not isinstance(rules,dict) or len(rules)>500):self.fail('默认笔记类型设置无效。')
+        valid={row['id'] for row in templates};normalized={}
+        for name,kind in (rules or {}).items():
+            if not isinstance(name,str) or not isinstance(kind,str) or kind and kind not in valid:self.fail('请选择有效的笔记类型。')
+            normalized[name.strip().casefold()]=kind
+        return {name:normalized.get(name.casefold(),DEFAULT_NOTE_TYPES.get(name.casefold(),'')) for name in groups['class_type']}
+    def default_note_kind(self,class_type,fallback='concepts'):
+        # Read only the rules: document() also collects resources and must not recurse.
+        raw=self.path.read_text(encoding='utf-8') if self.path.exists() else ''
+        try:rules=json.loads(raw).get('class_type_defaults',{}) if raw else {}
+        except (ValueError,AttributeError):self.fail('学习设置文件无法读取，未改动原文件。',409)
+        if not isinstance(rules,dict):self.fail('默认笔记类型设置无效。',409)
+        name=str(class_type or '').strip().casefold()
+        kind=next((value for key,value in rules.items() if str(key).casefold()==name),DEFAULT_NOTE_TYPES.get(name,''))
+        return kind if kind and self.h['template_store']().has(kind) else fallback
     def document(self):
         base=self.h['unit_store']().base_catalog()['groups']
         defaults={key:copy.deepcopy(base[key]) for key in FIELDS}
         defaults['weeks']=sorted(set([str(i) for i in range(1,17)]+defaults['weeks']),key=int)
         raw=self.path.read_text(encoding='utf-8') if self.path.exists() else ''
         if raw:
-            try:groups=self.normalize(json.loads(raw)['groups'])
+            try:stored=json.loads(raw);groups=self.normalize(stored['groups'])
             except (ValueError,KeyError,TypeError,self.h['Problem']):self.fail('学习设置文件无法读取，未改动原文件。',409)
-        else:groups=self.normalize(defaults)
+        else:stored={};groups=self.normalize(defaults)
         templates=self.h['template_store']().document()
-        return {'groups':groups,'labels':{**FIELDS,'note_kind':'笔记类型'},'note_types':[{k:row[k] for k in ('id','name')} for row in templates['templates']],'templates_etag':templates['etag'],'etag':self.h['digest'](raw or json.dumps(groups,sort_keys=True,ensure_ascii=False))}
+        return {'groups':groups,'class_type_defaults':self.type_defaults(groups,templates['templates'],stored.get('class_type_defaults')),'labels':{**FIELDS,'note_kind':'笔记类型'},'note_types':[{k:row[k] for k in ('id','name')} for row in templates['templates']],'templates_etag':templates['etag'],'etag':self.h['digest'](raw or json.dumps(groups,sort_keys=True,ensure_ascii=False))}
     def note_values(self,rows,current):
         if not isinstance(rows,list) or not 1<=len(rows)<=100:self.fail('笔记类型应为 1–100 项。')
         values={row['id']:copy.deepcopy(row) for row in current['templates']};seen=set()
@@ -59,10 +76,12 @@ class Settings:
             current=self.document()
             if data.get('etag')!=current['etag']:self.fail('设置已被其他窗口修改，请重新打开后核对。',409)
             groups=self.normalize(data.get('groups'))
-            pending=[(self.path,{'version':1,'groups':groups})]
+            templates=self.h['template_store']().document()
+            rules=self.type_defaults(groups,templates['templates'],data.get('class_type_defaults',current['class_type_defaults']))
+            pending=[(self.path,{'version':2,'groups':groups,'class_type_defaults':rules})]
             if 'note_types' in data:
                 templates=self.h['template_store']().document()
-                if data.get('templates_etag')!=templates['etag']:self.fail('学习 Prompt 已被其他窗口修改，请重新打开后核对。',409)
+                if data.get('templates_etag')!=templates['etag']:self.fail('笔记模板已被其他窗口修改，请重新打开后核对。',409)
                 values=self.note_values(data['note_types'],templates)
                 if list(values.values())!=templates['templates']:pending.append((self.h['template_store']().path,{'version':2,'templates':values}))
             snapshots={path:path.read_text(encoding='utf-8') if path.exists() else None for path,_ in pending};written=[]

@@ -244,7 +244,8 @@ def import_course(data, source_item=None):
         raise Problem('没有提取到足够的文字。请提供更清晰的文件或图片，或粘贴材料内容。')
     if len(text) > 110000:
         raise Problem('资料较长，请按章节拆分后导入（每次最多约 11 万字符），避免遗漏内容。')
-    learning_kind=data.get('learning_kind') or ('solutions' if fields.get('class_type') in ('Tutorial','Exam','Workshop') else 'concepts')
+    type_name=data['tags'].get('class_type',fields.get('class_type','')) if isinstance(data.get('tags'),dict) else fields.get('class_type','')
+    learning_kind=data.get('learning_kind') or settings_store().default_note_kind(type_name)
     if not template_store().has(learning_kind):raise Problem('学习模板不存在，请重新选择。')
     title, overview, blocks = make_outline(clean_text(data.get('title') or Path(name).stem, 150), text, method,learning_kind)
     cid = uid()

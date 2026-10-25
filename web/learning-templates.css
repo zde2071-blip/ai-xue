@@ -181,3 +181,14 @@
 .academic-settings-page #academic-management-error:empty{display:none}
 @media(max-width:700px){.academic-settings-page .academic-management>nav{gap:10px;margin-bottom:20px}.academic-settings-page #academic-management-form{grid-template-columns:repeat(3,minmax(0,1fr))}.academic-settings-page .academic-management>nav .academic-add-term{padding:7px 10px}}
 @media(max-width:420px){.academic-settings-page #academic-management-form{grid-template-columns:1fr}.academic-manager-picker>summary{font-size:12px}.academic-settings-page .academic-management>nav .academic-add-term{font-size:11px;padding:7px 8px}}
+
+/* Course types select a reusable note template; weeks are edited as ranges. */
+.property-columns{display:grid;align-items:center;gap:16px;padding:8px 9px;font-size:11px;line-height:20px;color:#888}
+.class-type-columns,.property-option-row.class-type-option-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,1fr) 32px;gap:16px}
+.property-option-row.class-type-option-row{padding:10px 0}
+.class-type-option-row select{width:100%;min-width:0;height:36px;padding:7px 30px 7px 10px;border:1px solid #e5e5e5;border-radius:5px;background-color:#fff;color:#555;font-size:12px}
+.class-type-option-row select:focus{outline:1px solid #999}
+.week-range-columns,.property-option-row.week-range-row{display:grid;grid-template-columns:minmax(0,160px) minmax(0,160px) 32px;gap:16px}
+.property-option-row.week-range-row{padding:10px 0}
+.week-range-row input{width:100%;height:36px;border-color:#e5e5e5;color:#555;background:#fff}
+@media(max-width:760px){.class-type-columns,.property-option-row.class-type-option-row{grid-template-columns:minmax(80px,1fr) minmax(100px,1fr) 32px;gap:8px}.property-columns{padding-left:5px;gap:8px}.week-range-columns,.property-option-row.week-range-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px;gap:8px}}

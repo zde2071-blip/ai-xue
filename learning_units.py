@@ -145,7 +145,7 @@ class Units:
         owner=self.call('get_course',item['course_id']) if item.get('course_id') else None
         tags={'course':self.tags(owner)['course'] if owner else '', 'weeks':item.get('weeks') or ([item['week']] if item.get('week') else []),'class_type':item.get('class_type',''),'topic':item.get('topic',''),'chapter':item.get('chapter',''),'custom':[]}
         tags=item.get('tags') or tags
-        payload={'filename':item['filename'],'file':self.h['base64'].b64encode(raw).decode(),'tags':tags,'title':item.get('topic') or path.stem,'sessions':item.get('sessions',[]),'recognition':{'fields':item,'sources':item.get('metadata_sources',{}),'role':item.get('role','material')},'learning_kind':index['metadata'].get(item['id'],{}).get('note_kind') or ('solutions' if item.get('class_type') in ('Tutorial','Exam') or item['kind']=='exercises' else item.get('note_kind','concepts'))}
+        payload={'filename':item['filename'],'file':self.h['base64'].b64encode(raw).decode(),'tags':tags,'title':item.get('topic') or path.stem,'sessions':item.get('sessions',[]),'recognition':{'fields':item,'sources':item.get('metadata_sources',{}),'role':item.get('role','material')},'learning_kind':index['metadata'].get(item['id'],{}).get('note_kind') or self.call('settings_store').default_note_kind(tags.get('class_type',''),'solutions' if item['kind']=='exercises' else 'concepts')}
         c=self.call('import_course',payload,source_item=item);c['origin_material_id']=item['id']
         if owner and owner.get('academic'):c['academic']=owner['academic']
         self.call('save_course',c);return c
