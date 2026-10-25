@@ -1,0 +1,162 @@
+/* Shared alignment for the active application surfaces. */
+:root{--ui-gutter:24px;--ui-control:36px;--ui-form-control:40px;--ui-header:64px;--ui-icon:32px;--study-inset:36px;--study-width:850px}
+/* Keep the tool rail stationary. Labels never intercept another pane's controls. */
+.navigation-rail,.navigation-rail:hover,.navigation-rail:has(button:focus-visible){width:68px;min-width:68px;overflow:visible;box-shadow:none;transition:none}
+.navigation-rail .sidebar-nav>button,.navigation-rail .profile-button{position:relative;width:44px;height:44px;min-height:44px;justify-content:center;padding:0;gap:0}
+.navigation-rail .sidebar-nav>button>span,.navigation-rail .rail-account-label{position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%);width:max-content;max-width:210px;display:block;padding:8px 10px;border:1px solid #e5e7e8;border-radius:6px;background:#fff;box-shadow:0 4px 16px #0000000c;color:#505a60;font-size:12px;line-height:20px;white-space:nowrap;visibility:hidden;opacity:0;pointer-events:none;z-index:100}
+.navigation-rail .sidebar-nav>button:hover>span,.navigation-rail .sidebar-nav>button:focus-visible>span,.navigation-rail .profile-button:hover .rail-account-label,.navigation-rail .profile-button:focus-visible .rail-account-label{visibility:visible;opacity:1}
+/* One top edge and control rhythm across the main browsing surfaces. */
+.classified-toolbar,.learning-home-toolbar{min-height:var(--ui-header);padding-left:var(--ui-gutter);padding-right:var(--ui-gutter)}
+.classified-toolbar{gap:12px 16px}
+.classified-organization{padding-left:16px}
+.classified-toolbar-right{gap:16px}
+.academic-switcher>summary{min-height:32px;line-height:20px;padding:6px 0}
+.classified-organization nav>button,.classified-extra>summary{min-height:32px;line-height:20px;padding-top:6px;padding-bottom:6px}
+.classified-column-heading{height:48px;min-height:48px;line-height:20px}
+.classified-group,.classified-file{min-height:40px;padding-top:8px;padding-bottom:8px;line-height:20px}
+.classified-group>svg,.classified-file>svg{width:16px;height:16px}
+.classified-file strong{line-height:20px}
+.classified-list-tools{gap:12px}
+.classified-list-tools>select{min-height:32px;line-height:20px;padding:6px 2px}
+.classified-display>summary,.classified-toolbar .details-toggle{width:32px;height:32px;min-height:32px;padding:0;display:flex;align-items:center;justify-content:center}
+.learning-import h1{line-height:28px}
+.learning-import .learning-choose{min-height:var(--ui-control);line-height:20px;padding:7px 16px}
+.learning-recents>header{padding-left:0;padding-right:0}
+.learning-record{padding-left:0;padding-right:0}
+.learning-record-mark{width:32px;flex:0 0 32px}
+.learning-record-title strong{line-height:20px}
+.learning-record-title small{line-height:18px}
+.learning-more{padding-left:0}
+/* Settings tabs, their actions and option rows use the same available width. */
+.study-settings-nav{padding-top:28px}
+.study-settings-nav .settings-section{min-height:40px;margin-top:0;padding-top:10px;padding-bottom:10px;line-height:20px}
+.study-settings-content{padding:24px var(--ui-gutter) 0}
+.settings-fields-bar,.study-settings-content>.template-tabs-row{min-height:48px;align-items:center;margin-bottom:16px}
+.settings-fields-bar>nav,.template-tabs{align-items:stretch}
+.settings-fields-bar>nav button,.template-tabs button{min-height:48px;padding-top:14px;padding-bottom:14px;line-height:20px}
+.settings-fields-bar>div{padding-bottom:0;gap:12px}
+.settings-fields-bar .property-add-button{min-height:var(--ui-control);padding:7px 14px;line-height:20px}
+.settings-fields-bar .text-button{min-height:var(--ui-control);line-height:20px}
+.study-settings-content #property-settings-form>fieldset{max-width:none}
+.property-option-row{min-height:48px;align-items:center;padding:6px 0;gap:8px}
+.property-option-row input{min-height:var(--ui-control);line-height:20px;padding:8px 10px}
+.property-option-row>.icon-button{width:32px;height:32px;min-height:32px;display:flex;align-items:center;justify-content:center;padding:0}
+.property-option-row>span{line-height:20px;padding-left:10px}
+.study-settings-content .template-editor-tools,.template-ai>header,.settings-ai>header{height:48px;min-height:48px;margin-bottom:0;line-height:20px}
+.template-workspace{gap:24px}
+.template-ai{padding-left:24px}
+.template-ai-composer{padding-bottom:24px}
+.template-actions,.property-settings-actions{align-items:center;gap:10px}
+.template-actions button{min-height:var(--ui-control);line-height:20px;padding:7px 14px}
+.template-ai-tools{align-items:center;min-height:42px;padding:4px 8px 8px}
+.template-ai-tools>.icon-button,.template-send{width:28px;height:28px;min-height:28px;padding:0;display:flex;align-items:center;justify-content:center}
+/* Right-hand properties align with the browser toolbar and with one another. */
+.details-header{height:var(--ui-header);min-height:var(--ui-header);padding:16px var(--ui-gutter);line-height:20px}
+.details-header .icon-button,.review-focus-header .icon-button,.review-header-actions>summary{width:32px;height:32px;min-height:32px;padding:0;display:flex;align-items:center;justify-content:center}
+.details-content{padding:16px var(--ui-gutter) 24px}
+.details-resource-title{line-height:28px;margin-bottom:24px}
+.details-property{grid-template-columns:76px minmax(0,1fr);gap:12px;align-items:center;margin-bottom:8px}
+.details-property>.details-label{padding:0;line-height:20px}
+.details-picker>summary{min-height:var(--ui-form-control);padding:9px 10px;line-height:20px;align-items:center}
+.details-picker-value{min-width:0;line-height:20px}
+.details-picker>summary>svg{width:14px;height:14px;flex-shrink:0}
+.details-picker-value .details-chip{line-height:20px;margin-bottom:0}
+.details-original-link{display:grid;grid-template-columns:16px minmax(0,1fr) 16px;align-items:start;gap:8px;padding:8px 0;line-height:20px}
+.details-original-link>svg{width:16px;height:16px;margin-top:2px}
+.details-bottom{padding:0 var(--ui-gutter)}
+.details-footer{gap:10px;padding:16px 0 24px}
+.details-footer button{min-height:var(--ui-control);line-height:20px;padding:7px 14px}
+/* Learning text and its composer share the same centered content column. */
+.unit-header{padding-left:var(--ui-gutter);padding-right:var(--ui-gutter)}
+.unit-title-row{min-height:var(--ui-header);gap:12px}
+.unit-title-row>.text-button{min-height:32px;line-height:20px;display:inline-flex;align-items:center}
+.unit-parts{min-height:40px;align-items:center;gap:20px}
+.unit-parts>button{min-height:32px;line-height:20px;display:inline-flex;align-items:center;padding:6px 0}
+.study-conversation{max-width:var(--study-width);padding-left:var(--study-inset);padding-right:var(--study-inset)}
+.view-learn .learning-footer,.view-overview .learning-footer{padding-left:var(--study-inset);padding-right:var(--study-inset)}
+.learning-footer-inner{width:100%;max-width:calc(var(--study-width) - var(--study-inset)*2)}
+.view-learn .content-scroll,.view-overview .content-scroll,.view-learn .learning-footer,.view-overview .learning-footer{overflow-y:auto;scrollbar-gutter:stable}
+.view-note .content-scroll{scrollbar-gutter:stable}
+.status-panel{padding:0 20px 24px}
+.status-heading{min-height:var(--ui-header);gap:12px}
+.status-heading .icon-button{width:32px;height:32px;min-height:32px;padding:0;display:flex;align-items:center;justify-content:center}
+.status-panel h2{line-height:20px}
+.status-outline .outline-item{align-items:flex-start;line-height:20px;padding:10px}
+.status-outline .outline-index{flex-shrink:0;min-width:20px;line-height:20px}
+/* Review tools stay on one baseline, including the independently resized docks. */
+.review-focus-header{height:var(--ui-header);min-height:var(--ui-header);padding:0 var(--ui-gutter);gap:12px}
+.review-header-actions{align-items:center;gap:8px;flex-shrink:0}
+.review-document-title{line-height:20px}
+.review-active .review-annotations>header,.review-active .discussion-drawer .drawer-heading{height:48px;min-height:48px;padding:7px 16px;line-height:20px;align-items:center}
+.review-active .review-annotations>header .icon-button,.review-active .discussion-drawer .drawer-heading .icon-button{width:32px;height:32px;min-height:32px;padding:0;display:flex;align-items:center;justify-content:center}
+.review-active .review-annotations-scroll,.review-active .drawer-content{padding-left:16px;padding-right:16px}
+.review-active .drawer-context{padding-left:16px;padding-right:16px}
+.review-active .drawer-composer{padding:12px 16px 16px}
+.drawer-heading>span{min-width:0;line-height:20px}
+.reading-toolbar{align-items:center;min-height:48px;padding:8px var(--ui-gutter);gap:12px}
+.reading-toolbar .reading-tool-group{min-height:32px}
+.reading-toolbar .reading-tool-group>button:not(.color-swatch):not(.ink-swatch){min-width:32px;min-height:32px;line-height:20px}
+.review-active .editor-page{width:100%;max-width:840px;padding:36px 40px 80px;margin:0 auto}
+.editor-page .cm-content .cm-line:not(.cm-quote){padding-left:0;padding-right:0}
+.editor-page .cm-h1{font-size:32px;line-height:1.5}
+.editor-status{min-height:32px;align-items:center;line-height:20px}
+@media(max-width:850px){.review-active .editor-page{padding:29px 35px 65px}}
+.reading-tool-group{align-items:center;min-height:28px}
+/* Ordinary dialogs and forms share labels, control heights and action baselines. */
+dialog:not(.account-dialog):not(.ai-service-dialog) .modal-head{padding:24px var(--ui-gutter) 16px;align-items:center;gap:16px}
+dialog:not(.account-dialog):not(.ai-service-dialog) .modal-head h2{font-size:18px;line-height:28px;margin:0}
+dialog:not(.account-dialog):not(.ai-service-dialog) .modal-body{padding:0 var(--ui-gutter) 24px}
+.modal-head>.icon-button{width:32px;height:32px;min-height:32px;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}
+dialog .field{gap:8px;margin-top:0;margin-bottom:20px;min-width:0}
+dialog .field-label{line-height:20px;margin:0}
+dialog .field input:not([type=checkbox]):not([type=file]),dialog .field select{width:100%;min-width:0;min-height:var(--ui-form-control);line-height:20px;padding:9px 10px;box-sizing:border-box;font-family:inherit}
+dialog .field input[type=file]{width:100%;max-width:100%;min-width:0;font-family:inherit;font-size:12px;line-height:24px}
+dialog .classification-fields{gap:16px;align-items:start}
+dialog .academic-form-fields{gap:12px;align-items:start}
+dialog .modal-actions{align-items:center;gap:10px;margin-top:24px}
+dialog .modal-actions>.primary,dialog .modal-actions>.outline-button,dialog .modal-actions>.secondary-button{min-height:var(--ui-control);padding:7px 14px;line-height:20px;margin:0}
+#academic-management-form>label{line-height:20px}
+#academic-management-form input,#academic-management-form select{height:var(--ui-form-control);min-height:var(--ui-form-control);padding:9px 10px;line-height:20px;font-family:inherit}
+/* Account pages and service editors preserve their existing layout and content. */
+.account-dialog .modal-head{top:36px;right:32px}
+.account-dialog .modal-head button{width:32px;height:32px;min-height:32px;padding:0}
+.account-nav-title{display:flex;align-items:center;min-height:40px;line-height:20px;padding:0 14px;margin-bottom:24px}
+.account-settings-content{padding:32px}
+.account-settings-content .settings-page-title{padding-right:48px}
+.account-settings-content>h2+form{margin-top:24px}
+.account-settings-nav{padding-top:32px}
+.account-settings-nav>button{min-height:40px;padding-top:10px;padding-bottom:10px;line-height:20px}
+.account-settings-content .settings-page-title{min-height:40px;display:flex;align-items:center;margin-bottom:24px}
+.account-settings-content .ai-reference-heading{padding-bottom:24px;margin-bottom:24px;min-height:64px}
+.account-settings-content h2{line-height:32px}
+.account-settings-content .settings-section-head .primary{min-height:var(--ui-control);padding:7px 14px;line-height:20px;flex-shrink:0}
+.account-settings-content .field{gap:8px;margin-bottom:20px}
+.account-settings-content .field-label{margin:0;line-height:20px}
+.account-settings-content input:not([type=checkbox]):not([type=file]),.account-settings-content select{min-height:var(--ui-form-control);line-height:20px;padding:9px 10px}
+.account-settings-content .profile-email-row,.account-settings-content .settings-security-row{align-items:center;line-height:20px}
+.ai-service-row{align-items:center;gap:16px}
+.ai-service-row .ai-service-copy{min-width:0}
+.ai-service-copy strong{line-height:20px}
+.ai-service-copy small{line-height:20px;margin-top:6px}
+.ai-service-row .service-status{align-items:center;line-height:20px;white-space:nowrap;flex-shrink:0}
+.ai-service-row>svg{flex-shrink:0}
+.ai-service-dialog .field{margin-bottom:20px}
+.ai-service-dialog .ai-key-field .field-label{margin-bottom:8px;line-height:20px}
+.ai-service-dialog .ai-save-actions{align-items:center;gap:12px}
+.ai-service-dialog .ai-service-actions{align-items:center;gap:10px}
+.ai-service-dialog .ai-save-actions .primary,.ai-service-dialog .outline-button{min-height:var(--ui-form-control);padding:9px 14px;line-height:20px}
+.ai-service-dialog .ai-default-settings .settings-model-row{display:grid;grid-template-columns:minmax(80px,1fr) minmax(0,2fr);align-items:center;gap:12px}
+.ai-service-dialog .ai-default-settings .settings-model-row select{max-width:none;width:100%;margin:0}
+.ai-service-dialog .ai-model-row{align-items:center;line-height:20px}
+.ai-service-dialog .ai-model-row input{flex-shrink:0;margin:0}
+.ai-service-dialog .model-test-field{display:grid!important;grid-template-columns:minmax(80px,1fr) minmax(0,2fr);gap:12px;align-items:center}
+.ai-service-dialog .model-test-field select{max-width:none;width:100%}
+.auth-panel input,.auth-panel .auth-submit{height:44px;min-height:44px;line-height:20px}
+.auth-panel .auth-submit{padding:10px 14px}
+.finish-blocks>div{display:grid;grid-template-columns:16px minmax(0,1fr) auto;align-items:center;gap:10px;line-height:20px;overflow-wrap:anywhere}
+.finish-blocks>div>svg{width:16px;height:16px}
+/* Keep narrow layouts aligned without forcing desktop widths into them. */
+@media(max-width:1000px){:root{--study-inset:24px}.study-settings-content{padding-left:20px;padding-right:20px}.template-workspace{gap:20px}.template-ai{padding-left:20px}}
+@media(max-width:760px){.study-settings-content{padding-top:20px}.study-settings-nav{padding-top:24px}.settings-fields-bar{gap:8px}.settings-fields-bar>nav{width:100%}.settings-fields-bar>div{padding-bottom:8px}.study-settings-content .template-workspace{gap:0}.template-ai{padding-left:0}.account-settings-content{padding:32px 20px 24px}.account-settings-nav{padding-top:32px}.account-dialog .modal-head{right:20px}}
+@media(max-width:700px){:root{--ui-gutter:16px;--ui-header:56px;--study-inset:20px}.navigation-rail,.navigation-rail:hover,.navigation-rail:has(button:focus-visible){width:56px;min-width:56px}.classified-toolbar{min-height:56px}.classified-organization{padding-left:0}.unit-title-row{padding:8px 0}.unit-parts{gap:12px}.reading-toolbar{gap:8px}.status-open .status-panel{padding:0 16px 24px}.learning-import .learning-choose{padding:8px 12px}.learning-home-content{width:calc(100% - 32px)}.academic-management-dialog .modal-body{padding-left:16px;padding-right:16px}.ai-service-dialog .model-test-field,.ai-service-dialog .ai-default-settings .settings-model-row{grid-template-columns:minmax(75px,1fr) minmax(0,2fr)}}
+@media(max-width:520px){.study-settings-content{padding-left:14px;padding-right:14px}.settings-fields-bar>nav{gap:14px}.template-ai{width:100%;min-width:0}.account-settings-content .settings-page-title{gap:12px;flex-wrap:wrap}.account-settings-content .settings-section-head .primary{font-size:12px}.ai-service-dialog .ai-service-actions{justify-content:flex-end;flex-wrap:wrap}.ai-service-dialog .ai-default-settings .settings-model-row,.ai-service-dialog .model-test-field{grid-template-columns:1fr}.ai-service-dialog .ai-save-actions{gap:12px}}

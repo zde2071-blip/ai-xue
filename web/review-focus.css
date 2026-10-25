@@ -1,0 +1,95 @@
+.review-focus-header{height:56px;min-height:56px;display:flex;align-items:center;gap:12px;padding:0 27px;border-bottom:1px solid #f0f1f2;background:white;position:relative;z-index:20}
+.review-focus-header .icon-button{height:31px;width:31px;border-radius:6px;color:#92999d;flex-shrink:0}
+.review-focus-header .icon-button svg{width:17px;height:17px}
+.review-focus-header .icon-button:hover{background:#f4f5f6;color:#434b50}
+.review-document-title{font-size:12px;font-weight:400;color:#858d92;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.review-header-actions{margin-left:auto;display:flex;align-items:center;gap:9px}
+.review-menu{position:relative}
+.review-menu summary{list-style:none;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.review-menu summary::-webkit-details-marker{display:none}
+.review-menu[open]>summary{background:#f1f3f4;color:#444}
+.review-menu-content{position:absolute;right:0;top:39px;min-width:204px;padding:5px;background:white;border:1px solid #e5e7e8;box-shadow:0 6px 24px #00000012;border-radius:8px;z-index:65}
+.review-menu-content>button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;border-radius:4px;background:none;font-size:12px;color:#626c73;text-align:left;white-space:nowrap}
+.review-menu-content>button svg{width:15px;height:15px;color:#9ca4aa;flex-shrink:0}
+.review-menu-content>button:hover,.review-menu-content>button:focus-visible{background:#f0f2f3;color:#303940;outline:none}
+.review-menu-content>button:disabled{color:#b9bec1;background:none;cursor:default}
+.review-menu-content>button:disabled svg{color:#c5cace}
+.review-menu-divider{height:1px;background:#eceeef;margin:4px 7px}
+.view-note .note-page{padding-top:43px}
+#selection-tools.review-selection-tools{background:white;color:#555;border:1px solid #e5e7e8;padding:3px;box-shadow:0 5px 24px #00000015}
+#selection-tools.review-selection-tools .reading-toolbar{border:0;padding:5px 6px;gap:9px;flex-wrap:wrap;border-radius:7px}
+#selection-tools.review-selection-tools .reading-tool-group{gap:5px}
+#selection-tools.review-selection-tools .reading-tool-group+.reading-tool-group{padding-left:9px}
+#selection-tools.review-selection-tools button:hover{background:#f0f2f3}
+@media(max-width:700px){.review-focus-header{padding:0 15px;gap:8px;height:51px;min-height:51px}.review-document-title{font-size:11px}.review-header-actions{gap:5px}.view-note .note-page{padding-top:29px}.review-menu-content{min-width:195px}#selection-tools.review-selection-tools .reading-toolbar{gap:6px;padding:5px}#selection-tools.review-selection-tools .reading-tool-group+.reading-tool-group{padding-left:6px}}
+/* Review alone can reveal a left annotation pane and a right AI pane. */
+.review-active{--dock:340px}
+.review-active.discussion-open #app{width:calc(100% - var(--dock))}
+.review-active .drawer-backdrop{display:none}
+.review-active .discussion-drawer{width:var(--dock);background:#fff;box-shadow:none}
+.review-active .discussion-drawer .drawer-heading{min-height:56px;padding:15px 20px}
+.review-active .discussion-drawer .drawer-heading>span{font-size:13px}
+.review-active .review-focus-header .selected{background:#f0f2f3;color:#444}
+.review-reading-layout{display:flex;flex:1;min-height:0;min-width:0;overflow:hidden}
+.review-reading-layout>.content-scroll{min-width:0;flex:1}
+.review-annotations{flex:0 0 260px;min-width:0;display:flex;flex-direction:column;border-right:1px solid #eceeef;background:#fcfcfc;overflow:hidden}
+.review-annotations>header{display:flex;align-items:center;justify-content:space-between;min-height:51px;padding:10px 17px;color:#606a70;font-size:12px}
+.review-annotations .icon-button{width:28px;height:28px;color:#92999d}
+.review-annotations .icon-button svg{width:16px;height:16px}
+.review-annotations-scroll{flex:1;min-height:0;overflow:auto;padding:0 15px 24px}
+.review-annotation{border-bottom:1px solid #eceeef;padding:16px 0;font-size:12px;line-height:1.8;overflow-wrap:anywhere}
+.review-annotation:first-child{padding-top:5px}
+.review-annotation-open{width:100%;text-align:left;background:none;color:#515b61;line-height:1.8;font-size:12px}
+.review-annotation-open strong{display:block;font-size:12px;font-weight:500}
+.review-annotation-location{display:block;color:#9aa1a6;font-size:10px;margin-bottom:5px}
+.review-annotation blockquote{margin:6px 0 9px;padding:2px 0 2px 10px;border-left:2px solid #d9dddf;color:#92999e;font-size:11px}
+.review-annotation p{margin:0}
+.review-annotation-summary,.review-annotation-message .markdown{font-size:12px;line-height:1.9}
+.review-annotation-message{margin:12px 0}
+.review-annotation-message>span{display:block;font-size:10px;color:#92999e;margin-bottom:5px}
+.review-thread-history{margin:10px 0;font-size:11px;color:#6c767c}
+.review-thread-history summary{cursor:pointer}
+.review-annotation .text-button{display:flex;align-items:center;gap:5px;font-size:11px;margin-top:14px;color:#666}
+.review-annotation .text-button svg{width:13px;height:13px}
+.review-annotations-empty{font-size:12px;line-height:1.9;color:#9aa1a6;margin:6px 0}
+#review-comment-form textarea{width:100%;min-height:140px;border:1px solid #e0e3e5;border-radius:5px;background:white;padding:10px;font-family:inherit;font-size:12px;line-height:1.9;resize:vertical}
+#review-comment-form .comment-quote{font-size:12px;line-height:1.9;overflow-wrap:anywhere}
+.review-comment-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;align-items:center;font-size:12px}
+.review-comment-actions button{font-size:12px;padding:7px 10px}
+.review-comment-actions [data-action="review-delete-comment"]{margin-right:auto;color:#92999d}
+.review-active .note-page,.review-active.discussion-open .note-page{width:100%;max-width:840px;margin:0 auto;padding:43px 52px 80px}
+.review-active .note-section .annotation-badge{right:-40px}
+@media(min-width:1000px) and (max-width:1250px){.review-active{--dock:300px}.review-annotations{flex-basis:230px}.review-active .note-page,.review-active.discussion-open .note-page{padding:35px 39px 65px}}
+@media(max-width:999px){.review-active.discussion-open #app{width:100%}.review-active .discussion-drawer{width:min(340px,85vw);box-shadow:-6px 0 24px #0000000d}.review-annotations{position:absolute;left:0;top:56px;bottom:0;width:min(280px,80vw);z-index:32;box-shadow:6px 0 24px #0000000b}.review-active .note-page,.review-active.discussion-open .note-page{padding:32px 45px 65px}}
+@media(max-width:700px){.review-annotations{top:51px}.review-active .note-page,.review-active.discussion-open .note-page{padding:29px 35px 60px}.review-active .note-section .annotation-badge{right:-29px;min-width:25px}}
+/* All three panes share one top edge and one flex layout. */
+.review-active.discussion-open #app{width:100%}
+.review-active .review-reading-layout{align-items:stretch;position:relative}
+.review-active .review-annotations{position:relative;top:auto;bottom:auto;left:auto;width:var(--review-left,260px);flex:0 0 var(--review-left,260px);box-shadow:none}
+.review-active #drawer-root:not(:empty){position:relative;display:flex;width:var(--review-right,340px);flex:0 0 var(--review-right,340px);min-width:0;min-height:0}
+.review-active #drawer-root:empty{display:none}
+.review-active .discussion-drawer{position:relative;inset:auto;width:100%;height:100%;min-width:0;box-shadow:none;z-index:auto}
+.review-active .review-annotations>header,.review-active .discussion-drawer .drawer-heading{height:48px;min-height:48px;padding:10px 17px;border-bottom:1px solid #eceeef;font-size:12px}
+.review-active .discussion-drawer .drawer-heading>span{font-size:12px;font-weight:400}
+.review-active .drawer-context{padding:12px 17px 0}
+.review-active .drawer-context strong{font-size:12px;font-weight:400}
+.review-active .drawer-content{padding:14px 17px}
+.review-active .drawer-composer{padding:12px 14px}
+.review-active .review-annotations-scroll{padding-top:14px}
+.review-active .note-page,.review-active.discussion-open .note-page{max-width:840px;padding:36px 40px 80px}
+.review-resizer{position:absolute;top:0;bottom:0;width:9px;z-index:50;cursor:col-resize;touch-action:none;outline:none}
+.review-annotations>.review-resizer{right:0}
+.discussion-drawer>.review-resizer{left:0}
+.review-resizer:after{content:'';position:absolute;top:0;bottom:0;width:2px;left:4px;background:transparent}
+.review-resizer:hover:after,.review-resizer:focus-visible:after,.review-resizing .review-resizer:after{background:#9ba1a5}
+.review-resizing,.review-resizing *{cursor:col-resize!important;user-select:none!important}
+.review-active .review-annotation-summary{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.review-active .review-annotation-summary:has(+details[open]){-webkit-line-clamp:unset}
+@media(max-width:850px){.review-active .review-annotations{position:absolute;left:0;top:0;bottom:0;z-index:35;width:min(var(--review-left,260px),80vw);box-shadow:5px 0 20px #0000000b}.review-active #drawer-root:not(:empty){position:absolute;right:0;top:0;bottom:0;z-index:36;width:min(var(--review-right,340px),85vw)}.review-active .note-page,.review-active.discussion-open .note-page{padding:29px 35px 65px}}
+
+.review-resizer:before{content:'';position:absolute;top:calc(50% - 14px);left:4px;width:2px;height:28px;border-radius:2px;background:#cbd0d3}
+
+.review-panel-button{height:31px;padding:0 11px;border-radius:6px;font-size:12px;font-weight:400;color:#747e85;background:transparent;white-space:nowrap}
+.review-panel-button:hover{background:#f4f5f6;color:#434b50}
+.review-panel-button.selected{background:#edf0f2;color:#37434b}
+@media(max-width:700px){.review-panel-button{padding:0 8px;font-size:11px}}

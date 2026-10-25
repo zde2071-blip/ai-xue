@@ -1,0 +1,24 @@
+node_modules/
+.venv/
+.local/
+知识库/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Personal data, local credentials and generated artifacts
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.log
+*.pem
+*.key
+*.p12
+*.pfx
+/design/
+/验证记录.md
+/tools/ocr-runtime
