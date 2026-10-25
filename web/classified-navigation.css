@@ -107,14 +107,27 @@
 .academic-switcher>summary::-webkit-details-marker{display:none}
 .academic-switcher>summary span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .academic-switcher>summary svg{width:13px;height:13px;flex-shrink:0;color:#92989c}
-.academic-switcher-menu{position:absolute;top:39px;left:-8px;z-index:80;width:256px;max-height:min(520px,75vh);overflow:auto;background:#fff;border:1px solid #e4e6e7;border-radius:8px;padding:6px;box-shadow:0 10px 28px #00000014}
-.academic-switcher-menu button{display:flex;align-items:center;gap:10px;justify-content:space-between;text-align:left;width:100%;min-height:33px;padding:8px 10px;border-radius:4px;font-size:12px;color:#50585d}
+.academic-switcher-menu{position:absolute;top:calc(100% + 8px);left:-8px;z-index:80;display:flex;flex-direction:column;width:min(280px,calc(100vw - 96px));max-height:min(460px,70vh);overflow:hidden;background:#fff;border:1px solid #e4e6e7;border-radius:10px;padding:8px;box-shadow:0 8px 24px #0000000d}
+.academic-switcher-menu button{display:flex;align-items:center;gap:12px;justify-content:space-between;text-align:left;width:100%;min-height:34px;padding:8px 10px;border-radius:5px;font-size:12px;line-height:18px;color:#50585d}
 .academic-switcher-menu button:hover,.academic-switcher-menu button.selected{background:#f0f1f2;color:#242a2e}
-.academic-switcher-menu button svg{width:14px;height:14px}
-.academic-term-group{padding:8px 0 3px}
-.academic-term-group>div{font-size:10px;color:#8b9398;padding:5px 10px}
-.academic-switcher-menu footer{border-top:1px solid #eceeef;margin-top:6px;padding-top:6px}
+.academic-switcher-menu button svg{width:14px;height:14px;flex-shrink:0}
+.academic-switcher-menu .academic-choice-check{visibility:hidden}
+.academic-switcher-menu button.selected .academic-choice-check{visibility:visible}
+.academic-scope-choices{display:grid;grid-template-columns:1fr 1fr;gap:4px;flex-shrink:0}
+.academic-switcher-menu .academic-scope-choices button{gap:8px;padding:7px 10px}
+.academic-term-tree{min-height:0;overflow:auto;overscroll-behavior:contain;border-top:1px solid #eceeef;margin-top:8px;padding:6px 0}
+.academic-term-group{padding:4px 0}
+.academic-term-group>h3{margin:0;padding:6px 10px;font-size:11px;font-weight:500;line-height:18px;color:#858b8f}
+.academic-switcher-year>summary{display:flex;align-items:center;gap:8px;list-style:none;min-height:34px;padding:8px 10px;border-radius:5px;font-size:12px;line-height:18px;color:#343a3e;cursor:pointer}
+.academic-switcher-year>summary::-webkit-details-marker{display:none}
+.academic-switcher-year>summary:hover{background:#f5f5f5}
+.academic-switcher-year>summary svg{width:14px;height:14px;flex-shrink:0;color:#90969a;transition:transform .12s}
+.academic-switcher-year[open]>summary svg{transform:rotate(90deg)}
+.academic-semester-choices{position:relative;padding-left:22px;margin-left:16px}
+.academic-semester-choices:before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:1px;background:#e8eaeb}
+.academic-switcher-menu footer{border-top:1px solid #eceeef;margin-top:8px;padding-top:8px;flex-shrink:0}
 .academic-switcher-menu footer button{justify-content:flex-start}
+.academic-switcher-menu :is(button,summary):focus-visible{outline:2px solid #70777c;outline-offset:-2px}
 #modal.academic-management-dialog{width:min(740px,calc(100vw - 32px));max-height:88vh}
 .academic-management-dialog .modal-head{padding:22px 24px 18px}
 .academic-management-dialog .modal-head h2{font-size:17px}

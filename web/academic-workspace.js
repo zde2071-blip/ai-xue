@@ -9,9 +9,15 @@
  function resolve(row,doc){if(row.course&&Object.hasOwn(doc?.assignments||{},row.course)){const key=doc.assignments[row.course];return doc.terms.find(t=>keyOf(t)===key)||null;}const academic=row.academic||null;return (doc?.removed_terms||[]).includes(keyOf(academic))?null:academic;}
  function label(key,doc){if(key==='all')return '全部学期';if(key==='unassigned')return '待归档';const term=doc?.terms?.find(t=>keyOf(t)===key);if(term)return shortName(term);const [stage,year,semester]=key.split('|');return shortName({stage,year,semester});}
  function markup(selected,doc,rows){
-  const terms=termsFor(doc,rows),groups=[...new Set(terms.map(t=>`${t.stage}|${t.year}`))];
-  const choice=(key,name)=>`<button type="button" data-academic-action="switch" data-key="${escape(key)}" class="${selected===key?'selected':''}" aria-pressed="${selected===key}"><span>${escape(name)}</span>${selected===key?'<span aria-hidden="true">✓</span>':''}</button>`;
-  return `<details class="academic-switcher"><summary aria-label="切换学期"><span>${escape(label(selected,{terms}))}</span><i data-lucide="chevron-down"></i></summary><div class="academic-switcher-menu" aria-label="学期列表">${choice('all','全部学期')}${groups.map(group=>{const [stage,year]=group.split('|');return `<div class="academic-term-group"><div>${stages[stage]} · Year ${year}</div>${terms.filter(t=>t.stage===stage&&String(t.year)===year).map(t=>choice(t.key,`Semester ${t.semester}`)).join('')}</div>`;}).join('')}${choice('unassigned','待归档')}<footer><button type="button" data-academic-action="manage"><i data-lucide="sliders-horizontal"></i>管理学期</button></footer></div></details>`;
+  const terms=termsFor(doc,rows),active=terms.find(t=>t.key===selected);
+  const choice=(key,name)=>`<button type="button" data-academic-action="switch" data-key="${escape(key)}" class="${selected===key?'selected':''}" aria-label="${escape(label(key,{terms}))}" aria-pressed="${selected===key}"><span>${escape(name)}</span><i data-lucide="check" class="academic-choice-check" aria-hidden="true"></i></button>`;
+  const hierarchy=Object.entries(stages).map(([stage,name])=>{
+   const stageTerms=terms.filter(t=>t.stage===stage);if(!stageTerms.length)return '';
+   const years=[...new Set(stageTerms.map(t=>t.year))];
+   const openYear=active?.stage===stage?active.year:!active?years[0]:null;
+   return `<section class="academic-term-group" aria-label="${name}"><h3>${name}</h3>${years.map(year=>`<details class="academic-switcher-year" ${year===openYear?'open':''}><summary><i data-lucide="chevron-right" aria-hidden="true"></i><span>Year ${year}</span></summary><div class="academic-semester-choices">${stageTerms.filter(t=>t.year===year).map(t=>choice(t.key,`Semester ${t.semester}`)).join('')}</div></details>`).join('')}</section>`;
+  }).join('');
+  return `<details class="academic-switcher"><summary aria-label="切换学期"><span>${escape(label(selected,{terms}))}</span><i data-lucide="chevron-down"></i></summary><div class="academic-switcher-menu" aria-label="学期列表"><div class="academic-scope-choices" aria-label="学期范围">${choice('all','全部学期')}${choice('unassigned','待归档')}</div>${hierarchy?`<div class="academic-term-tree">${hierarchy}</div>`:''}<footer><button type="button" data-academic-action="manage"><i data-lucide="sliders-horizontal"></i><span>管理学期</span></button></footer></div></details>`;
  }
  function removeTerm(doc,key){
   const assignments={...doc.assignments};for(const name of Object.keys(assignments))if(assignments[name]===key)assignments[name]=null;
