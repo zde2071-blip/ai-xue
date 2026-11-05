@@ -3,6 +3,7 @@ import base64
 import hashlib
 import json
 import re
+import unicodedata
 from datetime import date
 from pathlib import Path
 
@@ -15,6 +16,12 @@ def image_mime(raw):
     if raw[:6] in (b'GIF87a',b'GIF89a'):return 'image/gif'
     if raw.startswith(b'RIFF') and raw[8:12]==b'WEBP':return 'image/webp'
     return None
+
+
+def image_quote(value):
+    # Vision transcriptions can differ in spacing or dash glyphs; do not lose a
+    # holiday simply because its evidence uses a typographically different dash.
+    return re.sub(r'\W+','',unicodedata.normalize('NFKC',value).casefold()) if isinstance(value,str) else ''
 
 
 def text(value, limit=150):
@@ -190,12 +197,16 @@ class Importer:
         accepted, rejected = [], 0
         known_courses=[name for name,key in doc['assignments'].items() if key in (None,term)]
         image_sources={row['reference']['id']:row for row in images}
+        def image_source(value):
+            if not isinstance(value,str):return None
+            matches=[key for key,item in image_sources.items() if key in value or item['reference']['filename']==value.strip()]
+            return matches[0] if len(matches)==1 else None
         transcripts=answer.get('transcripts',[])
         if isinstance(transcripts,list):
             for row in transcripts[:3]:
                 if not isinstance(row,dict):continue
                 source,transcript=row.get('source'),row.get('text')
-                if isinstance(source,str) and source not in image_sources:source=re.sub(r'^(?:原件|附件|文件|来源)[：:\s]+','',source.strip())
+                source=image_source(source)
                 if isinstance(source,str) and source in image_sources and isinstance(transcript,str) and len(transcript)<=60000:
                     sources[source]=transcript
                     name=image_sources[source]['reference']['filename']
@@ -206,7 +217,15 @@ class Importer:
                 continue
             source, quote = row.get('source'), row.get('evidence')
             if isinstance(source,str) and source not in sources:source=re.sub(r'^(?:原件|附件|文件|来源)[：:\s]+','',source.strip())
-            if not isinstance(source, str) or source not in sources or not isinstance(quote, str) or not quote.strip() or len(quote) > 2000 or quote not in sources[source]:
+            image_key=image_source(source)
+            if image_key:source=image_key
+            valid_quote=isinstance(quote,str) and bool(quote.strip()) and len(quote)<=2000
+            grounded=valid_quote and isinstance(source,str) and source in sources and quote in sources[source]
+            if valid_quote and not grounded:
+                key=image_quote(quote)
+                candidates=[key_id for key_id in image_sources if key and key in image_quote(sources.get(key_id,''))]
+                if len(candidates)==1:source=candidates[0];grounded=True
+            if not grounded:
                 rejected += 1
                 continue
             try:
@@ -230,7 +249,7 @@ class Importer:
         if rejected:
             reply = (reply + ' 部分信息缺少有效依据，未填入。').strip()
         if images and not accepted and not any(sources.get(key) for key in image_sources):reply='图片未返回可核对的文字结果，请重试或换清晰原图。'
-        return {'kind': kind, 'rows': accepted, 'references': [row['reference'] for row in prepared], 'reply': reply,'recognition_mode':'vision' if images else 'text'}
+        return {'kind': kind, 'rows': accepted, 'references': [row['reference'] for row in prepared], 'reply': reply,'recognition_mode':'vision' if images else 'text','incomplete':bool(rejected)}
 
     def file(self, key):
         doc = self.h['academic_store']().document()

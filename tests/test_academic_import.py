@@ -173,6 +173,16 @@ class AcademicImportTest(unittest.TestCase):
             app.route_post('/api/academic-settings/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
         self.assertIn('deepseek-flash',str(error.exception))
 
+    def test_image_evidence_accepts_source_names_and_spacing_without_dropping_holidays(self):
+        raw=b'\x89PNG\r\n\x1a\nimage';file={'filename':'calendar.png','file':base64.b64encode(raw).decode()}
+        holiday={'kind':'break','week':None,'start':'2026-09-25','end':'2026-09-25','label':'Mid-Autumn Festival'}
+        answer={'transcripts':[{'source':'calendar.png','text':'2026-09-25 Mid–Autumn Festival'}],
+                'rows':[{**holiday,'source':'原图 calendar.png','evidence':'2026-09-25 Mid-Autumn Festival'},
+                        {**holiday,'source':'calendar.png','evidence':'unseen holiday'}]}
+        with patch.object(app,'active_ai',return_value={'provider':'deepseek','model':'deepseek-flash'}),patch.object(app,'ask',return_value=answer):
+            result=app.route_post('/api/academic-settings/import',{'kind':'calendar','term_key':self.key,'attachments':[file]})
+        self.assertEqual(result['rows'],[holiday]);self.assertTrue(result['incomplete'])
+
     def test_schedule_matches_existing_course_code_without_creating_punctuation_duplicates(self):
         self.doc=self.store.save({**self.doc,'assignments':{'ADS102 · 离散数学':self.key}})
         original='ADS102 离散数学 周一 09:00–10:00 Lecture 第1、3、5周 A101'

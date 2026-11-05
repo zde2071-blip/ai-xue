@@ -51,7 +51,7 @@
    t[kind]=result.rows;t.references||=[];M.referenceFiles||=[];
    result.references.forEach((ref,i)=>{if(!t.references.some(r=>r.id===ref.id&&r.kind===ref.kind))t.references.push(ref);M.referenceFiles.push({...files[i],kind});});
    if(kind==='timetable')for(const r of result.rows)if(!M.assignments[r.course])M.assignments[r.course]=M.selected;
-   s.text='';s.files=[];s.open=false;s.notice='识别完成，请核对后保存。';root.AcademicCalendar.reset(M,kind);
+   s.text='';s.files=[];s.open=false;s.notice=result.incomplete?'部分内容未能确认，请对照原件补充后保存。':'识别完成，请核对后保存。';root.AcademicCalendar.reset(M,kind);
   }catch(e){s.error=e.message;}finally{s.busy=false;if(model()===M&&owner===S.user?.id)redraw();}
  }
  function openImport(){const M=model();if(!M||!term()){root.StudyAcademic?.reportError('请先添加并保存学期，再导入校历或课表。');return;}if(busy(M)||M.saving)return;root.StudyAcademic.commit();const kind=names[M.referenceTab]?M.referenceTab:'calendar';M.referenceTab=kind;const s=state(M,kind);s.open=true;s.chooseKind=true;s.error='';redraw();}
