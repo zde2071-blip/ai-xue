@@ -6,6 +6,7 @@ import material_metadata
 import resource_details
 import learning_units
 import learning_templates
+import academic_import
 import study_settings
 import academic_organization
 import file_operations
@@ -726,6 +727,18 @@ def recognize_material(data):
     result['course_title']='';result['courses']=[];result['teaching_plan']=[]
     context=background_context()
     academic=academic_from_data(data)
+    # Match named courses from confirmed schedules; upload time never assigns a week.
+    scheduled=academic_store().document()['terms']
+    if academic:scheduled=[term for term in scheduled if academic_organization.key_for(term)==academic_organization.key_for(academic)]
+    schedule_names={row['course'] for term in scheduled for row in term.get('timetable',[])}
+    matched=[]
+    haystack=name+'\n'+text[:6000]
+    for course_name in schedule_names:
+        code=re.match(r'(?i)^([A-Z]{2,6}\s*\d{2,4})\b',course_name)
+        if (code and re.search(r'(?i)(?<![a-z0-9])'+re.escape(code[1])+r'(?![a-z0-9])',haystack)) or (len(course_name)>=3 and course_name.casefold() in haystack.casefold()):matched.append(course_name)
+    if len(matched)==1:
+        result['course_title']=matched[0]
+        result['sources']['course']={'source':'学期课表','evidence':matched[0],'status':'unconfirmed'}
     refs=[r for r in context['references'] if not academic or not r.get('academic') or r['academic']==academic]
     # Background course names and explicit plans help matching; calendar dates never determine a week.
     for ref in refs:
@@ -1020,6 +1033,7 @@ def route_post(path, data):
     if path == '/api/context/upload':return upload_background(data)
     if path == '/api/academic-settings':return academic_store().save(data)
     if path == '/api/academic-settings/assist':return academic_store().assist(data)
+    if path == '/api/academic-settings/import':return academic_import.Importer(globals()).recognize(data)
     if path == '/api/context/academic':
         c=get_course(valid_id(data.get('course_id')));academic=academic_from_data(data)
         if academic:c['academic']=academic
@@ -1253,6 +1267,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/api/state':
                 return self.respond({**state(),'user':self.user})
             if path=='/api/academic-settings':return self.respond(academic_store().document())
+            reference_match=re.fullmatch(r'/api/academic-references/([a-f0-9]{64})',path)
+            if reference_match:
+                resource,filename=academic_import.Importer(globals()).file(reference_match[1])
+                return self.respond(resource.read_bytes(),content_type=mimetypes.guess_type(filename)[0] or 'application/octet-stream',filename=filename)
             if path=='/api/learning-settings':return self.respond(settings_store().document())
             if path=='/api/templates':return self.respond(template_store().document())
             if path=='/api/units':return self.respond(unit_store().index())

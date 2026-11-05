@@ -53,6 +53,17 @@ class Settings:
             try:stored=json.loads(raw);groups=self.normalize(stored['groups'])
             except (ValueError,KeyError,TypeError,self.h['Problem']):self.fail('学习设置文件无法读取，未改动原文件。',409)
         else:stored={};groups=self.normalize(defaults)
+        # Confirmed course schedules also supply real choices for material details.
+        academic=self.h['academic_store']().document()
+        for name in academic['assignments']:
+            if name not in groups['course']:groups['course'].append(name)
+        for term in academic['terms']:
+            for row in term.get('timetable',[]):
+                if row['course'] not in groups['course']:groups['course'].append(row['course'])
+                if row['class_type'] and row['class_type'] not in groups['class_type']:groups['class_type'].append(row['class_type'])
+            for row in term.get('calendar',[]):
+                if row['week'] is not None and str(row['week']) not in groups['weeks']:groups['weeks'].append(str(row['week']))
+        groups['weeks'].sort(key=int)
         templates=self.h['template_store']().document()
         return {'groups':groups,'class_type_defaults':self.type_defaults(groups,templates['templates'],stored.get('class_type_defaults')),'labels':{**FIELDS,'note_kind':'笔记类型'},'note_types':[{k:row[k] for k in ('id','name')} for row in templates['templates']],'templates_etag':templates['etag'],'etag':self.h['digest'](raw or json.dumps(groups,sort_keys=True,ensure_ascii=False))}
     def note_values(self,rows,current):

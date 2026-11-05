@@ -47,23 +47,23 @@
  }
  function managerMarkup(){
   const term=current(),values=M.formDraft?.key===M.selected?M.formDraft:term,courseNames=availableCourses([...config.rows().map(r=>r.course),...(S.tag_catalog?.groups?.course||[]),...Object.keys(M.assignments)],M.assignments,M.selected);
-  return `<div class="academic-management"><nav aria-label="管理的学期"><details class="academic-manager-picker"><summary aria-label="选择管理的学期" data-term-context="${escape(M.selected)}"><span>${term?escape(shortName(term)):'选择学期'}</span>${icon('chevron-down')}</summary><div class="academic-manager-menu" aria-label="学期分级菜单">${termHierarchyMarkup(M.terms,M.selected,icon)||'<p>尚未添加学期</p>'}</div></details>${root.StudyTemplates.actionMenuMarkup('添加',{label:'手动添加',icon:'plus',attributes:'data-academic-action="add-term"'},{label:'用 AI 识别',icon:'sparkles',attributes:'data-academic-action="add-ai"'},{glyph:icon,ariaLabel:'添加学期'})}</nav><div class="academic-term-editor">${term?`<form id="academic-management-form"><label>阶段<select name="stage" aria-label="学业阶段">${Object.entries(stages).map(([key,name])=>`<option value="${key}" ${values.stage===key?'selected':''}>${name}</option>`).join('')}</select></label><label>年级<input name="year" type="number" min="1" step="1" inputmode="numeric" aria-label="年级" value="${escape(values.year)}" required></label><label>学期<input name="semester" type="number" min="1" step="1" inputmode="numeric" aria-label="学期序号" value="${escape(values.semester)}" required></label></form><section class="academic-term-courses"><h3>课程</h3>${courseNames.map(name=>{const assigned=M.assignments[name],checked=assigned===term.key;return `<label><input type="checkbox" data-academic-course="${escape(name)}" aria-label="${escape(name)}" ${checked?'checked':''}><span>${escape(name)}</span></label>`;}).join('')||'<p>暂无可添加的课程</p>'}</section>`:'<div class="academic-no-term">添加一个学期</div>'}</div></div><p id="academic-management-error" class="error-message" role="alert"></p><div class="modal-actions" ${dirty()?'':'hidden'}><button type="button" class="outline-button" data-academic-action="cancel">取消</button><button type="button" class="primary" data-academic-action="save">保存</button></div>`;
+  return `<div class="academic-management"><nav aria-label="管理的学期"><details class="academic-manager-picker"><summary aria-label="选择管理的学期" data-term-context="${escape(M.selected)}"><span>${term?escape(shortName(term)):'选择学期'}</span>${icon('chevron-down')}</summary><div class="academic-manager-menu" aria-label="学期分级菜单">${termHierarchyMarkup(M.terms,M.selected,icon)||'<p>尚未添加学期</p>'}</div></details>${root.StudyTemplates.actionMenuMarkup('添加',{label:'手动添加',icon:'plus',attributes:'data-academic-action="add-term"'},{label:'用 AI 识别',icon:'sparkles',attributes:'data-academic-action="add-ai"'},{glyph:icon,ariaLabel:'添加学期'})}</nav><div class="academic-term-editor">${term?`${root.AcademicReferences?.tabsMarkup(M.referenceTab)||''}${M.referenceTab!=='information'?root.AcademicReferences?.markup(M)||'':`<form id="academic-management-form"><label>阶段<select name="stage" aria-label="学业阶段">${Object.entries(stages).map(([key,name])=>`<option value="${key}" ${values.stage===key?'selected':''}>${name}</option>`).join('')}</select></label><label>年级<input name="year" type="number" min="1" step="1" inputmode="numeric" aria-label="年级" value="${escape(values.year)}" required></label><label>学期<input name="semester" type="number" min="1" step="1" inputmode="numeric" aria-label="学期序号" value="${escape(values.semester)}" required></label></form><section class="academic-term-courses"><h3>课程</h3>${courseNames.map(name=>{const assigned=M.assignments[name],checked=assigned===term.key;return `<label><input type="checkbox" data-academic-course="${escape(name)}" aria-label="${escape(name)}" ${checked?'checked':''}><span>${escape(name)}</span></label>`;}).join('')||'<p>暂无可添加的课程</p>'}</section>`}`:'<div class="academic-no-term">添加一个学期</div>'}</div></div><p id="academic-management-error" class="error-message" role="alert"></p><div class="modal-actions" ${dirty()?'':'hidden'}><button type="button" class="outline-button" data-academic-action="cancel">取消</button><button type="button" class="primary" data-academic-action="save">保存</button></div>`;
  }
  function formChanged(){
   const form=document.querySelector('#academic-management-form'),term=current();if(!form||!term)return false;
   return ['stage','year','semester'].some(key=>String(form.elements[key].value).trim()!==String(term[key]??''));
  }
  function snapshot(){return JSON.stringify({terms:M.terms.map(({key,...term})=>term),assignments:M.assignments,removed_terms:M.removed_terms});}
- function dirty(){return !!M&&(formChanged()||snapshot()!==M.baseline);}
- function canLeaveSettings(){if(!M)return true;if(M.saving){fail('正在保存…');return false;}if(dirty()){fail('请先保存或取消学期修改。');return false;}return true;}
- function refreshActions(){const footer=document.querySelector('.academic-settings-page .modal-actions');if(footer)footer.hidden=!dirty();}
+ function dirty(){return !!M&&(formChanged()||snapshot()!==M.baseline||M.referenceFiles?.length||root.AcademicReferences?.pending(M));}
+ function canLeaveSettings(){if(!M)return true;if(M.saving||root.AcademicReferences?.busy(M)){fail('正在处理资料，请稍候…');return false;}if(dirty()){fail('请先保存或取消学期修改。');return false;}return true;}
+ function refreshActions(){const footer=document.querySelector('.academic-settings-page .modal-actions');if(footer)footer.hidden=!dirty();if(M?.saving||root.AcademicReferences?.busy(M))document.querySelectorAll('.academic-settings-page button,.academic-settings-page input,.academic-settings-page select,.academic-settings-page textarea').forEach(el=>el.disabled=true);}
  function paint(){closeTermMenu();render();refreshActions();}
  async function prepareSettings(scope=config.scope()){
   const owner=S.user?.id,doc=S.demonstration?S.academic_settings||{terms:termsFor(null,config.rows()),assignments:{},etag:''}:await api('/api/academic-settings');
   if(owner!==S.user?.id)return;
   const rows=config.rows(),terms=termsFor(doc,rows),assignments={...doc.assignments};
   for(const row of rows)if(row.course&&!Object.hasOwn(assignments,row.course)){const set=new Set(rows.filter(r=>r.course===row.course).map(r=>keyOf(resolve(r,doc))));if(set.size===1)assignments[row.course]=[...set][0]==='unassigned'?null:[...set][0];}
-  M={owner,terms,assignments,removed_terms:[...(doc.removed_terms||[])],etag:doc.etag,selected:terms.some(t=>t.key===scope)?scope:terms[0]?.key||'',selectedScope:scope,saving:false};M.baseline=snapshot();
+  M={owner,terms,assignments,removed_terms:[...(doc.removed_terms||[])],etag:doc.etag,selected:terms.some(t=>t.key===scope)?scope:terms[0]?.key||'',selectedScope:scope,saving:false,referenceTab:'information',referenceFiles:[],referenceUI:{}};M.baseline=snapshot();
  }
  function settingsMarkup(){return `<section class="academic-settings-page" aria-label="学期管理">${M?managerMarkup():''}</section>`;}
 
@@ -82,7 +82,7 @@
   for(const row of proposal.assignments||[]){const existing=M.assignments[row.course];if((!existing||existing===row.term_key)&&M.terms.some(t=>t.key===row.term_key))M.assignments[row.course]=row.term_key;}
  }
 
- root.StudyAcademic={keyOf,resolve,termsFor,markup,label,recognitionCurrent,applyRecognition,prepareSettings,settingsMarkup,canLeaveSettings,dirty,busy:()=>!!M?.saving,install(options){
+ root.StudyAcademic={keyOf,resolve,termsFor,markup,label,recognitionCurrent,applyRecognition,prepareSettings,settingsMarkup,canLeaveSettings,dirty,currentTerm:current,manager:()=>M,commit,paint,refreshActions,reportError:fail,busy:()=>!!M?.saving||!!root.AcademicReferences?.busy(M),install(options){
   config=options;if(installed)return;installed=true;
   document.addEventListener('click',async event=>{
    const button=event.target.closest('[data-academic-action]');if(!button)return;
@@ -90,16 +90,17 @@
    try{
     if(action==='switch'){document.querySelector('.academic-switcher')?.removeAttribute('open');config.select(button.dataset.key);return;}
     if(action==='manage'){document.querySelector('.academic-switcher')?.removeAttribute('open');await root.StudyTemplates?.open('academic');return;}
-    if(!M||M.owner!==S.user?.id||M.saving||!document.querySelector('.academic-settings-page'))return;
+    if(!M||M.owner!==S.user?.id||M.saving||root.AcademicReferences?.busy(M)||!document.querySelector('.academic-settings-page'))return;
+    if(['delete-term','edit-term','add-term'].includes(action)&&root.AcademicReferences?.pending(M))throw new Error('请先识别或取消当前导入，再切换学期。');
     if(action==='delete-term'){const original=M.selected;commit();const key=button.dataset.key===original?M.selected:button.dataset.key;if(!M.terms.some(t=>t.key===key))return;const next=removeTerm(M,key);M.terms=next.terms;M.assignments=next.assignments;M.removed_terms=next.removed_terms;if(M.selected===key)M.selected=M.terms[0]?.key||'';if(M.selectedScope===key)M.selectedScope='unassigned';paint();return;}
     if(action==='cancel'){await prepareSettings(M.selectedScope);paint();return;}
     if(action==='edit-term'){const old=M.selected,target=button.dataset.key;commit();if(target!==old)M.selected=target;paint();return;}
     if(action==='add-ai'){root.StudyTemplates.openAcademicAI();return;}
     if(action==='add-term'){commit();const candidate={stage:current()?.stage||'university',year:current()?.year||1,semester:1,name:''};while(M.terms.some(t=>keyOf(t)===keyOf(candidate)))candidate.semester++;const term={...candidate,key:keyOf(candidate)};M.terms.push(term);M.selected=term.key;paint();return;}
     if(action==='save'){
-     commit();if(S.demonstration)throw new Error('示例模式不会保存修改。');M.saving=true;const owner=M.owner;
+     root.AcademicReferences?.validate(M);commit();if(S.demonstration)throw new Error('示例模式不会保存修改。');M.saving=true;const owner=M.owner;
      document.querySelectorAll('.academic-settings-page button,.academic-settings-page input,.academic-settings-page select').forEach(el=>el.disabled=true);
-     try{const doc=await api('/api/academic-settings',{terms:M.terms,assignments:M.assignments,removed_terms:M.removed_terms,etag:M.etag});if(S.user?.id!==owner)return;S.academic_settings=doc;M.etag=doc.etag;M.removed_terms=doc.removed_terms||[];M.baseline=snapshot();M.saving=false;config.select(M.selectedScope);toast('已保存');}
+     try{const doc=await api('/api/academic-settings',{terms:M.terms,assignments:M.assignments,removed_terms:M.removed_terms,etag:M.etag,reference_files:M.referenceFiles||[]});if(S.user?.id!==owner)return;S.academic_settings=doc;M.terms=doc.terms;M.assignments=doc.assignments;M.referenceFiles=[];Object.values(M.referenceUI||{}).forEach(state=>state.notice='');M.etag=doc.etag;M.removed_terms=doc.removed_terms||[];M.baseline=snapshot();M.saving=false;try{S.tag_catalog=await api('/api/tags');await root.StudyTemplates.refreshInformation();}catch{}config.select(M.selectedScope);toast('已保存');}
      catch(error){if(S.user?.id!==owner)return;M.saving=false;document.querySelectorAll('.academic-settings-page button,.academic-settings-page input,.academic-settings-page select').forEach(el=>el.disabled=false);throw error;}
 
     }

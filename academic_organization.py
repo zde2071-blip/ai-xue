@@ -1,6 +1,7 @@
 """Shared academic placement for semantic courses; source files stay untouched."""
 import copy
 import json
+import academic_import
 STAGES={'highschool','university','postgraduate'}
 def placement(value):
     if not isinstance(value,dict) or value.get('stage') not in STAGES:return None
@@ -25,7 +26,12 @@ class Organization:
             if key in keys:self.fail('同一年级的学期不能重复。')
             name=term.get('name','')
             if not isinstance(name,str) or len(name.strip())>80:self.fail('学期名称最多 80 个字。')
-            terms.append({**a,'key':key,'name':name.strip()});keys.add(key)
+            extra={}
+            try:
+                for field,clean in [('calendar',academic_import.calendar_rows),('timetable',academic_import.timetable_rows),('references',academic_import.references)]:
+                    if field in term:extra[field]=clean(term[field])
+            except ValueError as error:self.fail(str(error))
+            terms.append({**a,'key':key,'name':name.strip(),**extra});keys.add(key)
         assignments={}
         for course,key in data['assignments'].items():
             if not isinstance(course,str) or not 1<=len(course.strip())<=150:self.fail('课程名称无效。')
@@ -65,13 +71,26 @@ class Organization:
         return {**doc,'etag':self.h['digest'](raw or json.dumps(doc,ensure_ascii=False,sort_keys=True))}
     def save(self,data):
         normalized=self.normalize(data)
+        importer=academic_import.Importer(self.h)
+        prepared=importer.files(data.get('reference_files',[]))
         with self.h['LOCK']:
             latest=self.document()
             if data.get('etag')!=latest['etag']:self.fail('学期信息已在其他位置修改。当前修改已保留，请重新打开后再保存。',409)
+            known=[ref for term in latest['terms'] for ref in term.get('references',[])]+[row['reference'] for row in prepared]
+            for term in normalized['terms']:
+                for ref in term.get('references',[]):
+                    if ref not in known:self.fail('参考原件缺失，请重新选择文件。')
             active={term['key'] for term in normalized['terms']}
             removed=set(latest.get('removed_terms',[]))|set(normalized['removed_terms'])|({term['key'] for term in latest['terms']}-active)
             normalized['removed_terms']=sorted(removed-active)
-            self.h['write_json'](self.path,{'version':1,**copy.deepcopy(normalized)})
+            for row in prepared:
+                target=importer.directory/row['reference']['id']
+                if target.exists():
+                    if target.read_bytes()!=row['raw']:self.fail('参考原件发生冲突，未保存。',409)
+                else:
+                    target.parent.mkdir(parents=True,exist_ok=True)
+                    with target.open('xb') as output:output.write(row['raw'])
+            self.h['write_json'](self.path,{'version':2,**copy.deepcopy(normalized)})
             return self.document()
 
     def assist(self,data):
