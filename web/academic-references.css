@@ -1,39 +1,10 @@
-.academic-reference-tabs{display:flex;align-items:center;gap:28px;border-bottom:1px solid #e5e5e5;margin:0 0 24px;flex-shrink:0}
+.academic-reference-tabs{display:flex;align-items:center;gap:28px;border-bottom:1px solid #e6e6e6;margin:0 0 16px;flex-shrink:0}
 .academic-reference-tabs button{font-size:13px;color:#858585;padding:0 0 13px;line-height:20px;position:relative;border-radius:0;background:transparent}
-.academic-reference-tabs button.selected{color:#242424}
-.academic-reference-tabs button.selected:after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:#444}
-.academic-references{min-width:0;color:#404040}
-.academic-references>header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin:0 0 20px;min-height:36px}
-.academic-references>header>.outline-button{flex-shrink:0;min-height:36px;display:flex;align-items:center;gap:7px;font-size:12px;white-space:nowrap}
-.academic-references svg{width:15px;height:15px;flex-shrink:0}
-.academic-reference-sources{display:flex;align-items:center;flex-wrap:wrap;gap:8px 20px;min-width:0;padding-top:7px}
-.academic-reference-source{display:flex;align-items:center;gap:7px;color:#707070;text-decoration:none;font-size:12px;max-width:100%;min-width:0}
-.academic-reference-source>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.academic-reference-source:hover{color:#111;text-decoration:underline}
-.academic-reference-import{border:1px solid #e2e2e2;border-radius:8px;padding:18px;margin-bottom:22px}
-.academic-reference-drop{display:flex;align-items:center;gap:9px;cursor:pointer;min-height:46px;margin-bottom:14px;font-size:13px}
-.academic-reference-drop>span:first-of-type{overflow-wrap:anywhere}
-.reference-file-hint{margin-left:auto;font-size:11px;color:#999;white-space:nowrap}
-.academic-reference-import>textarea{width:100%;display:block;min-height:86px;resize:vertical;border:1px solid #dedede;border-radius:6px;padding:10px 12px;font-family:inherit;font-size:13px;line-height:1.7;color:#444;outline:none;background:#fff}
-.academic-reference-import>textarea:focus{border-color:#888}
-.academic-reference-import>footer{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
-.academic-reference-import>footer button{display:flex;align-items:center;gap:6px;font-size:12px;min-height:34px}
-.academic-reference-table-wrap{overflow-x:auto;width:100%;margin-bottom:16px}
-.academic-reference-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}
-.academic-reference-table.calendar{min-width:630px}
-.academic-reference-table.timetable{min-width:800px}
-.academic-reference-table th{font-size:11px;font-weight:400;color:#888;text-align:left;padding:0 8px 12px;border-bottom:1px solid #e5e5e5}
-.academic-reference-table td{padding:6px 3px;border-bottom:1px solid #eee;height:46px;vertical-align:middle}
-.academic-reference-table th:last-child,.academic-reference-table td:last-child{width:30px;padding-left:0;padding-right:0}
-.academic-reference-table.calendar th:nth-child(1){width:84px}.academic-reference-table.calendar th:nth-child(2){width:74px}.academic-reference-table.calendar th:nth-child(3),.academic-reference-table.calendar th:nth-child(4){width:145px}
-.academic-reference-table.timetable th:first-child{width:22%}.academic-reference-table.timetable th:nth-child(2){width:110px}.academic-reference-table.timetable th:nth-child(3){width:76px}.academic-reference-table.timetable th:nth-child(4){width:140px}.academic-reference-table.timetable th:nth-child(5){width:110px}
-.academic-reference-table input,.academic-reference-table select{display:block;width:100%;min-width:0;height:32px;line-height:20px;border:1px solid transparent;border-radius:4px;background:#fff;padding:5px;color:#484848;font:12px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;box-sizing:border-box}
-.academic-reference-table input:hover,.academic-reference-table select:hover{border-color:#ddd}
-.academic-reference-table input:focus,.academic-reference-table select:focus{outline:none;border-color:#888}
-.academic-reference-table .icon-button{width:28px;height:28px;color:#999;display:grid;place-items:center}
-.academic-reference-add{font-size:12px;min-height:34px;display:inline-flex;align-items:center;gap:5px}
-.academic-reference-empty{font-size:13px;color:#999;padding:36px 0 44px;border-bottom:1px solid #e5e5e5;margin-bottom:18px}
-.academic-reference-message,.academic-reference-hint{font-size:12px;line-height:1.7;color:#888;margin:0 0 14px}
-.academic-reference-message.error-message{color:#925d54}
-.academic-reference-hint{margin-top:12px}
-@media(max-width:760px){.academic-reference-tabs{gap:24px}.reference-file-hint{display:none}.academic-reference-import{padding:14px}.academic-references>header{gap:12px}.academic-reference-table input,.academic-reference-table select{font-size:14px}}
+.academic-reference-tabs button.selected{color:#242424}.academic-reference-tabs button.selected:after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:#444}
+.academic-references{min-width:0;flex:1;color:#333}.academic-references svg{width:15px;height:15px;flex-shrink:0}
+.academic-reference-import{border:1px solid #ddd;border-radius:8px;padding:14px 16px;margin:0 0 16px;background:#fff}
+.academic-reference-drop{display:flex;align-items:center;gap:12px;cursor:pointer;min-height:42px;margin-bottom:12px;font-size:13px}
+.academic-reference-drop>img{max-width:180px;max-height:90px;object-fit:contain;border:1px solid #eee;border-radius:3px}.academic-reference-drop>span{overflow-wrap:anywhere}.academic-reference-drop>small{margin-left:auto;white-space:nowrap;color:#999;font-weight:400}
+.academic-reference-import>textarea{width:100%;display:block;min-height:64px;resize:vertical;border:1px solid #ddd;border-radius:6px;padding:9px 11px;font-family:inherit;font-size:13px;line-height:1.7;color:#444;outline:none;background:#fff}
+.academic-reference-import>textarea:focus{border-color:#888}.academic-reference-import>footer{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}.academic-reference-import>footer button{display:flex;align-items:center;gap:6px;font-size:12px;min-height:32px}
+.academic-reference-message{font-size:12px;line-height:1.6;color:#888;margin:0 0 12px}.academic-reference-message.error-message{color:#925d54}

@@ -150,6 +150,58 @@ class AcademicImportTest(unittest.TestCase):
         self.assertEqual(doc['terms'][0]['calendar'], self.calendar())
         self.assertEqual(doc['terms'][0]['key'], 'university|2|2')
 
+    def test_picture_pixels_reach_the_model_without_flattening_ocr(self):
+        raw=b'\x89PNG\r\n\x1a\nsynthetic-image';source=hashlib.sha256(raw).hexdigest()
+        file={'filename':'微信课表.png','file':base64.b64encode(raw).decode()}
+        content='周一 09:00–10:00 ADS102 · 离散数学 Lecture 第1、3、5周 A101'
+        answer={'transcripts':[{'source':source,'text':content}],'rows':[{**self.timetable()[0],'source':source,'evidence':content}]}
+        with patch.object(app,'active_ai',return_value={'provider':'deepseek','model':'deepseek-flash'}),patch.object(app,'extract',side_effect=AssertionError('OCR must not flatten the image')),patch.object(app,'ask',return_value=answer) as ask:
+            result=app.route_post('/api/academic-settings/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
+        parts=ask.call_args.args[0][-1]['content']
+        image=next(p for p in parts if p['type']=='image_url')
+        self.assertEqual(base64.b64decode(image['image_url']['url'].split(',')[1]),raw)
+        self.assertEqual(result['rows'],self.timetable())
+        self.assertEqual(result['recognition_mode'],'vision')
+        self.assertFalse((app.VAULT/'学期参考').exists())
+
+    def test_picture_requires_transcription_and_rejects_unsupported_model_clearly(self):
+        raw=b'\x89PNG\r\n\x1a\nimage';file={'filename':'微信图片.png','file':base64.b64encode(raw).decode()}
+        with patch.object(app,'active_ai',return_value={'provider':'deepseek','model':'deepseek-flash'}),patch.object(app,'ask',return_value={'rows':[{**self.timetable()[0],'source':hashlib.sha256(raw).hexdigest(),'evidence':'invented'}]}):
+            result=app.route_post('/api/academic-settings/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
+        self.assertEqual(result['rows'],[])
+        with patch.object(app,'active_ai',return_value={'provider':'deepseek','model':'deepseek-v4-pro'}),self.assertRaises(app.Problem) as error:
+            app.route_post('/api/academic-settings/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
+        self.assertIn('deepseek-flash',str(error.exception))
+
+    def test_schedule_matches_existing_course_code_without_creating_punctuation_duplicates(self):
+        self.doc=self.store.save({**self.doc,'assignments':{'ADS102 · 离散数学':self.key}})
+        original='ADS102 离散数学 周一 09:00–10:00 Lecture 第1、3、5周 A101'
+        answer={'rows':[{**self.timetable()[0],'course':'ADS102 离散数学','source':'输入','evidence':original}]}
+        with patch.object(app,'ask',return_value=answer):
+            result=app.route_post('/api/academic-settings/import',{'kind':'timetable','term_key':self.key,'text':original})
+        self.assertEqual(result['rows'][0]['course'],'ADS102 · 离散数学')
+
+    def test_dated_exams_coexist_with_teaching_weeks_and_persist_independently(self):
+        event={'id':'exam-1','title':'期中考试','kind':'exam','date':'2026-09-08','start':'09:00','end':'11:00','location':'A101'}
+        doc=self.save(calendar=self.calendar(),events=[event])
+        self.assertEqual(doc['terms'][0]['events'],[event])
+        self.assertEqual(academic_import.week_at(doc['terms'][0],'2026-09-08'),1)
+        with self.assertRaises(app.Problem):self.save(events=[{**event,'end':'08:00'}])
+        with self.assertRaises(app.Problem):self.save(events=[{**event,'date':'2026-02-30'}])
+
+    def test_an_exam_period_can_overlap_a_teaching_week_without_replacing_it(self):
+        doc=self.save(calendar=[*self.calendar(),{'kind':'exam','week':None,'start':'2026-09-08','end':'2026-09-08','label':'考试'}])
+        self.assertEqual(academic_import.week_at(doc['terms'][0],'2026-09-08'),1)
+
+    def test_anthropic_adapter_preserves_image_pixels_in_supported_content_blocks(self):
+        import ai_services
+        cfg={'provider':'claude','base':'https://api.anthropic.com/v1','model':'example','key':'unit-test-key'}
+        messages=[{'role':'system','content':'read this image'},{'role':'user','content':[{'type':'text','text':'source: test'},{'type':'image_url','image_url':{'url':'data:image/png;base64,YWJj'}}]}]
+        with patch.object(ai_services,'request_json',return_value={'content':[{'type':'text','text':'OK'}]}) as request:
+            self.assertEqual(ai_services.chat_messages(cfg,messages),'OK')
+        blocks=request.call_args.args[2]['messages'][0]['content']
+        self.assertEqual(blocks[1],{'type':'image','source':{'type':'base64','media_type':'image/png','data':'YWJj'}})
+
 
 if __name__ == '__main__':
     unittest.main()

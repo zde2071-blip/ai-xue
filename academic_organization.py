@@ -28,7 +28,7 @@ class Organization:
             if not isinstance(name,str) or len(name.strip())>80:self.fail('学期名称最多 80 个字。')
             extra={}
             try:
-                for field,clean in [('calendar',academic_import.calendar_rows),('timetable',academic_import.timetable_rows),('references',academic_import.references)]:
+                for field,clean in [('calendar',academic_import.calendar_rows),('timetable',academic_import.timetable_rows),('events',academic_import.event_rows),('references',academic_import.references)]:
                     if field in term:extra[field]=clean(term[field])
             except ValueError as error:self.fail(str(error))
             terms.append({**a,'key':key,'name':name.strip(),**extra});keys.add(key)

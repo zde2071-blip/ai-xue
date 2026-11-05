@@ -120,7 +120,21 @@ def chat_messages(cfg,messages,max_tokens=6500,json_mode=False):
  validate(cfg)
  if cfg['provider']=='claude':
   system='\n'.join(m['content'] for m in messages if m['role']=='system')
-  history=[dict(m) for m in messages if m['role']!='system']
+  history=[]
+  for message in messages:
+   if message['role']=='system':continue
+   row=dict(message)
+   if isinstance(row.get('content'),list):
+    blocks=[]
+    for part in row['content']:
+     if part.get('type')=='image_url':
+      url=part.get('image_url',{}).get('url','')
+      if not re.fullmatch(r'data:image/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+',url):raise AIServiceError('图片内容无效，请重新选择。')
+      header,encoded=url.split(',',1)
+      blocks.append({'type':'image','source':{'type':'base64','media_type':header[5:].split(';')[0],'data':encoded}})
+     else:blocks.append(part)
+    row['content']=blocks
+   history.append(row)
   result=request_json(cfg,'/messages',{'model':cfg['model'],'system':system,'messages':history,'max_tokens':max_tokens})
   if result.get('stop_reason')=='max_tokens':raise AIServiceError('回答达到输出上限，请缩小当前问题后重试。')
   content=''.join(x.get('text','') for x in result.get('content',[]) if x.get('type')=='text')
