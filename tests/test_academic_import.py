@@ -173,6 +173,19 @@ class AcademicImportTest(unittest.TestCase):
             app.route_post('/api/academic-settings/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
         self.assertIn('deepseek-flash',str(error.exception))
 
+    def test_full_holiday_week_is_retried_and_cannot_shift_later_teaching_weeks(self):
+        holiday={**self.calendar()[0],'kind':'break','week':None,'label':'holiday'}
+        def answer(rows):return {'rows':[{**r,'source':'输入','evidence':'calendar'} for r in rows]}
+        wrong=answer([self.calendar()[0],holiday]);correct=answer([holiday])
+        request={'kind':'calendar','term_key':self.key,'text':'calendar'}
+        before=self.store.path.read_bytes()
+        with patch.object(app,'ask',side_effect=[wrong,correct]) as ask:
+            result=app.route_post('/api/academic-settings/import',request)
+        self.assertEqual(ask.call_count,2);self.assertEqual(result['rows'],[holiday])
+        with patch.object(app,'ask',return_value=wrong) as ask,self.assertRaises(app.Problem):
+            app.route_post('/api/academic-settings/import',request)
+        self.assertEqual(ask.call_count,2);self.assertEqual(before,self.store.path.read_bytes())
+
     def test_image_evidence_accepts_source_names_and_spacing_without_dropping_holidays(self):
         raw=b'\x89PNG\r\n\x1a\nimage';file={'filename':'calendar.png','file':base64.b64encode(raw).decode()}
         holiday={'kind':'break','week':None,'start':'2026-09-25','end':'2026-09-25','label':'Mid-Autumn Festival'}

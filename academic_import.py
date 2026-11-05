@@ -191,7 +191,18 @@ class Importer:
                 content.extend([{'type':'text','text':'以下原图对应 source: '+row['reference']['id']},
                                 {'type':'image_url','image_url':{'url':'data:'+row['mime']+';base64,'+base64.b64encode(row['raw']).decode(),'detail':'high'}}])
         else:content=payload
-        answer = self.h['ask']([{'role':'system','content':system},{'role':'user','content':content}],True)
+        messages=[{'role':'system','content':system},{'role':'user','content':content}]
+        answer = self.h['ask'](messages,True)
+        def full_break_conflict(value):
+            if kind!='calendar' or not isinstance(value,dict) or not isinstance(value.get('rows'),list):return False
+            try:rows=calendar_rows(value['rows'])
+            except ValueError:return False
+            return any(p['kind']=='break' and p['start']<=w['start'] and p['end']>=w['end']
+                       for w in rows if w['kind']=='teaching' for p in rows)
+        if full_break_conflict(answer):
+            answer=self.h['ask'](messages+[{'role':'assistant','content':json.dumps(answer,ensure_ascii=False)},
+                {'role':'user','content':'校验发现整段教学周与整周假期重叠。请重新逐行查看原图的教学周编号栏：空白周次不能编成教学周，不能机械按自然周递增。重新检查假期之后的每个周次编号，返回完整更正结果。若原图确实冲突，请在 reply 说明，不要猜。'}],True)
+            if full_break_conflict(answer):self.fail('教学周与整周假期冲突，尚未填入。请补充说明该假期是否停课后重试。',422)
         if not isinstance(answer, dict) or not isinstance(answer.get('rows'), list) or len(answer['rows']) > 300:
             self.fail('AI 返回格式有误，请重试。', 502)
         accepted, rejected = [], 0
