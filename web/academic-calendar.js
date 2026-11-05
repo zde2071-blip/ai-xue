@@ -23,12 +23,13 @@
   return (t.calendar||[]).filter(r=>r.kind==='teaching').map(r=>r.start).sort()[0]||(t.events||[]).map(r=>r.date).sort()[0]||today;
  }
  function entriesForDay(t,day,genericWeek=null){
-  const w=genericWeek===null?weekAt(t,day):genericWeek,result=[];
+  const off=(t.calendar||[]).some(r=>['break','nonteaching'].includes(r.kind)&&r.start<=day&&r.end>=day);
+  const w=genericWeek===null?(off?null:weekAt(t,day)):genericWeek,result=[];
   (t.timetable||[]).forEach((r,i)=>{
    if(r.weekday!==weekday(day)+1||w===null||r.weeks.length&&!r.weeks.includes(w))return;
    result.push({key:'timetable:'+i,title:r.course,subtitle:[r.class_type,r.location].filter(Boolean).join(' · '),time:r.time,range:clockRange(r.time),kind:'course'});
   });
-  (t.calendar||[]).forEach((r,i)=>{if(r.kind!=='teaching'&&r.start<=day&&r.end>=day)result.push({key:'calendar:'+i,title:r.label||(r.kind==='break'?'假期':'考试'),subtitle:'',time:'',range:null,kind:r.kind});});
+  (t.calendar||[]).forEach((r,i)=>{if(r.kind!=='teaching'&&r.start<=day&&r.end>=day)result.push({key:'calendar:'+i,title:r.label||({break:'假期',exam:'考试',nonteaching:'其他安排'})[r.kind],subtitle:'',time:'',range:null,kind:r.kind});});
   (t.events||[]).forEach((r,i)=>{if(r.date===day)result.push({key:'events:'+i,title:r.title,subtitle:r.location,time:r.start?`${r.start}–${r.end}`:'',range:r.start?clockRange(`${r.start}–${r.end}`):null,kind:r.kind});});
   return result;
  }
@@ -56,7 +57,7 @@
    return `<div class="month-week" role="row"><div class="month-week-number">${weekRows.map(({r,i})=>`<button type="button" data-calendar-action="edit" data-entry="calendar:${i}" title="修改 Week ${r.week} 日期">Week ${r.week}</button>`).join('')}</div>${days.map(day=>{
     const entries=entriesForDay(t,day).filter(r=>!r.key.startsWith('calendar:'));
     return `<div class="calendar-day ${day.slice(0,7)!==month?'outside-month':''} ${day===today()?'is-today':''}" role="gridcell" data-calendar-day="${day}"><button type="button" class="calendar-date" data-calendar-action="new-date" data-date="${day}" aria-label="${day} 添加安排">${Number(day.slice(8))}</button><div class="month-day-entries" style="padding-top:${periods.length*20+3}px">${entries.slice(0,3).map(r=>button(r)).join('')}${entries.length>3?`<button type="button" class="calendar-more" data-calendar-action="day" data-date="${day}">查看当日</button>`:''}</div></div>`;
-   }).join('')}<div class="month-period-lanes">${periods.map(({r,i},lane)=>{const first=Math.max(0,days.indexOf(r.start)),last=r.end>=days[6]?6:days.indexOf(r.end);return `<button type="button" class="calendar-period-entry" data-calendar-action="edit" data-entry="calendar:${i}" style="left:calc(${first/7*100}% + 3px);width:calc(${(last-first+1)/7*100}% - 6px);top:${lane*20}px">${esc(r.label||(r.kind==='break'?'假期':'考试周'))}</button>`;}).join('')}</div></div>`;
+   }).join('')}<div class="month-period-lanes">${periods.map(({r,i},lane)=>{const first=Math.max(0,days.indexOf(r.start)),last=r.end>=days[6]?6:days.indexOf(r.end);return `<button type="button" class="calendar-period-entry" data-calendar-action="edit" data-entry="calendar:${i}" style="left:calc(${first/7*100}% + 3px);width:calc(${(last-first+1)/7*100}% - 6px);top:${lane*20}px">${esc(r.label||(({break:'假期',exam:'考试周',nonteaching:'其他安排'})[r.kind]))}</button>`;}).join('')}</div></div>`;
   }).join('')}</div>`;
  }
  function weekMarkup(t,s){
@@ -73,7 +74,7 @@
   const select=(name,label,items,value)=>`<label><span>${label}</span><select name="${name}">${items.map(([id,n])=>`<option value="${id}" ${String(id)===String(value)?'selected':''}>${n}</option>`).join('')}</select></label>`;
   let body='';
   if(e.source==='timetable')body=field('course','课程归属',r.course,'text','list="schedule-course-options" maxlength="150" required')+field('class_type','课程类型',r.class_type,'text','list="schedule-type-options" maxlength="60"')+`<div class="calendar-editor-pair">${select('weekday','星期',dayNames.map((n,i)=>[i+1,n]),r.weekday)}${field('weeks','教学周',r._weeksText??root.AcademicReferences.formatWeeks(r.weeks),'text','placeholder="每周，如 1–6, 8–16"')}</div>`+field('time','时间 / 节次',r.time,'text','placeholder="09:00–10:00 或第1–2节" maxlength="80" required')+field('location','地点',r.location,'text','maxlength="120"');
-  else if(e.source==='calendar')body=`<div class="calendar-editor-pair">${select('kind','类型',[['teaching','教学周'],['break','假期'],['exam','考试周']],r.kind)}${field('week','教学周',r.week,'number','min="1" max="60"')}</div><div class="calendar-editor-pair">${field('start','开始日期',r.start,'date','required')}${field('end','结束日期',r.end,'date','required')}</div>`+field('label','备注',r.label,'text','maxlength="80"');
+  else if(e.source==='calendar')body=`<div class="calendar-editor-pair">${select('kind','类型',[['teaching','教学周'],['break','假期'],['exam','考试周'],['nonteaching','其他安排']],r.kind)}${field('week','教学周',r.week,'number','min="1" max="60"')}</div><div class="calendar-editor-pair">${field('start','开始日期',r.start,'date','required')}${field('end','结束日期',r.end,'date','required')}</div>`+field('label','备注',r.label,'text','maxlength="80"');
   else body=field('title','名称',r.title,'text','maxlength="150" required')+`<div class="calendar-editor-pair">${select('kind','类型',[['exam','考试'],['event','事项']],r.kind)}${field('date','日期',r.date,'date','required')}</div><div class="calendar-editor-pair">${field('start','开始时间',r.start,'time')}${field('end','结束时间',r.end,'time')}</div>`+field('location','地点',r.location,'text','maxlength="120"');
   return `<div class="calendar-editor-shade"><section class="calendar-event-editor" role="dialog" aria-modal="true" aria-label="${e.source==='timetable'?'课程安排':e.source==='calendar'?'校历安排':'日历安排'}"><header><span>${e.source==='timetable'?'课程安排':e.source==='calendar'?'校历安排':'日历安排'}</span><button type="button" class="icon-button" data-calendar-action="close-editor" aria-label="关闭编辑">${icon('x')}</button></header><form id="calendar-event-form">${body}<p class="error-message" role="alert" ${s.error?'':'hidden'}>${esc(s.error)}</p><footer>${e.index>=0?`<button type="button" class="icon-button calendar-delete" data-calendar-action="delete" aria-label="删除这项安排" title="删除">${icon('trash-2')}</button>`:'<span></span>'}<button type="submit" class="outline-button">完成</button></footer></form></section></div>`;
  }
@@ -92,7 +93,7 @@
    if(!d.start||!d.end||d.end<d.start)throw new Error('请填写有效的起止日期。');
    const week=d.week?Number(d.week):null;if(d.kind==='teaching'&&(!Number.isInteger(week)||week<1||week>60))throw new Error('请填写教学周（1–60）。');
    if(d.kind==='teaching'&&(dateOf(d.end)-dateOf(d.start))/86400000>6)throw new Error('请将每个教学周分别记录，最多 7 天。');
-   if((t.calendar||[]).some((r,i)=>i!==e.index&&r.kind!=='exam'&&d.kind!=='exam'&&r.start<=d.end&&r.end>=d.start))throw new Error('日期与已有教学周或假期重叠。');
+   if((t.calendar||[]).some((r,i)=>i!==e.index&&r.kind==='teaching'&&d.kind==='teaching'&&r.start<=d.end&&r.end>=d.start))throw new Error('日期与已有教学周重叠。');
    row={kind:d.kind,week,start:d.start,end:d.end,label:d.label.trim()};
   }else{
    if(!d.title.trim()||!d.date)throw new Error('请填写名称和日期。');

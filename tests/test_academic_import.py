@@ -55,7 +55,7 @@ class AcademicImportTest(unittest.TestCase):
             rows[0][field] = value
             with self.subTest(field=field), self.assertRaises(app.Problem):
                 self.save(calendar=rows)
-        rows = self.calendar(); rows[1]['start'] = '2026-09-12'
+        rows = self.calendar(); rows[2]['start'] = '2026-09-12'; rows[2]['end'] = '2026-09-18'
         with self.assertRaises(app.Problem):
             self.save(calendar=rows)
         self.assertEqual(before, self.store.path.read_bytes())
@@ -201,6 +201,27 @@ class AcademicImportTest(unittest.TestCase):
             self.assertEqual(ai_services.chat_messages(cfg,messages),'OK')
         blocks=request.call_args.args[2]['messages'][0]['content']
         self.assertEqual(blocks[1],{'type':'image','source':{'type':'base64','media_type':'image/png','data':'YWJj'}})
+
+
+    def test_holiday_within_teaching_week_keeps_week_mapping_and_reading_week_unnumbered(self):
+        rows=[{'kind':'teaching','week':3,'start':'2026-09-21','end':'2026-09-27','label':''},
+              {'kind':'break','week':None,'start':'2026-09-25','end':'2026-09-25','label':'Mid-Autumn Festival'},
+              {'kind':'nonteaching','week':None,'start':'2026-12-14','end':'2026-12-20','label':'Reading Week'}]
+        doc=self.save(calendar=rows)
+        self.assertEqual(academic_import.week_at(doc['terms'][0],'2026-09-25'),3)
+        self.assertIsNone(academic_import.week_at(doc['terms'][0],'2026-12-15'))
+        self.assertEqual(doc['terms'][0]['calendar'][2]['week'],None)
+
+    def test_import_uses_selected_semester_instead_of_asking_image_to_supply_student_year(self):
+        original='Week 1: 7 September to 13 September 2026'
+        answer={'rows':[{**self.calendar()[0],'source':'输入','evidence':original}]}
+        with patch.object(app,'ask',return_value=answer) as ask:
+            result=app.route_post('/api/academic-settings/import',{'kind':'calendar','term_key':self.key,'text':original})
+        import json
+        payload=json.loads(ask.call_args.args[0][-1]['content'])
+        self.assertEqual(payload['selected_term'],{'stage':'university','year':2,'semester':1})
+        self.assertEqual(result['rows'],[self.calendar()[0]])
+        self.assertIn('只读取',ask.call_args.args[0][0]['content'])
 
 
 if __name__ == '__main__':
