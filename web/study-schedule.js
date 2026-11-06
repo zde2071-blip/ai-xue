@@ -25,10 +25,10 @@
  function paint(){render();refreshActions();}
  function canLeave(){if(busy()){reportError('请等待识别或保存完成。');return false;}if(dirty()){reportError('请先保存或取消日历修改。');return false;}return true;}
  function markup(){if(!M)return '';return `<section class="study-calendar-page" aria-label="学习日历">${root.AcademicReferences.markup(M)}<p id="schedule-error" class="error-message" role="alert" ${M.error?'':'hidden'}>${esc(M.error||'')}</p><footer class="schedule-save-actions" ${changed()?'':'hidden'}><button type="button" class="outline-button" data-schedule-action="cancel">取消</button><button type="button" class="primary" data-schedule-action="save">保存</button></footer></section>`;}
- async function save(){if(!M||busy())return false;
+ async function save({quiet=false}={}){if(!M||busy())return false;
  const owner=M.owner;
-  try{root.AcademicReferences.validate(M);M.saving=true;M.error='';paint();const doc=await api('/api/calendar',saveDocument());if(owner!==S.user?.id)return false;Object.assign(M,activeDocument(doc),{referenceFiles:[]});M.baseline=snapshot(M);if(M.importUI)M.importUI.notice='';toast('已保存');return true;}
-  catch(error){reportError(error.message);return false;}finally{if(owner===S.user?.id){M.saving=false;paint();}}
+  try{root.AcademicReferences.validate(M);M.saving=true;M.error='';if(!quiet)paint();const doc=await api('/api/calendar',saveDocument());if(owner!==S.user?.id)return false;Object.assign(M,activeDocument(doc),{referenceFiles:[]});M.baseline=snapshot(M);if(M.importUI)M.importUI.notice='';if(!quiet)toast('已保存');return true;}
+  catch(error){reportError(error.message);return false;}finally{if(owner===S.user?.id){M.saving=false;if(!quiet)paint();}}
  }
  root.StudySchedule={prepare,save,markup,manager:()=>M,dirty,busy,canLeave,paint,refreshActions,reportError};
  document.addEventListener('click',async event=>{

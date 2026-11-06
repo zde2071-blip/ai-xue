@@ -153,7 +153,7 @@
   finally{e.busy=false;if(manager()===t)redraw();}
  }
  async function applySourceSettings(){
-  const t=manager(),s=view(),e=s.sourceEditor;if(!e||e.busy)return;
+  const t=manager(),s=view(),e=s.sourceEditor;if(!e||e.busy||t.saving)return;
   const before=structuredClone(Object.fromEntries(['sources','calendar','timetable','events','colors','visible'].map(k=>[k,t[k]])));
   if(e.isSource){
    if(!e.draft.name?.trim()){e.error='请填写日历名称。';redraw();return;}
@@ -163,7 +163,7 @@
    if(e.result&&e.loadedUrl===e.draft.url)for(const key of ['calendar','timetable','events'])t[key]=t[key].filter(row=>row.source_id!==e.id).concat(e.result[key]||[]);
   }else{t.colors||={};if(e.colorExplicit||e.draft.color!==e.initialColor)t.colors[e.id]=e.draft.color;t.visible[e.id]=e.draft.visible;}
   s.sourceEditor=null;
-  if(!await root.StudySchedule.save()){Object.assign(t,before);e.error=t.error||'保存失败，请重试。';t.error='';s.sourceEditor=e;}redraw();
+  if(!await root.StudySchedule.save({quiet:true})){Object.assign(t,before);e.error=t.error||'保存失败，请重试。';t.error='';s.sourceEditor=e;redraw();return;}redraw();toast('已保存');
  }
  function sidebarMarkup(t){
   const collapsed=view(t).collapsedCategories||{};
@@ -177,11 +177,11 @@
   const s=view(M),generic=['day','week'].includes(s.mode)&&!!t.timetable?.length&&!(t.calendar||[]).some(r=>r.kind==='teaching')&&!(t.events||[]).length,date=dateOf(s.cursor),allWeeks=[...new Set((t.timetable||[]).flatMap(r=>r.weeks))].sort((a,b)=>a-b);
   const title=generic?'每周课表':`${date.getUTCFullYear()}年${s.mode==='year'?'':`${date.getUTCMonth()+1}月${s.mode==='day'?date.getUTCDate()+'日':''}`}`;
   const unit={day:'天',week:'周',month:'月',year:'年'}[s.mode];
-  return `<section class="academic-calendar" aria-label="学习日历"><header class="calendar-toolbar">${tabsMarkup(s.mode)}</header><div class="calendar-body"><div class="calendar-main"><div class="calendar-navigation-row"><div class="calendar-period">${title}${generic?`<select aria-label="查看教学周" data-calendar-week>${(allWeeks.length?allWeeks:[1]).map(w=>`<option value="${w}" ${s.week===w?'selected':''}>Week ${w}</option>`).join('')}</select>`:''}</div><div class="calendar-date-nav"><button type="button" class="icon-button" data-calendar-action="previous" aria-label="上一${unit}">${icon('chevron-left')}</button><button type="button" data-calendar-action="today">今天</button><button type="button" class="icon-button" data-calendar-action="next" aria-label="下一${unit}">${icon('chevron-right')}</button></div></div>${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${s.mode==='year'?yearMarkup(t,s):s.mode==='month'?monthMarkup(t,s):weekMarkup(t,s)}</div>${editorMarkup(t,s)}</div></div></div>${importPanel}${sourceSettingsMarkup(t,s)}</section>`;
+  return `<section class="academic-calendar" aria-label="学习日历"><div class="calendar-body"><div class="calendar-main"><div class="calendar-navigation-row"><div class="calendar-period">${title}${generic?`<select aria-label="查看教学周" data-calendar-week>${(allWeeks.length?allWeeks:[1]).map(w=>`<option value="${w}" ${s.week===w?'selected':''}>Week ${w}</option>`).join('')}</select>`:''}</div>${tabsMarkup(s.mode)}<div class="calendar-date-nav"><button type="button" class="icon-button" data-calendar-action="previous" aria-label="上一${unit}">${icon('chevron-left')}</button><button type="button" data-calendar-action="today">今天</button><button type="button" class="icon-button" data-calendar-action="next" aria-label="下一${unit}">${icon('chevron-right')}</button></div></div>${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${s.mode==='year'?yearMarkup(t,s):s.mode==='month'?monthMarkup(t,s):weekMarkup(t,s)}</div>${editorMarkup(t,s)}</div></div></div>${importPanel}${sourceSettingsMarkup(t,s)}</section>`;
  }
  function open(source,index,draft,original=null){const s=view();if(s.editor?.dirty){s.error='请先完成或取消当前编辑。';redraw();return;}s.error='';s.editor={source,index,draft:structuredClone(draft),dirty:false,original};redraw();document.querySelector('#calendar-event-form input')?.focus();}
  async function applyEditor(form){
-  const M=manager(),t=term(),s=view(),e=s.editor;if(!e)return;const before=structuredClone({calendar:t.calendar,timetable:t.timetable,events:t.events});const d=Object.fromEntries(new FormData(form));let row;
+  const M=manager(),t=term(),s=view(),e=s.editor;if(!e||M.saving)return;const before=structuredClone({calendar:t.calendar,timetable:t.timetable,events:t.events});const d=Object.fromEntries(new FormData(form));let row;
   if(e.source==='timetable'){
    if(!d.course.trim()||!d.time.trim())throw new Error('请填写课程和上课时间。');
    row={course:d.course.trim(),class_type:d.class_type.trim(),weekday:Number(d.weekday),time:d.time.trim(),weeks:root.AcademicReferences.parseWeeks(d.weeks),location:d.location.trim()};
@@ -202,7 +202,7 @@
   if(e.index>=0&&e.source!=='events'&&t[e.source][e.index]?.calendar_group)row.calendar_group=t[e.source][e.index].calendar_group;
   t[e.source]||=[];if(e.index<0)t[e.source].push(row);else t[e.source][e.index]=row;
   if(e.source==='events')s.cursor=row.date;
-  s.editor=null;s.error='';if(!await root.StudySchedule.save()){Object.assign(t,before);s.editor=e;s.error=t.error||'保存失败，请重试。';t.error='';}redraw();
+  s.editor=null;s.error='';if(!await root.StudySchedule.save({quiet:true})){Object.assign(t,before);s.editor=e;s.error=t.error||'保存失败，请重试。';t.error='';redraw();return;}redraw();toast('已保存');
  }
  let dragStart=null,suppressedSlotClick=null;
  function newDate(day){open('events',-1,{id:'',title:'',date:day,kind:'exam',start:'',end:'',location:''});}

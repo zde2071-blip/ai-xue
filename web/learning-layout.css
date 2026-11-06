@@ -15,3 +15,5 @@
 .workspace:is(.view-learn,.view-overview)>.navigation-rail{flex:0 0 68px;position:relative}.workspace:is(.view-learn,.view-overview) .status-panel{position:relative;inset:auto;box-shadow:none}
 
 .review-document-pane{display:flex;flex-direction:column;min-width:0;flex:1;overflow:hidden}.review-document-body{display:flex;min-height:0;flex:1;overflow:hidden}.review-document-body>.content-scroll{flex:1;min-width:0}.review-active .review-document-pane .review-focus-header{flex-shrink:0}.review-active .review-file-tree{height:100%}
+
+.view-library .review-browser{width:100%;flex:1;align-self:stretch}.view-library .review-empty-reading{min-width:0;display:flex;align-items:center;justify-content:center;text-align:center}
