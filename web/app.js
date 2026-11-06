@@ -72,9 +72,9 @@ function sidebar(){
  return `<aside class="sidebar tool-rail" aria-label="工具导航"><nav class="sidebar-nav" aria-label="主导航"><button data-action="workspace" class="active" aria-label="学习资料">${icon('library')}<span>资料</span></button></nav><div class="tool-rail-bottom">${sidebarFooter()}</div></aside>`;
 }
 function statusPanel(){
-  const c=S.course,inStudy=c&&['overview','learn'].includes(S.view);
-  if(inStudy&&B.statusVisible){const current=c.blocks.findIndex(b=>b.id===c.active);return `<aside class="status-panel" aria-label="学习状态"><div class="status-heading"><h2>学习进度</h2><button class="icon-button status-close" data-action="toggle-status" aria-label="收起状态">${icon('x')}</button></div>${progressTrack(c,true)}<p class="status-position">${c.status==='planning'?'尚未开始':`当前 · 第 ${current+1} 块`}</p><nav class="status-outline" aria-label="学习目录">${c.blocks.map((b,i)=>`<button class="status-step ${c.completed.includes(b.id)?'done':''} ${c.status!=='planning'&&b.id===c.active?'current':''}" data-action="block" data-id="${esc(b.id)}" ${S.demonstration||S.busy||S.threadBusy?'disabled':''} ${c.status!=='planning'&&b.id===c.active?'aria-current="step"':''}><span class="status-step-number">${c.completed.includes(b.id)?icon('check'):i+1}</span><span><strong>${esc(b.title)}</strong><small>${c.completed.includes(b.id)?'已学会':b.id===c.active&&c.status!=='planning'?'正在学习':studyMessages().some(m=>m.kind==='lesson'&&m.block_id===b.id)?'已讲解':'待学习'}</small></span></button>`).join('')}</nav><div class="status-course-actions">${c.status==='planning'?'<button class="text-button" data-action="edit-outline">调整分块</button>':''}<button class="text-button" data-action="method">学习方式</button><button class="text-button" data-action="course-notes">课程资料</button></div></aside>`;}
-  return '';
+  const c=S.course;if(!c||!['overview','learn'].includes(S.view))return '';
+  const pending=!!S.importPending||!!S.importError,waiting=S.busy||S.threadBusy||pending,planned=c.status==='planning';
+  return `<aside class="status-panel" aria-label="学习进度"><div class="status-heading"><h2>学习模块</h2></div>${pending?'<p class="muted">正在整理…</p>':`<nav class="status-outline" aria-label="学习目录">${c.blocks.map((b,i)=>`<div class="status-step ${c.completed.includes(b.id)?'done':''} ${b.id===c.active?'current':''}" ${b.id===c.active?'aria-current="step"':''}><span class="status-step-number">${c.completed.includes(b.id)?icon('check'):i+1}</span><span><strong>${esc(b.title)}</strong><small>${c.completed.includes(b.id)?'已完成':b.id===c.active&&!planned?'正在学习':'待学习'}</small></span></div>`).join('')}</nav><div class="status-course-actions"><button class="primary" data-action="${planned?'start':['paused','completed'].includes(c.status)?'resume-study':'complete'}" ${waiting?'disabled':''}>${planned?'开始学习':'继续'} ${icon('arrow-right')}</button>${c.session_blocks.length?`<button class="outline-button" data-action="finish" ${waiting?'disabled':''}>结束并整理笔记</button>`:''}</div>`}</aside>`;
 }
 
 function header(){
@@ -97,19 +97,18 @@ function studyMessage(m){
 }
 function overview(){return learn();}
 function learn(){
+  if(S.importPending)return `<article class="study-conversation import-waiting" aria-label="学习对话"><div role="status">${icon('loader-circle')}正在整理课件…</div></article>`;
+  if(S.importError)return `<article class="study-conversation import-waiting"><p role="alert">${esc(S.importError)}</p><button class="outline-button" data-action="unit-retry-import">重试</button></article>`;
   return `<article class="study-conversation" aria-label="学习对话">${studyMessages().map(studyMessage).join('')}${S.studyPending?`<div class="study-message study-user"><p>${esc(S.studyPending)}</p></div>`:''}${S.threadBusy?`<div class="study-message study-assistant study-waiting" role="status">${icon('loader-circle')}正在回答…</div>`:''}<div id="study-bottom"></div></article>`;
 }
 function composer(){
   if(S.demonstration)return `<footer class="learning-footer"><p class="small muted">示例对话 · 真实学习请返回你的资料</p></footer>`;
-  const c=S.course,b=currentBlock(),i=c.blocks.indexOf(b),planned=c.status==='planning',paused=['paused','completed'].includes(c.status),done=c.completed.includes(b.id),waiting=S.busy||S.threadBusy;
-  return `<footer class="learning-footer"><div class="learning-footer-inner"><div class="study-next">${paused?`<button class="outline-button" data-action="resume-study" ${waiting?'disabled':''}>继续学习 ${icon('arrow-right')}</button>`:planned?`<button class="outline-button" data-action="start" ${waiting?'disabled':''}>从第一块开始 ${icon('arrow-right')}</button>`:`<button class="text-button" data-action="continue-study" ${waiting?'disabled':''}>${i<c.blocks.length-1?'继续下一块':'回顾本次学习'} ${icon('arrow-right')}</button>${!done?`<button class="outline-button" data-action="complete" ${waiting?'disabled':''}>${i<c.blocks.length-1?'学会了，下一块':'学会了，整理笔记'}</button>`:''}`}</div>${S.studyQuote?`<div class="study-quote"><span>${esc(S.studyQuote)}</span><button class="icon-button" data-action="clear-study-quote" aria-label="取消引用">${icon('x')}</button></div>`:''}${S.studyError?`<p class="study-error" role="alert">${esc(S.studyError)}</p>`:''}<form class="composer" id="main-question"><textarea name="question" aria-label="向 AI 提问" placeholder="${planned?'先聊聊这份课件，或直接开始学习':'不懂就问，准备好了说「继续」'}" rows="1" ${waiting?'disabled':''}>${esc(S.studyDraft)}</textarea><button class="send-button" type="submit" aria-label="发送问题" ${waiting?'disabled':''}>${icon('arrow-up')}</button></form><div class="composer-caption"><span>${c.demo&&!S.settings.connected?'离线示例':esc(S.settings.model||'AI')}</span><span>Enter 发送</span></div></div></footer>`;
+  const c=S.course,waiting=S.busy||S.threadBusy||S.importPending||S.importError;
+  return `<footer class="learning-footer"><div class="learning-footer-inner">${S.studyQuote?`<div class="study-quote"><span>${esc(S.studyQuote)}</span><button class="icon-button" data-action="clear-study-quote" aria-label="取消引用">${icon('x')}</button></div>`:''}${S.studyError?`<p class="study-error" role="alert">${esc(S.studyError)}</p>`:''}<form class="composer" id="main-question"><textarea name="question" aria-label="向 AI 提问" placeholder="针对当前模块继续提问…" rows="1" ${waiting?'disabled':''}>${esc(S.studyDraft)}</textarea><button class="send-button" type="submit" aria-label="发送问题" ${waiting?'disabled':''}>${icon('arrow-up')}</button></form></div></footer>`;
 }
-function studyIntent(text){
-  const q=text.trim().toLowerCase().replace(/[。！!，,、\s]+$/g,'');
-  if(/^(学会了|我学会了|懂了|明白了|学完这块)([，,、 ]*(继续|下一块))?$/.test(q))return 'complete';
-  if(/^(继续|继续讲|下一块|下一个|开始|开始学习|ok|好的|好)$/.test(q))return 'continue';
-  return 'question';
-}
+
+function studyIntent(){return 'question';}
+
 function scrollStudyBottom(){requestAnimationFrame(()=>{const el=$('.content-scroll');if(el)el.scrollTop=el.scrollHeight;});}
 async function continueStudy(){
   if(S.busy||S.threadBusy)return;
@@ -333,9 +332,11 @@ function notePage(){
 function render(){
   selectionAnchor=null;
   const scroll=$('.content-scroll')?.scrollTop||0,input=$('#main-question textarea')?.value;rememberBrowserScroll();
-  const panel=statusPanel();
+  const panel=statusPanel(),studying=['overview','learn'].includes(S.view);
+  const oldSource=$('.learning-source');if(oldSource)oldSource.remove();
   if(noteEditor){editorSnapshot={id:noteEditor.noteId,state:noteEditor.view.state};noteEditor.destroy();noteEditor=null;}
-  $('#app').innerHTML=`<div class="workspace view-${S.view} ${panel?'has-status':''}">${sidebar()}<main class="main">${header()}${S.view==='note'&&!S.editing?readingToolbar():''}${S.busy?`<div class="busybar" role="status">${icon('loader-circle')}${esc(S.busyText)}</div>`:''}<div class="content-scroll">${S.view==='courses'?coursesPage():S.view==='overview'?overview():S.view==='learn'?learn():S.view==='library'?library():notePage()}</div>${['overview','learn'].includes(S.view)?composer():''}</main>${panel}</div>`;
+  $('#app').innerHTML=`<div class="workspace view-${S.view} ${panel?'has-status':''}">${sidebar()}${studying?'<div id="learning-source-slot"></div>':''}<main class="main">${header()}${S.view==='note'&&!S.editing?readingToolbar():''}${S.busy?`<div class="busybar" role="status">${icon('loader-circle')}${esc(S.busyText)}</div>`:''}<div class="content-scroll">${S.view==='courses'?coursesPage():S.view==='overview'?overview():S.view==='learn'?learn():S.view==='library'?library():notePage()}</div>${['overview','learn'].includes(S.view)?composer():''}</main>${panel}</div>`;
+  if(studying)window.StudyUnits.mountSource?.(oldSource);
   if(input&&$('#main-question textarea')&&!S.threadBusy)$('#main-question textarea').value=S.studyDraft||input;
   $('.content-scroll').scrollTop=scroll;$$('[data-browser-scroll]').forEach(el=>el.scrollTop=B.scroll[el.dataset.browserScroll]||0);icons();applyMarks();mountEditor();if($('#note-body'))$('#note-body').style.setProperty('--reading-size',readingSize+'px');syncReadingTools();
   $$('.markdown a').forEach(a=>{a.target='_blank';a.rel='noopener noreferrer';});
@@ -345,7 +346,7 @@ function resetScroll(){requestAnimationFrame(()=>{const el=$('.content-scroll');
 async function loadCourse(cid){
   if(!canLeave()||S.busy)return;
   const c=S.courses.find(x=>x.id===cid);if(!c)return;
-  rememberBrowserScroll();B.statusVisible=true;S.libraryCourse=cid;saveBrowser();closeDrawer();S.conversation=[];S.studyDraft='';S.studyQuote='';S.studyQuoteBlock='';S.studyError='';
+  S.importError='';S.importPending=false;rememberBrowserScroll();B.statusVisible=true;S.libraryCourse=cid;saveBrowser();closeDrawer();S.conversation=[];S.studyDraft='';S.studyQuote='';S.studyQuoteBlock='';S.studyError='';
   if($('#main-question textarea'))$('#main-question textarea').value='';
   updateCourse(c);S.view=c.status==='planning'?'overview':'learn';S.note=null;
   await task('正在读取对话…',async()=>{S.conversation=(await api(courseUrl('conversation'))).conversation;});

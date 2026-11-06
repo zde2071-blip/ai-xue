@@ -28,9 +28,13 @@ class CoreUnits(unittest.TestCase):
   path=app.VAULT/'标签库.json';app.write_json(path,{'broken':[]});before=path.read_bytes()
   with self.assertRaises(app.Problem):app.unit_store().update_tags(self.c,{'tags':{'course':'x'}})
   self.assertEqual(path.read_bytes(),before);self.assertNotIn('tags',app.get_course(self.c['id']))
- def test_direct_question_targets_another_block_without_advancing(self):
+ def test_learning_question_stays_on_current_block_without_advancing(self):
   first,other=self.c['blocks'][:2];self.post('lesson',block_id=first['id']);result=self.post('chat',block_id=first['id'],question='关于'+other['points'][0]+'，为什么需要这个条件？',channel='learning',auto_anchor=True)
-  self.assertEqual(result['block_id'],other['id']);self.assertEqual(result['anchor_status'],'located');self.assertEqual(self.c['active'],first['id']);self.assertEqual(self.c['completed'],[]);self.assertFalse((app.folder(self.c['id'])/'讲解'/(other['id']+'.md')).exists())
+  self.assertEqual(result['block_id'],first['id']);self.assertEqual(result['anchor_status'],'located');self.assertEqual(self.c['active'],first['id']);self.assertEqual(self.c['completed'],[]);self.assertFalse((app.folder(self.c['id'])/'讲解'/(other['id']+'.md')).exists())
+ def test_continue_typed_in_chat_never_marks_or_advances(self):
+  first=self.c['active'];other=self.c['blocks'][1]['id']
+  result=self.post('chat',block_id=other,question='继续',channel='learning',auto_anchor=True)
+  self.assertEqual(result['block_id'],first);self.assertEqual(self.c['active'],first);self.assertEqual(self.c['completed'],[]);self.assertEqual(self.c['status'],'planning')
  def test_unknown_question_stays_unlocated_instead_of_fake_precise_anchor(self):
   thread=self.post('chat',block_id=self.c['active'],question='我感觉这门课有点难',auto_anchor=True)
   self.assertEqual(thread['anchor_status'],'unlocated');self.assertEqual(self.c['status'],'planning');self.assertEqual(self.c['session_blocks'],[])

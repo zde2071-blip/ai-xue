@@ -148,6 +148,10 @@ def extract(name, raw):
             except (OSError,subprocess.TimeoutExpired):raise Problem('图片识别暂时不可用。可以粘贴课表文字，或上传文字版文件。',422) from None
             if result.returncode or not result.stdout.strip():raise Problem('没有识别到清晰文字，请换清晰图片或粘贴文字。',422)
             return result.stdout[:100000]
+    if suffix in ('.doc','.ppt'):
+        from source_preview import preview_bytes
+        try:return extract('converted.pdf',preview_bytes(name,raw)[0])
+        except ValueError as error:raise Problem(str(error),422) from None
     if suffix in ('.md', '.txt'):
         try:
             return raw.decode('utf-8-sig')
@@ -378,6 +382,8 @@ def chat(c, data):
     if data.get('mode') == 'translation' and not active_ai('translation')['key']:
         raise Problem('请先连接 AI，再翻译选中的单词或句子。')
     if data.get('note_id'):get_note(c['id'],valid_id(data['note_id']))
+    in_learning = data.get('channel') == 'learning'
+    if in_learning:data={**data,'block_id':c['active'],'auto_anchor':False}
     anchor=unit_store().locate(c,data) if data.get('auto_anchor') else {'block_id':data.get('block_id'),'status':'located','method':'selection' if data.get('quote') else 'explicit-block'}
     bid = valid_id(anchor['block_id'])
     block = get_block(c, bid)
@@ -398,7 +404,7 @@ def chat(c, data):
         thread = {'id': thread_id, 'block_id': bid, 'quote': clean_text(data.get('quote'), 4000),
                   'title': question[:100], 'messages': [], 'created_at': now(), 'session': c['session'], 'channel': 'learning' if in_learning else 'annotation','anchor_status':anchor['status'],'anchor_method':anchor['method'],'note_id':data.get('note_id')}
     lesson_path = folder(c['id']) / '讲解' / (bid + '.md')
-    if not lesson_path.exists() and not data.get('auto_anchor'):
+    if not lesson_path.exists() and not data.get('auto_anchor') and not in_learning:
         raise Problem('请先打开这个学习块。')
     lesson = lesson_path.read_text(encoding='utf-8') if lesson_path.exists() else block['title']+'\n'+block['description']+'\n'+'、'.join(block.get('points',[]))
     if c['demo'] and not active_ai('translation' if data.get('mode')=='translation' else 'learning')['key']:
@@ -1189,8 +1195,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(raw)))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('X-Frame-Options', 'DENY')
-        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+        is_preview=bool(re.fullmatch(r'/api/courses/[\w-]+/source-preview',urlparse(getattr(self,'path','')).path))
+        self.send_header('X-Frame-Options', 'SAMEORIGIN' if is_preview else 'DENY')
+        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; frame-ancestors "+("'self'" if is_preview else "'none'")+"; base-uri 'none'; form-action 'self'")
         if getattr(self,'session_cookie',None) is not None:
             self.send_header('Set-Cookie',self.session_cookie)
         self.end_headers()
@@ -1312,6 +1319,19 @@ class Handler(BaseHTTPRequestHandler):
                 get_block(c, m[2])
                 lesson = (folder(m[1]) / '讲解' / (m[2] + '.md')).read_text(encoding='utf-8')
                 return self.respond({'content': lesson})
+            preview_match=re.fullmatch(r'/api/courses/([\w-]+)/source-preview(?:/pages/(\d+))?',path)
+            if preview_match:
+                from source_preview import preview_bytes,pdf_viewer,pdf_page
+                c=get_course(preview_match[1])
+                item=find_library_item(c['origin_material_id'] if c.get('source_ref') else 'source-'+c['id']);src=library_path(item['relative_path'])
+                try:
+                    body,mime=preview_bytes(src.name,src.read_bytes())
+                    if mime=='application/pdf':
+                        body,mime=(pdf_page(body,int(preview_match[2])),'image/png') if preview_match[2] else (pdf_viewer(body,c['id']),'text/html; charset=utf-8')
+                except ValueError as error:
+                    import html
+                    body=('<!doctype html><meta charset="utf-8"><p>'+html.escape(str(error))+'</p>').encode();mime='text/html; charset=utf-8'
+                return self.respond(body,content_type=mime)
             source_text=re.fullmatch(r'/api/courses/([\w-]+)/source-text',path)
             if source_text:
                 c=get_course(source_text[1]);return self.respond({'filename':c['source_name'],'text':details_store().source_context(c)})
