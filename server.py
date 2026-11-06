@@ -126,11 +126,11 @@ def parse_json(text):
         raise Problem('AI 返回的结构暂时无法读取，请重试。', 502)
 
 
-def ask(messages, json_mode=False, scope='learning'):
+def ask(messages, json_mode=False, scope='learning', max_tokens=6500):
     cfg=active_ai(scope)
     if not cfg['key']:
         raise Problem('请先在账户设置的 AI 服务中连接模型。',409)
-    try:result=ai_services.chat_messages(cfg,messages,json_mode=json_mode)
+    try:result=ai_services.chat_messages(cfg,messages,json_mode=json_mode,max_tokens=max_tokens)
     except ai_services.AIServiceError as e:raise Problem(str(e),502) from None
     return parse_json(result) if json_mode else result
 

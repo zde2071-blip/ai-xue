@@ -196,6 +196,19 @@ class AcademicImportTest(unittest.TestCase):
             result=app.route_post('/api/calendar/import',{'kind':'calendar','term_key':self.key,'attachments':[file]})
         self.assertEqual(result['rows'],[holiday]);self.assertTrue(result['incomplete'])
 
+    def test_image_alias_preserves_rows_and_warns_about_missing_middle_months(self):
+        raw=b'\x89PNG\r\n\x1a\nimage'
+        file={'filename':'calendar.png','file':base64.b64encode(raw).decode()}
+        rows=[self.calendar()[0],{**self.calendar()[0],'start':'2026-12-07','end':'2026-12-13','week':13}]
+        answer={'transcripts':[{'source':'材料1','text':'Week 1'},{'source':'材料1','text':'Legend'},{'source':'材料1','text':'Another legend'},{'source':'材料1','text':'Week 13'}],
+                'rows':[{**r,'source':'材料1','evidence':'Week '+str(r['week'])} for r in rows]}
+        with patch.object(app,'active_ai',return_value={'provider':'deepseek','model':'deepseek-flash'}),patch.object(app,'ask',return_value=answer):
+            result=app.route_post('/api/calendar/import',{'kind':'calendar','attachments':[file]})
+        self.assertEqual(result['rows'],rows)
+        self.assertTrue(result['incomplete'])
+        self.assertIn('2026-09-13 至 2026-12-07',result['reply'])
+        self.assertFalse((app.VAULT/'学习日历.json').exists())
+
     def test_schedule_matches_existing_course_code_without_creating_punctuation_duplicates(self):
         self.doc=self.store.save({**self.doc,'assignments':{'ADS102 · 离散数学':self.key}})
         original='ADS102 离散数学 周一 09:00–10:00 Lecture 第1、3、5周 A101'

@@ -42,9 +42,13 @@
    const result=await api('/api/calendar/import',{kind,text:s.text,attachments:files});
    if(model()!==M||owner!==S.user?.id)return;
    if(!result.rows.length){s.error=result.reply||'没有读到完整安排，请换清晰原图或补充说明。';return;}
-   const id=crypto.randomUUID(),source={id,name:s.files[0]?.filename?.replace(/\.[^.]+$/,'')||names[kind],kind,type:'import',visible:true};
-   M.sources||=[];M.sources.push(source);const target=kind==='exam'?'events':kind;M[target].push(...result.rows.map(row=>({...row,source_id:id})));
-   s.text='';s.files=[];s.open=false;s.notice=result.incomplete?'部分内容未能确认，请对照原件补充后保存。':`已填入${names[kind]}，确认后保存。`;root.AcademicCalendar.reset(M);
+   const name=s.files[0]?.filename?.replace(/\.[^.]+$/,'')||names[kind];
+   const matches=s.files.length?(M.sources||[]).filter(row=>row.type==='import'&&row.kind===kind&&row.name===name):[];
+   const existing=matches.length===1?matches[0]:null,id=existing?.id||crypto.randomUUID(),source={...existing,id,name,kind,type:'import',visible:true};
+   M.sources||=[];M.sources=M.sources.filter(row=>row.id!==id);M.sources.push(source);
+   if(existing)for(const field of ['calendar','timetable','events'])M[field]=M[field].filter(row=>row.source_id!==id);
+   const target=kind==='exam'?'events':kind;M[target].push(...result.rows.map(row=>({...row,source_id:id})));
+   s.text='';s.files=[];s.open=false;s.notice=(result.incomplete?'仅填入已确认的部分，请核对后保存。':`已填入${names[kind]}，确认后保存。`)+(result.reply?' '+result.reply:'');root.AcademicCalendar.reset(M);root.AcademicCalendar.focusImported?.(M,kind,result.rows);
   }catch(e){s.error=e.message;}finally{s.busy=false;if(model()===M&&owner===S.user?.id)redraw();}
  }
  const readSubscription=source=>api('/api/calendar/subscribe',{source_id:source.id||'',url:source.url,name:source.name});

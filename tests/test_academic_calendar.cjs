@@ -56,3 +56,12 @@ test('removing legacy calendar records does not remove another source or the sep
  C.removeCalendarSource(t,'calendar',false);assert.equal(C.localSource(t,'calendar'),null);assert.equal(t.calendar.length,2);assert.equal(t.timetable.length,1);assert.equal(t.events.length,1);assert.equal(t.sources.length,1);
  C.removeCalendarSource(t,'exam',false);assert.equal(t.calendar.length,1);assert.equal(t.events.length,0);assert.equal(t.calendar[0].source_id,'imported');
 });
+
+test('import focuses dates that actually have imported content',()=>{
+ const {importedDate}=require('../web/academic-calendar.js');
+ const rows=[{start:'2026-09-07',end:'2026-09-13'},{start:'2026-12-07',end:'2026-12-13'}];
+ assert.equal(importedDate('calendar',rows,'2026-11-07'),'2026-09-07');
+ assert.equal(importedDate('calendar',rows,'2026-12-10'),'2026-12-10');
+ assert.equal(importedDate('exam',[{date:'2027-01-05'}],'2026-11-07'),'2027-01-05');
+ assert.equal(importedDate('timetable',[],'2026-11-07'),'2026-11-07');
+});
