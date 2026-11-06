@@ -27,6 +27,12 @@ class Calendar:
                     groups.setdefault(group,[]).append(row)
                 clean[field]=[{**r,**({'calendar_group':group} if group else {})} for group,rows in groups.items() for r in validator(rows)]
         except ValueError as error:self.fail(str(error))
+        colors=data.get('colors',{})
+        if not isinstance(colors,dict):self.fail('日历颜色格式无效。')
+        clean['colors']={}
+        for key,value in colors.items():
+            if key not in ('calendar','timetable','exam') or not isinstance(value,str) or not re.fullmatch(r'#[0-9a-fA-F]{6}',value):self.fail('请选择有效的日历颜色。')
+            clean['colors'][key]=value.lower()
         return clean
     def document(self):
         if self.path.exists():

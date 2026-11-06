@@ -12,3 +12,18 @@ test('a one-day holiday suppresses recurring classes while preserving its teachi
 test('multiday periods span the correct weekdays and overlapping periods use separate lanes',()=>{const t={calendar:[{kind:'teaching',week:8,start:'2026-11-02',end:'2026-11-08'},{kind:'break',start:'2026-11-05',end:'2026-11-05'}]},days=Array.from({length:7},(_,i)=>C.addDays('2026-11-02',i));const rows=C.periodLanes(t,days);assert.deepEqual(rows.map(r=>[r.left,r.span,r.lane]),[[0,7,0],[3,1,1]]);assert.deepEqual(C.periodLanes({...t,visible:{calendar:false}},days),[]);});
 test('hiding course content retains the calendar mapping used to resolve dated lessons',()=>{const before=JSON.stringify(term),hidden={...term,visible:{calendar:false,timetable:true,exam:false}};assert.equal(C.weekAt(hidden,'2026-09-07'),1);assert.equal(C.entriesForDay(hidden,'2026-09-07').length,2);assert.equal(C.entriesForDay({...term,visible:{timetable:false}},'2026-09-07').length,1);assert.equal(JSON.stringify(term),before);});
 test('legacy course schedules use their own calendar instead of another years Week 1',()=>{const t={calendar:[{kind:'teaching',week:1,start:'2025-09-01',end:'2025-09-07',calendar_group:'old'},{kind:'teaching',week:1,start:'2026-09-07',end:'2026-09-13',calendar_group:'new'}],timetable:[{...term.timetable[0],calendar_group:'old'}]};assert.equal(C.entriesForDay(t,'2026-09-07').length,0);assert.equal(C.entriesForDay(t,'2025-09-01').length,1);});
+
+test('calendar colors inherit category defaults and allow a per-entry override',()=>{
+ const {colorFor,colorStyle}=require('../web/academic-calendar.js');
+ const t={colors:{calendar:'#808080',timetable:'#527eac',exam:'#a07848'}};
+ assert.equal(colorFor(t,'timetable',{}),'#527eac');
+ assert.equal(colorFor(t,'timetable',{color:'#8070a0'}),'#8070a0');
+ assert.equal(colorFor(t,'calendar',{kind:'exam'}),'#a07848');
+ assert.equal(colorFor(t,'events',{}),'#a07848');
+ assert.ok(!colorStyle('red;position:fixed').includes('position'));
+});
+test('day view clips multiday spans to its one visible day',()=>{
+ const {periodLanes}=require('../web/academic-calendar.js');
+ const rows=periodLanes({calendar:[{kind:'teaching',week:8,start:'2026-11-02',end:'2026-11-08'}]},['2026-11-06']);
+ assert.equal(rows.length,1);assert.equal(rows[0].left,0);assert.equal(rows[0].span,1);
+});

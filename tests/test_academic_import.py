@@ -75,7 +75,7 @@ class AcademicImportTest(unittest.TestCase):
         answer = {'rows': [{**self.calendar()[0], 'source': '输入', 'evidence': content},
                            {**self.calendar()[2], 'source': '输入', 'evidence': '不存在的原文'}]}
         with patch.object(app, 'ask', return_value=answer):
-            result = app.route_post('/api/academic-settings/import', {'kind': 'calendar', 'term_key': self.key, 'text': content})
+            result = app.route_post('/api/calendar/import', {'kind': 'calendar', 'term_key': self.key, 'text': content})
         self.assertEqual(result['rows'], [self.calendar()[0]])
         self.assertEqual(original, self.store.path.read_bytes())
         self.assertFalse((app.VAULT / '学期参考').exists())
@@ -100,15 +100,15 @@ class AcademicImportTest(unittest.TestCase):
         for source in ('原件 '+hashlib.sha256(content.encode()).hexdigest(),'校历.txt'):
             answer={'rows':[{**self.calendar()[0],'source':source,'evidence':content}]}
             with patch.object(app,'ask',return_value=answer):
-                result=app.route_post('/api/academic-settings/import',{'kind':'calendar','term_key':self.key,'attachments':[file]})
+                result=app.route_post('/api/calendar/import',{'kind':'calendar','term_key':self.key,'attachments':[file]})
             self.assertEqual(result['rows'],[self.calendar()[0]])
 
-    def test_unknown_reference_and_invalid_term_or_kind_cannot_write(self):
+    def test_unknown_reference_and_invalid_kind_cannot_write(self):
         before = self.store.path.read_bytes()
         forged = {'id': 'a' * 64, 'filename': '课表.txt', 'kind': 'timetable'}
         with self.assertRaises(app.Problem):
             self.save(references=[forged])
-        for changes in ({'term_key': 'university|9|9'}, {'kind': 'other'}, {'attachments': [self.attachment(kind='other')]}, {'text': {}}):
+        for changes in ({'kind': 'other'}, {'attachments': [self.attachment(kind='other')]}, {'text': {}}):
             data = {'kind': 'calendar', 'term_key': self.key, 'text': '校历', **changes}
             if 'attachments' in changes:
                 data['attachments'] = [{'filename': 'data.exe', 'file': ''}]
@@ -156,7 +156,7 @@ class AcademicImportTest(unittest.TestCase):
         content='周一 09:00–10:00 ADS102 · 离散数学 Lecture 第1、3、5周 A101'
         answer={'transcripts':[{'source':source,'text':content}],'rows':[{**self.timetable()[0],'source':source,'evidence':content}]}
         with patch.object(app,'active_ai',return_value={'provider':'deepseek','model':'deepseek-flash'}),patch.object(app,'extract',side_effect=AssertionError('OCR must not flatten the image')),patch.object(app,'ask',return_value=answer) as ask:
-            result=app.route_post('/api/academic-settings/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
+            result=app.route_post('/api/calendar/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
         parts=ask.call_args.args[0][-1]['content']
         image=next(p for p in parts if p['type']=='image_url')
         self.assertEqual(base64.b64decode(image['image_url']['url'].split(',')[1]),raw)
@@ -167,10 +167,10 @@ class AcademicImportTest(unittest.TestCase):
     def test_picture_requires_transcription_and_rejects_unsupported_model_clearly(self):
         raw=b'\x89PNG\r\n\x1a\nimage';file={'filename':'微信图片.png','file':base64.b64encode(raw).decode()}
         with patch.object(app,'active_ai',return_value={'provider':'deepseek','model':'deepseek-flash'}),patch.object(app,'ask',return_value={'rows':[{**self.timetable()[0],'source':hashlib.sha256(raw).hexdigest(),'evidence':'invented'}]}):
-            result=app.route_post('/api/academic-settings/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
+            result=app.route_post('/api/calendar/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
         self.assertEqual(result['rows'],[])
         with patch.object(app,'active_ai',return_value={'provider':'deepseek','model':'deepseek-v4-pro'}),self.assertRaises(app.Problem) as error:
-            app.route_post('/api/academic-settings/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
+            app.route_post('/api/calendar/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
         self.assertIn('deepseek-flash',str(error.exception))
 
     def test_full_holiday_week_is_retried_and_cannot_shift_later_teaching_weeks(self):
@@ -180,10 +180,10 @@ class AcademicImportTest(unittest.TestCase):
         request={'kind':'calendar','term_key':self.key,'text':'calendar'}
         before=self.store.path.read_bytes()
         with patch.object(app,'ask',side_effect=[wrong,correct]) as ask:
-            result=app.route_post('/api/academic-settings/import',request)
+            result=app.route_post('/api/calendar/import',request)
         self.assertEqual(ask.call_count,2);self.assertEqual(result['rows'],[holiday])
         with patch.object(app,'ask',return_value=wrong) as ask,self.assertRaises(app.Problem):
-            app.route_post('/api/academic-settings/import',request)
+            app.route_post('/api/calendar/import',request)
         self.assertEqual(ask.call_count,2);self.assertEqual(before,self.store.path.read_bytes())
 
     def test_image_evidence_accepts_source_names_and_spacing_without_dropping_holidays(self):
@@ -193,7 +193,7 @@ class AcademicImportTest(unittest.TestCase):
                 'rows':[{**holiday,'source':'原图 calendar.png','evidence':'2026-09-25 Mid-Autumn Festival'},
                         {**holiday,'source':'calendar.png','evidence':'unseen holiday'}]}
         with patch.object(app,'active_ai',return_value={'provider':'deepseek','model':'deepseek-flash'}),patch.object(app,'ask',return_value=answer):
-            result=app.route_post('/api/academic-settings/import',{'kind':'calendar','term_key':self.key,'attachments':[file]})
+            result=app.route_post('/api/calendar/import',{'kind':'calendar','term_key':self.key,'attachments':[file]})
         self.assertEqual(result['rows'],[holiday]);self.assertTrue(result['incomplete'])
 
     def test_schedule_matches_existing_course_code_without_creating_punctuation_duplicates(self):
@@ -201,7 +201,7 @@ class AcademicImportTest(unittest.TestCase):
         original='ADS102 离散数学 周一 09:00–10:00 Lecture 第1、3、5周 A101'
         answer={'rows':[{**self.timetable()[0],'course':'ADS102 离散数学','source':'输入','evidence':original}]}
         with patch.object(app,'ask',return_value=answer):
-            result=app.route_post('/api/academic-settings/import',{'kind':'timetable','term_key':self.key,'text':original})
+            result=app.route_post('/api/calendar/import',{'kind':'timetable','term_key':self.key,'text':original})
         self.assertEqual(result['rows'][0]['course'],'ADS102 · 离散数学')
 
     def test_dated_exams_coexist_with_teaching_weeks_and_persist_independently(self):
@@ -235,16 +235,16 @@ class AcademicImportTest(unittest.TestCase):
         self.assertIsNone(academic_import.week_at(doc['terms'][0],'2026-12-15'))
         self.assertEqual(doc['terms'][0]['calendar'][2]['week'],None)
 
-    def test_import_uses_selected_semester_instead_of_asking_image_to_supply_student_year(self):
+    def test_import_reads_calendar_without_any_student_year_context(self):
         original='Week 1: 7 September to 13 September 2026'
         answer={'rows':[{**self.calendar()[0],'source':'输入','evidence':original}]}
         with patch.object(app,'ask',return_value=answer) as ask:
-            result=app.route_post('/api/academic-settings/import',{'kind':'calendar','term_key':self.key,'text':original})
+            result=app.route_post('/api/calendar/import',{'kind':'calendar','term_key':self.key,'text':original})
         import json
         payload=json.loads(ask.call_args.args[0][-1]['content'])
-        self.assertEqual(payload['selected_term'],{'stage':'university','year':2,'semester':1})
+        self.assertNotIn('selected_term',payload)
         self.assertEqual(result['rows'],[self.calendar()[0]])
-        self.assertIn('只读取',ask.call_args.args[0][0]['content'])
+        self.assertIn('所有明确日期',ask.call_args.args[0][0]['content'])
 
 
 if __name__ == '__main__':

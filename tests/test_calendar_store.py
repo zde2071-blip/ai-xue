@@ -34,3 +34,15 @@ class CalendarStoreTest(unittest.TestCase):
         with patch.object(app,'ask',return_value={'rows':[row]}):result=app.route_post('/api/calendar/import',{'kind':'exam','attachments':[file]})
         self.assertEqual(result['rows'][0]['kind'],'exam');self.assertFalse(app.VAULT.exists());saved=self.save(self.store.document(),events=result['rows'],references=result['references'],reference_files=[{**file,'kind':'exam'}])
         path,name=app.academic_import.Importer(app.__dict__).file(saved['references'][0]['id']);self.assertEqual(path.read_text(),value);self.assertEqual(name,'考试.txt')
+    def test_colors_round_trip_and_legacy_records_need_no_color(self):
+        doc=self.store.document();event={'id':'color-test','title':'考试','kind':'exam','date':'2026-11-06','start':'07:00','end':'09:00','color':'#ABCDEF'}
+        doc.update(colors={'calendar':'#808080','timetable':'#548568','exam':'#A07848'},events=[event],calendar=[{'kind':'teaching','week':8,'start':'2026-11-02','end':'2026-11-08','label':'','color':'#527EAC'}],timetable=[{'course':'Math','weekday':1,'time':'09:00–11:00','weeks':[],'color':'#8070A0'}])
+        saved=self.save(doc);read=self.store.document()
+        self.assertEqual(saved,read);self.assertEqual(read['colors']['exam'],'#a07848');self.assertEqual(read['events'][0]['color'],'#abcdef');self.assertEqual(read['calendar'][0]['color'],'#527eac');self.assertEqual(read['timetable'][0]['color'],'#8070a0')
+        del read['events'][0]['color'];self.assertNotIn('color',self.save(read)['events'][0])
+    def test_invalid_colors_do_not_write(self):
+        doc=self.save(self.store.document());before=self.store.path.read_bytes()
+        for colors in [{'exam':'red;position:fixed'},{'unknown':'#ffffff'},[]]:
+            with self.assertRaises(app.Problem):self.save(doc,colors=colors)
+        with self.assertRaises(app.Problem):self.save(doc,events=[{'id':'bad-color','title':'考试','kind':'exam','date':'2026-11-06','color':'javascript:bad'}])
+        self.assertEqual(self.store.path.read_bytes(),before)

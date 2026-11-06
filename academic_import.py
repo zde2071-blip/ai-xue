@@ -31,6 +31,14 @@ def text(value, limit=150):
     return value.strip()
 
 
+def row_color(row):
+    value=row.get('color','')
+    if not value:return {}
+    if not isinstance(value,str) or not re.fullmatch(r'#[0-9a-fA-F]{6}',value):
+        raise ValueError('请选择有效的日历颜色。')
+    return {'color':value.lower()}
+
+
 def calendar_rows(values):
     if not isinstance(values, list) or len(values) > 180:
         raise ValueError('校历最多支持 180 段日期。')
@@ -58,7 +66,7 @@ def calendar_rows(values):
             raise ValueError('每个教学周的日期最多为 7 天，请按周拆分。')
         if any(kind=='teaching' and old['kind']=='teaching' and start <= old['end'] and end >= old['start'] for old in rows):
             raise ValueError('教学周日期有重叠，请核对。')
-        rows.append({'kind': kind, 'week': week, 'start': start, 'end': end, 'label': text(row.get('label', ''), 80)})
+        rows.append({'kind': kind, 'week': week, 'start': start, 'end': end, 'label': text(row.get('label', ''), 80), **row_color(row)})
     return sorted(rows, key=lambda row: row['start'])
 
 
@@ -78,7 +86,7 @@ def timetable_rows(values):
         if not when:
             raise ValueError('请填写上课时间或节次。')
         rows.append({'course': course, 'class_type': text(row.get('class_type', ''), 60), 'weekday': day,
-                     'time': when, 'weeks': sorted(set(weeks)), 'location': text(row.get('location', ''), 120)})
+                     'time': when, 'weeks': sorted(set(weeks)), 'location': text(row.get('location', ''), 120), **row_color(row)})
     return rows
 
 
@@ -97,7 +105,7 @@ def event_rows(values):
         if not isinstance(start,str) or not isinstance(end,str):raise ValueError('时间格式有误。')
         if start or end:
             if not all(isinstance(v,str) and re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d',v) for v in (start,end)) or start>=end:raise ValueError('请填写有效的起止时间。')
-        rows.append({'id':key,'title':title,'kind':kind,'date':day,'start':start,'end':end,'location':text(row.get('location',''),120)})
+        rows.append({'id':key,'title':title,'kind':kind,'date':day,'start':start,'end':end,'location':text(row.get('location',''),120),**row_color(row)})
         ids.add(key)
     return rows
 

@@ -1,4 +1,4 @@
-/* Import originals into the current semester; calendar views own presentation. */
+/* Import originals into one calendar draft; save only after review. */
 (function(root){
  'use strict';
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -46,7 +46,7 @@
    if(!result.rows.length){s.error=result.reply||'没有读到完整安排，请换清晰原图或补充说明。';return;}
    if(kind==='exam')M.events=[...M.events.filter(r=>r.kind!=='exam'),...result.rows];else M[kind]=result.rows;
    M.references||=[];M.referenceFiles||=[];
-   resulM.references.forEach((ref,i)=>{if(!M.references.some(r=>r.id===ref.id&&r.kind===ref.kind))M.references.push(ref);M.referenceFiles.push({...files[i],kind});});
+   result.references.forEach((ref,i)=>{if(!M.references.some(r=>r.id===ref.id&&r.kind===ref.kind))M.references.push(ref);M.referenceFiles.push({...files[i],kind});});
    s.text='';s.files=[];s.open=false;s.notice=result.incomplete?'部分内容未能确认，请对照原件补充后保存。':`已填入${names[kind]}，确认后保存。`;root.AcademicCalendar.reset(M);
   }catch(e){s.error=e.message;}finally{s.busy=false;if(model()===M&&owner===S.user?.id)redraw();}
  }
