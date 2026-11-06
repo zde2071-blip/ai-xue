@@ -36,12 +36,12 @@ test('sources independently control visibility and color without losing week map
  t.calendar.push({kind:'nonteaching',start:'2026-09-07',end:'2026-09-07',source_id:'holiday'});t.sources.push({id:'holiday',type:'subscription'});
  assert.equal(C.entriesForDay(t,'2026-09-07').filter(e=>e.kind==='course').length,2);
 });
-test('empty calendars have no synthetic source and migrated records identify their origin',()=>{
+test('empty and inherited calendars do not create uploaded sources',()=>{
  assert.equal(C.localSource({calendar:[],timetable:[],events:[]},'calendar'),null);
  const t={calendar:[{kind:'teaching',calendar_group:'university|2|1'},{kind:'exam',calendar_group:'university|2|1'}]};
- assert.equal(C.localSource(t,'calendar').name,'旧版校历');
- assert.equal(C.localSource(t,'exam').name,'旧版考试安排');
- assert.match(C.localSource(t,'calendar').origin,/旧版学业安排/);
+ assert.equal(C.localSource(t,'calendar'),null);
+ assert.equal(C.localSource(t,'exam'),null);
+ assert.equal(C.localSource({events:[{id:'manual'}]},'exam').name,'手动添加');
  assert.equal(C.localSource({calendar:[{kind:'teaching',source_id:'imported'}]},'calendar'),null);
 });
 test('deleting a source removes only its linked draft records and leaves cancellation possible',()=>{
@@ -64,4 +64,12 @@ test('import focuses dates that actually have imported content',()=>{
  assert.equal(importedDate('calendar',rows,'2026-12-10'),'2026-12-10');
  assert.equal(importedDate('exam',[{date:'2027-01-05'}],'2026-11-07'),'2027-01-05');
  assert.equal(importedDate('timetable',[],'2026-11-07'),'2026-11-07');
+});
+
+test('dated subscription courses keep their source category instead of becoming exams',()=>{
+ const t={sources:[{id:'school',kind:'timetable'},{id:'exam',kind:'exam'},{id:'calendar',kind:'calendar'}]};
+ assert.equal(C.editorCategory(t,'events',{source_id:'school'}),'timetable');
+ assert.equal(C.editorCategory(t,'events',{source_id:'exam'}),'events');
+ assert.equal(C.editorCategory(t,'events',{source_id:'calendar'}),'calendar');
+ assert.equal(C.editorCategory(t,'events',{}),'events');
 });

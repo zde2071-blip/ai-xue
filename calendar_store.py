@@ -1,5 +1,4 @@
-"""One calendar independent of academic placement; legacy records are read once on first save."""
-import copy
+"""One calendar independent of academic placement; old academic records are never auto-imported."""
 import json
 import re
 import academic_import
@@ -57,13 +56,6 @@ class Calendar:
             except (ValueError,TypeError,self.h['Problem']):self.fail('日历文件无法读取，未改动原文件。',409)
         else:
             doc={field:[] for field in FIELDS}
-            for term in self.h['academic_store']().document()['terms']:
-                for field in FIELDS:
-                    for source in term.get(field,[]):
-                        row=copy.deepcopy(source)
-                        if field in ('calendar','timetable'):row['calendar_group']=term['key']
-                        elif field=='events':row['id']=self.h['digest'](term['key']+row['id'])[:32]
-                        if row not in doc[field]:doc[field].append(row)
             doc=self.normalize(doc)
             raw=json.dumps(doc,ensure_ascii=False,sort_keys=True)
         return {**doc,'etag':self.h['digest'](raw)}

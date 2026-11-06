@@ -14,10 +14,10 @@ class CalendarStoreTest(unittest.TestCase):
     def test_empty_calendar_works_without_any_academic_information(self):
         doc=self.store.document();self.assertEqual(doc['calendar'],[]);self.assertFalse(app.VAULT.exists())
         saved=self.save(doc,events=[{'id':'exam','title':'考试','kind':'exam','date':'2026-11-06','start':'07:00','end':'09:00','location':''}]);self.assertEqual(saved['events'][0]['start'],'07:00');self.assertFalse(app.academic_store().path.exists())
-    def test_legacy_calendar_and_courses_migrate_without_rewriting_originals(self):
+    def test_old_academic_records_are_not_automatically_added_to_calendar(self):
         old=app.academic_store();doc=old.document();terms=[{'stage':'university','year':y,'semester':1,'calendar':[{'kind':'teaching','week':1,'start':f'{2024+y}-09-07','end':f'{2024+y}-09-13','label':''}],'timetable':[{'course':'数学'+str(y),'class_type':'Lecture','weekday':1,'time':'07:00–09:00','weeks':[1],'location':''}]} for y in [1,2]]
         old.save({**doc,'terms':terms,'assignments':{'数学1':'university|1|1','数学2':'university|2|1'}});before=old.path.read_bytes()
-        migrated=self.store.document();self.assertEqual(len(migrated['calendar']),2);self.assertEqual(migrated['timetable'][1]['calendar_group'],'university|2|1');self.assertFalse(self.store.path.exists())
+        migrated=self.store.document();self.assertEqual(migrated['calendar'],[]);self.assertEqual(migrated['timetable'],[]);self.assertEqual(migrated['events'],[]);self.assertFalse(self.store.path.exists())
         saved=self.save(migrated);self.assertEqual(old.path.read_bytes(),before);self.assertEqual(saved['timetable'],migrated['timetable'])
     def test_external_edits_are_detected_and_invalid_edits_cannot_write(self):
         initial=self.store.document();current=self.save(initial);before=self.store.path.read_bytes()
