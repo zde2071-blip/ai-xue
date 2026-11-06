@@ -36,3 +36,23 @@ test('sources independently control visibility and color without losing week map
  t.calendar.push({kind:'nonteaching',start:'2026-09-07',end:'2026-09-07',source_id:'holiday'});t.sources.push({id:'holiday',type:'subscription'});
  assert.equal(C.entriesForDay(t,'2026-09-07').filter(e=>e.kind==='course').length,2);
 });
+test('empty calendars have no synthetic source and migrated records identify their origin',()=>{
+ assert.equal(C.localSource({calendar:[],timetable:[],events:[]},'calendar'),null);
+ const t={calendar:[{kind:'teaching',calendar_group:'university|2|1'},{kind:'exam',calendar_group:'university|2|1'}]};
+ assert.equal(C.localSource(t,'calendar').name,'旧版校历');
+ assert.equal(C.localSource(t,'exam').name,'旧版考试安排');
+ assert.match(C.localSource(t,'calendar').origin,/旧版学业安排/);
+ assert.equal(C.localSource({calendar:[{kind:'teaching',source_id:'imported'}]},'calendar'),null);
+});
+test('deleting a source removes only its linked draft records and leaves cancellation possible',()=>{
+ const baseline={sources:[{id:'a'},{id:'b'}],calendar:[{source_id:'a',kind:'teaching'},{kind:'break'}],timetable:[{source_id:'a'},{source_id:'b'}],events:[{source_id:'a'},{source_id:'b'},{id:'manual'}],references:[{id:'original'}]};
+ const draft=structuredClone(baseline);C.removeCalendarSource(draft,'a');
+ assert.deepEqual(draft.sources,[{id:'b'}]);assert.deepEqual(draft.calendar,[{kind:'break'}]);assert.deepEqual(draft.timetable,[{source_id:'b'}]);assert.deepEqual(draft.events,[{source_id:'b'},{id:'manual'}]);
+ assert.equal(baseline.calendar.length,2);assert.equal(baseline.events.length,3);assert.deepEqual(draft.references,baseline.references);
+ const after=JSON.stringify(draft);C.removeCalendarSource(draft,'missing');assert.equal(JSON.stringify(draft),after);
+});
+test('removing legacy calendar records does not remove another source or the separate exam group',()=>{
+ const t={calendar:[{kind:'teaching',calendar_group:'old'},{kind:'exam',calendar_group:'old'},{kind:'teaching',source_id:'imported'}],timetable:[{course:'Math'}],events:[{id:'test'}],sources:[{id:'imported'}]};
+ C.removeCalendarSource(t,'calendar',false);assert.equal(C.localSource(t,'calendar'),null);assert.equal(t.calendar.length,2);assert.equal(t.timetable.length,1);assert.equal(t.events.length,1);assert.equal(t.sources.length,1);
+ C.removeCalendarSource(t,'exam',false);assert.equal(t.calendar.length,1);assert.equal(t.events.length,0);assert.equal(t.calendar[0].source_id,'imported');
+});
