@@ -7,7 +7,9 @@
  const palette=['#808080','#548568','#527eac','#8070a0','#b16c79','#a07848','#b47c4c','#555555'];
  const validColor=v=>/^#[0-9a-f]{6}$/i.test(v||'');
  const categoryOf=(source,kind)=>source==='events'||kind==='exam'?'exam':source;
- function colorFor(t,source,row){const key=categoryOf(source,row.kind);return validColor(row.color)?row.color:validColor(t.colors?.[key])?t.colors[key]:defaultColors[key]||defaultColors.calendar;}
+ const sourceOf=(t,row)=>(t.sources||[]).find(s=>s.id===row.source_id);
+ const shown=(t,row,category)=>row.source_id?sourceOf(t,row)?.visible!==false:t.visible?.[category]!==false;
+ function colorFor(t,source,row){const key=categoryOf(source,row.kind),group=sourceOf(t,row);return validColor(row.color)?row.color:group?(group.color||t.colors?.[group.kind]||defaultColors[group.kind]):validColor(t.colors?.[key])?t.colors[key]:defaultColors[key]||defaultColors.calendar;}
  function colorStyle(color){if(!validColor(color))color=defaultColors.calendar;const ink='#'+[1,3,5].map(i=>Math.round(parseInt(color.slice(i,i+2),16)*.56).toString(16).padStart(2,'0')).join('');return `--event-color:${color};--event-bg:${color}18;--event-ink:${ink};`;}
  function colorPicker(value,attributes,automatic=false){return `<div class="calendar-color-picker">${automatic?`<button type="button" class="color-auto ${!value?'selected':''}" ${attributes} data-color="" aria-pressed="${!value}">跟随分类</button>`:''}<div class="calendar-color-swatches">${palette.map(c=>`<button type="button" class="calendar-swatch ${value===c?'selected':''}" style="--swatch:${c}" ${attributes} data-color="${c}" aria-label="颜色 ${c}" aria-pressed="${value===c}"></button>`).join('')}<label class="calendar-custom-color" title="自选颜色"><input type="color" value="${validColor(value)?value:'#808080'}" ${attributes} aria-label="自选颜色"><span>＋</span></label></div></div>`;}
  const dayNames=['周一','周二','周三','周四','周五','周六','周日'];
@@ -30,16 +32,16 @@
   return (t.calendar||[]).filter(r=>r.kind==='teaching').map(r=>r.start).sort()[0]||(t.events||[]).map(r=>r.date).sort()[0]||today;
  }
  function entriesForDay(t,day,genericWeek=null){
-  const off=(t.calendar||[]).some(r=>['break','nonteaching'].includes(r.kind)&&r.start<=day&&r.end>=day);
+  const off=(t.calendar||[]).some(r=>['break','nonteaching'].includes(r.kind)&&sourceOf(t,r)?.type!=='subscription'&&r.start<=day&&r.end>=day);
   const w=genericWeek===null?(off?null:weekAt(t,day)):genericWeek,result=[];
   (t.timetable||[]).forEach((r,i)=>{
    const ownGroup=r.calendar_group||'',ownRanges=(t.calendar||[]).some(c=>c.kind==='teaching'&&(c.calendar_group||'')===ownGroup);
    const mapped=ownRanges?weekAt(t,day,ownGroup):w;
-   if(t.visible?.timetable===false||off||r.weekday!==weekday(day)+1||mapped===null||r.weeks.length&&!r.weeks.includes(mapped))return;
+   if(!shown(t,r,'timetable')||off||r.weekday!==weekday(day)+1||mapped===null||r.weeks.length&&!r.weeks.includes(mapped))return;
    result.push({key:'timetable:'+i,title:r.course,subtitle:[r.class_type,r.location].filter(Boolean).join(' · '),time:r.time,range:clockRange(r.time),kind:'course',color:colorFor(t,'timetable',r)});
   });
-  (t.calendar||[]).forEach((r,i)=>{if(r.kind!=='teaching'&&t.visible?.[r.kind==='exam'?'exam':'calendar']!==false&&r.start<=day&&r.end>=day)result.push({key:'calendar:'+i,title:r.label||({break:'假期',exam:'考试',nonteaching:'其他安排'})[r.kind],subtitle:'',time:'',range:null,kind:r.kind,color:colorFor(t,'calendar',r)});});
-  (t.events||[]).forEach((r,i)=>{if(t.visible?.exam!==false&&r.date===day)result.push({key:'events:'+i,title:r.title,subtitle:r.location,time:r.start?`${r.start}–${r.end}`:'',range:r.start?clockRange(`${r.start}–${r.end}`):null,kind:r.kind,color:colorFor(t,'events',r)});});
+  (t.calendar||[]).forEach((r,i)=>{if(r.kind!=='teaching'&&shown(t,r,r.kind==='exam'?'exam':'calendar')&&r.start<=day&&r.end>=day)result.push({key:'calendar:'+i,title:r.label||({break:'假期',exam:'考试',nonteaching:'其他安排'})[r.kind],subtitle:'',time:'',range:null,kind:r.kind,color:colorFor(t,'calendar',r)});});
+  (t.events||[]).forEach((r,i)=>{if(shown(t,r,'exam')&&r.date===day)result.push({key:'events:'+i,title:r.title,subtitle:r.location,time:r.start?`${r.start}–${r.end}`:'',range:r.start?clockRange(`${r.start}–${r.end}`):null,kind:r.kind,color:colorFor(t,'events',r)});});
   return result;
  }
  function timedLayout(entries){
@@ -49,18 +51,18 @@
   for(const row of sorted){if(row.range.start>=until){flush();until=-1;}let col=ends.findIndex(end=>end<=row.range.start);if(col<0)col=ends.length;ends[col]=row.range.end;row.column=col;cluster.push(row);until=Math.max(until,row.range.end);}
   flush();return sorted;
  }
- function tabsMarkup(mode){return `<div class="calendar-view-switch" aria-label="日历视图">${[['day','日'],['week','周'],['month','月']].map(([key,label])=>`<button type="button" data-calendar-action="view" data-view="${key}" aria-pressed="${mode===key}" class="${mode===key?'selected':''}">${label}</button>`).join('')}</div>`;}
+ function tabsMarkup(mode){return `<div class="calendar-view-switch" aria-label="日历视图">${[['day','日'],['week','周'],['month','月'],['year','年']].map(([key,label])=>`<button type="button" data-calendar-action="view" data-view="${key}" aria-pressed="${mode===key}" class="${mode===key?'selected':''}">${label}</button>`).join('')}</div>`;}
  if(typeof module!=='undefined'&&module.exports){module.exports={addDays,weekday,monday,monthDays,moveMonth,weekAt,clockRange,firstDate,entriesForDay,timedLayout,periodLanes,colorFor,colorStyle};return;}
  const manager=()=>root.StudySchedule?.manager(),term=manager;
  const redraw=()=>root.StudySchedule?.paint();
  function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
  function view(M=manager()){
   const t=M;
-  return M.calendarView||={cursor:firstDate(t,today()),mode:'week',week:[...new Set((t.timetable||[]).flatMap(r=>r.weeks))].sort((a,b)=>a-b)[0]||1,editor:null,error:''};
+  return M.calendarView||={cursor:firstDate(t,today()),mode:'month',week:[...new Set((t.timetable||[]).flatMap(r=>r.weeks))].sort((a,b)=>a-b)[0]||1,editor:null,error:''};
  }
  const button=(r,layout='')=>`<button type="button" class="calendar-entry ${r.kind==='exam'?'is-exam':''} ${r.range&&r.range.end-r.range.start<45?'is-short':''}" data-calendar-action="edit" data-entry="${esc(r.key)}" title="${esc([r.title,r.time,r.subtitle].filter(Boolean).join(' · '))}" style="${colorStyle(r.color)}${layout}"><strong>${esc(r.title)}</strong>${r.time?`<span>${esc(r.time)}</span>`:''}${r.subtitle?`<small>${esc(r.subtitle)}</small>`:''}</button>`;
  function periodLanes(t,days){
-  const rows=(t.calendar||[]).map((r,i)=>({...r,key:'calendar:'+i,color:colorFor(t,'calendar',r)})).filter(r=>t.visible?.[r.kind==='exam'?'exam':'calendar']!==false&&r.start<=days[days.length-1]&&r.end>=days[0]);
+  const rows=(t.calendar||[]).map((r,i)=>({...r,key:'calendar:'+i,color:colorFor(t,'calendar',r)})).filter(r=>shown(t,r,r.kind==='exam'?'exam':'calendar')&&r.start<=days[days.length-1]&&r.end>=days[0]);
   const lanes=[];
   return rows.sort((a,b)=>a.start.localeCompare(b.start)||b.end.localeCompare(a.end)).map(r=>{
    const first=r.start>days[0]?r.start:days[0],last=r.end<days[days.length-1]?r.end:days[days.length-1];let lane=lanes.findIndex(end=>end<first);if(lane<0)lane=lanes.length;lanes[lane]=last;
@@ -72,9 +74,9 @@
   const dates=monthDays(s.cursor),month=s.cursor.slice(0,7);
   return `<div class="semester-month" style="--month-rows:${dates.length/7}" role="grid" aria-label="月历"><div class="month-weekdays">${dayNames.map(n=>`<span>${n}</span>`).join('')}</div>${Array.from({length:dates.length/7},(_,row)=>{
    const days=dates.slice(row*7,row*7+7),periods=periodLanes(t,days),laneCount=Math.max(0,...periods.map(r=>r.lane+1)),entryCount=Math.max(0,...days.map(day=>Math.min(3,entriesForDay(t,day).filter(r=>!r.key.startsWith('calendar:')).length)));
-   return `<div class="month-week" role="row" style="min-height:${Math.max(88,42+laneCount*28+entryCount*44)}px">${days.map(day=>{
+   return `<div class="month-week" role="row" style="min-height:${Math.max(88,42+laneCount*22+entryCount*23)}px">${days.map(day=>{
     const entries=entriesForDay(t,day).filter(r=>!r.key.startsWith('calendar:'));
-    return `<div class="calendar-day ${day.slice(0,7)!==month?'outside-month':''} ${day===today()?'is-today':''}" role="gridcell" data-calendar-day="${day}"><button type="button" class="calendar-date" data-calendar-action="day" data-date="${day}" aria-label="查看 ${day}">${Number(day.slice(8))}</button><div class="month-day-entries" style="padding-top:${laneCount*28+6}px">${entries.slice(0,3).map(r=>button(r)).join('')}${entries.length>3?`<button type="button" class="calendar-more" data-calendar-action="day" data-date="${day}">查看当日</button>`:''}</div></div>`;
+    return `<div class="calendar-day ${day.slice(0,7)!==month?'outside-month':''} ${day===today()?'is-today':''}" role="gridcell" data-calendar-day="${day}"><button type="button" class="calendar-date" data-calendar-action="day" data-date="${day}" aria-label="查看 ${day}">${Number(day.slice(8))}</button><div class="month-day-entries" style="padding-top:${laneCount*22+6}px">${entries.slice(0,3).map(r=>button({...r,time:r.time.split(/[–—-]/)[0]})).join('')}${entries.length>3?`<button type="button" class="calendar-more" data-calendar-action="day" data-date="${day}">+${entries.length-3} 个</button>`:''}</div></div>`;
    }).join('')}<div class="month-period-lanes">${periodsMarkup(periods)}</div></div>`;
   }).join('')}</div>`;
  }
@@ -99,11 +101,27 @@
   else body=field('title','名称',r.title,'text','maxlength="150" required')+`<input type="hidden" name="kind" value="${r.kind||'exam'}">${field('date','日期',r.date,'date','required')}<div class="calendar-editor-pair">${field('start','开始时间',r.start,'time')}${field('end','结束时间',r.end,'time')}</div>`+field('location','地点',r.location,'text','maxlength="120"');
   return `<aside class="calendar-event-editor" aria-label="编辑日历安排"><header><span>${e.source==='timetable'?'课程安排':e.source==='calendar'?'校历安排':'日历安排'}</span><button type="button" class="icon-button" data-calendar-action="close-editor" aria-label="关闭编辑">${icon('x')}</button></header><form id="calendar-event-form">${category}${body}<div class="calendar-editor-color"><span>颜色</span>${colorPicker(r.color||'','data-calendar-editor-color',true)}</div><p class="error-message" role="alert" ${s.error?'':'hidden'}>${esc(s.error)}</p><footer>${e.index>=0?`<button type="button" class="icon-button calendar-delete" data-calendar-action="delete" aria-label="删除这项安排" title="删除">${icon('trash-2')}</button>`:'<span></span>'}<button type="submit" class="outline-button">完成</button></footer></form></aside>`;
  }
+ function yearMarkup(t,s){
+  const year=dateOf(s.cursor).getUTCFullYear();
+  return `<div class="calendar-year" aria-label="年历">${Array.from({length:12},(_,i)=>{
+   const month=`${year}-${String(i+1).padStart(2,'0')}`,days=monthDays(month+'-01');
+   return `<section class="year-month"><button class="year-month-title" data-calendar-action="month" data-date="${month}-01">${i+1}月</button><div class="year-month-grid">${dayNames.map(n=>`<span>${n.slice(1)}</span>`).join('')}${days.map(day=>day.startsWith(month)?`<button class="${day===today()?'is-today':''} ${entriesForDay(t,day).length?'has-events':''}" data-calendar-action="day" data-date="${day}" aria-label="查看 ${day}">${Number(day.slice(8))}</button>`:'<span></span>').join('')}</div></section>`;
+  }).join('')}</div>`;
+ }
+ function sourceRow(t,id,name,color,checked,source=false){
+  const attr=source?`data-calendar-source="${esc(id)}"`:`data-calendar-filter="${id}"`;
+  const colors=source?`data-calendar-source-color="${esc(id)}"`:`data-calendar-category-color="${id}"`;
+  const item=(t.sources||[]).find(s=>s.id===id);
+  return `<div class="calendar-source-row"><label style="--swatch:${color}"><input type="checkbox" ${attr} ${checked?'checked':''}><span title="${esc(name)}">${esc(name)}</span></label><details class="calendar-color-menu"><summary aria-label="设置${esc(name)}" title="日历设置">${icon('ellipsis')}</summary><div>${source?`<label class="source-name-field">名称<input data-source-name="${esc(id)}" value="${esc(name)}" maxlength="150"></label>`:''}<span class="source-setting-label">日历颜色</span>${colorPicker(color,colors)}${item?.type==='subscription'?`<button class="source-refresh" data-reference-action="refresh-subscription" data-source-id="${esc(id)}">${icon('refresh-cw')}刷新订阅</button><small>刷新后核对并保存</small>`:''}</div></details></div>`;
+ }
+ function sidebarMarkup(t){
+  return `<aside class="calendar-sidebar" aria-label="日历列表"><div class="calendar-sidebar-heading">我的日历</div>${[['calendar','校历'],['timetable','课表'],['exam','考试信息']].map(([key,name])=>sourceRow(t,key,name,colorFor(t,key==='exam'?'events':key,{}),t.visible?.[key]!==false)).join('')}${t.sources?.length?`<div class="calendar-sidebar-heading imported-heading">导入与订阅</div>${t.sources.map(r=>sourceRow(t,r.id,r.name,r.color||defaultColors[r.kind]||defaultColors.timetable,r.visible!==false,true)).join('')}`:''}</aside>`;
+ }
  function markup(M,t,kind,{tools='',importPanel='',message=''}={}){
-  const s=view(M),generic=s.mode!=='month'&&!!t.timetable?.length&&!(t.calendar||[]).some(r=>r.kind==='teaching')&&!(t.events||[]).length,date=dateOf(s.cursor),allWeeks=[...new Set([...(t.calendar||[]).filter(r=>r.week).map(r=>r.week),...(t.timetable||[]).flatMap(r=>r.weeks)])].sort((a,b)=>a-b);
-  const title=generic?'每周课表':`${date.getUTCFullYear()}年 <strong>${date.getUTCMonth()+1}月${s.mode==='day'?date.getUTCDate()+'日':''}</strong>`;
-  const filters=[['calendar','校历'],['timetable','课表'],['exam','考试信息']].map(([key,name])=>{const color=colorFor(t,key==='exam'?'events':key,{});return `<div class="calendar-filter"><label><input type="checkbox" data-calendar-filter="${key}" ${M.visible?.[key]!==false?'checked':''}>${name}</label><details class="calendar-color-menu"><summary aria-label="设置${name}颜色" title="设置${name}颜色" style="--swatch:${color}"></summary><div>${colorPicker(color,`data-calendar-category-color="${key}"`)}</div></details></div>`;}).join('');
-  return `<section class="academic-calendar" aria-label="学习日历"><header class="calendar-toolbar"><div class="calendar-period">${title}${generic?`<select aria-label="查看教学周" data-calendar-week>${(allWeeks.length?allWeeks:[1]).map(w=>`<option value="${w}" ${s.week===w?'selected':''}>Week ${w}</option>`).join('')}</select>`:''}</div>${tabsMarkup(s.mode)}<div class="calendar-toolbar-actions">${tools}</div></header><div class="calendar-navigation-row"><div class="calendar-category-filters" aria-label="显示日历内容">${filters}</div><div class="calendar-date-nav"><button type="button" class="icon-button" data-calendar-action="previous" aria-label="上一${s.mode==='month'?'月':s.mode==='day'?'天':'周'}" ${generic&&s.mode!=='day'?'disabled':''}>${icon('chevron-left')}</button><button type="button" data-calendar-action="today" ${generic?'disabled':''}>今天</button><button type="button" class="icon-button" data-calendar-action="next" aria-label="下一${s.mode==='month'?'月':s.mode==='day'?'天':'周'}" ${generic&&s.mode!=='day'?'disabled':''}>${icon('chevron-right')}</button></div></div>${importPanel}${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${s.mode==='month'?monthMarkup(t,s):weekMarkup(t,s)}</div>${editorMarkup(t,s)}</div></section>`;
+  const s=view(M),generic=['day','week'].includes(s.mode)&&!!t.timetable?.length&&!(t.calendar||[]).some(r=>r.kind==='teaching')&&!(t.events||[]).length,date=dateOf(s.cursor),allWeeks=[...new Set((t.timetable||[]).flatMap(r=>r.weeks))].sort((a,b)=>a-b);
+  const title=generic?'每周课表':`${date.getUTCFullYear()}年${s.mode==='year'?'':`${date.getUTCMonth()+1}月${s.mode==='day'?date.getUTCDate()+'日':''}`}`;
+  const unit={day:'天',week:'周',month:'月',year:'年'}[s.mode];
+  return `<section class="academic-calendar" aria-label="学习日历"><header class="calendar-toolbar"><div class="calendar-toolbar-leading"><button type="button" class="icon-button" data-calendar-action="sidebar" aria-label="日历列表" title="显示或隐藏日历列表" aria-pressed="${s.sidebar!==false}">${icon('panel-left')}</button>${tools}</div>${tabsMarkup(s.mode)}<span></span></header><div class="calendar-body"><div class="calendar-main"><div class="calendar-navigation-row"><div class="calendar-period">${title}${generic?`<select aria-label="查看教学周" data-calendar-week>${(allWeeks.length?allWeeks:[1]).map(w=>`<option value="${w}" ${s.week===w?'selected':''}>Week ${w}</option>`).join('')}</select>`:''}</div><div class="calendar-date-nav"><button type="button" class="icon-button" data-calendar-action="previous" aria-label="上一${unit}">${icon('chevron-left')}</button><button type="button" data-calendar-action="today">今天</button><button type="button" class="icon-button" data-calendar-action="next" aria-label="下一${unit}">${icon('chevron-right')}</button></div></div>${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${s.mode==='year'?yearMarkup(t,s):s.mode==='month'?monthMarkup(t,s):weekMarkup(t,s)}</div>${editorMarkup(t,s)}</div></div></div>${importPanel}</section>`;
  }
  function open(source,index,draft,original=null){const s=view();if(s.editor?.dirty){s.error='请先完成或取消当前编辑。';redraw();return;}s.error='';s.editor={source,index,draft:structuredClone(draft),dirty:false,original};redraw();document.querySelector('#calendar-event-form input')?.focus();}
  function applyEditor(form){
@@ -123,6 +141,7 @@
    row={id:e.draft.id||crypto.randomUUID(),title:d.title.trim(),kind:d.kind,date:d.date,start:d.start,end:d.end,location:d.location.trim()};
   }
   if(validColor(d.color||e.draft.color))row.color=d.color||e.draft.color;
+  if(e.draft.source_id)row.source_id=e.draft.source_id;
   if(e.original)t[e.original.source].splice(e.original.index,1);
   if(e.index>=0&&e.source!=='events'&&t[e.source][e.index]?.calendar_group)row.calendar_group=t[e.source][e.index].calendar_group;
   t[e.source]||=[];if(e.index<0)t[e.source].push(row);else t[e.source][e.index]=row;
@@ -131,10 +150,10 @@
  }
  let dragStart=null,suppressClickUntil=0;
  function newDate(day){open('events',-1,{id:'',title:'',date:day,kind:'exam',start:'',end:'',location:''});}
- root.AcademicCalendar={markup,pending:M=>!!M?.calendarView?.editor,reset(M){delete M.calendarView;}};
- function setColor(node,value){if(!manager()||manager().saving||root.AcademicReferences.busy(manager())||value&&!validColor(value))return;if(node.hasAttribute('data-calendar-category-color')){manager().colors||={};manager().colors[node.dataset.calendarCategoryColor]=value;redraw();}else if(node.hasAttribute('data-calendar-editor-color')&&view().editor){view().editor.draft.color=value;view().editor.dirty=true;redraw();}}
- document.addEventListener('click',event=>{const node=event.target.closest('button[data-color]');if(!node||!node.closest('.academic-calendar'))return;event.preventDefault();setColor(node,node.dataset.color);},true);
- document.addEventListener('change',event=>{if(event.target.type==='color')setColor(event.target,event.target.value);});
+ root.AcademicCalendar={markup,sidebar:()=>manager()&&view().sidebar!==false?sidebarMarkup(manager()):'',pending:M=>!!M?.calendarView?.editor,reset(M){delete M.calendarView;}};
+ function setColor(node,value){if(!manager()||manager().saving||root.AcademicReferences.busy(manager())||value&&!validColor(value))return;if(node.hasAttribute('data-calendar-source-color')){const source=sourceOf(manager(),{source_id:node.dataset.calendarSourceColor});if(source)source.color=value;redraw();}else if(node.hasAttribute('data-calendar-category-color')){manager().colors||={};manager().colors[node.dataset.calendarCategoryColor]=value;redraw();}else if(node.hasAttribute('data-calendar-editor-color')&&view().editor){view().editor.draft.color=value;view().editor.dirty=true;redraw();}}
+ document.addEventListener('click',event=>{const node=event.target.closest('button[data-color]');if(!node||!node.closest('.study-settings-shell'))return;event.preventDefault();setColor(node,node.dataset.color);},true);
+ document.addEventListener('change',event=>{if(event.target.type==='color')setColor(event.target,event.target.value);if(event.target.hasAttribute('data-calendar-source')){const source=sourceOf(manager(),{source_id:event.target.dataset.calendarSource});if(source)source.visible=event.target.checked;redraw();}if(event.target.hasAttribute('data-source-name')){const source=sourceOf(manager(),{source_id:event.target.dataset.sourceName});if(source)source.name=event.target.value.trim()||source.name;redraw();}});
  document.addEventListener('click',event=>{
   if(!manager()||!term())return;if(event.timeStamp<suppressClickUntil){event.preventDefault();return;}const node=event.target.closest('[data-calendar-action]');
   if(node){
@@ -143,8 +162,10 @@
    if(s.editor?.dirty&&!['close-editor','delete'].includes(action)){s.error='请先完成或取消当前编辑。';redraw();return;}
 
    if(action==='new'){node.closest('.settings-action-menu')?.removeAttribute('open');open('timetable',-1,{course:'',class_type:'',weekday:weekday(s.cursor)+1,time:'09:00–10:00',weeks:[],location:''});}
+   else if(action==='sidebar'){s.sidebar=s.sidebar===false;redraw();}
+   else if(action==='month'){s.cursor=node.dataset.date;s.mode='month';redraw();}
    else if(action==='view'){s.mode=node.dataset.view;redraw();}
-   else if(action==='previous'||action==='next'){s.cursor=s.mode==='month'?moveMonth(s.cursor,action==='next'?1:-1):addDays(s.cursor,(action==='next'?1:-1)*(s.mode==='day'?1:7));redraw();}
+   else if(action==='previous'||action==='next'){s.cursor=['month','year'].includes(s.mode)?moveMonth(s.cursor,(action==='next'?1:-1)*(s.mode==='year'?12:1)):addDays(s.cursor,(action==='next'?1:-1)*(s.mode==='day'?1:7));redraw();}
    else if(action==='today'){s.cursor=today();redraw();}
    else if(action==='new-date')newDate(node.dataset.date);
    else if(action==='day'){s.cursor=node.dataset.date;s.mode='day';redraw();}

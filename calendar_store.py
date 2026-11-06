@@ -3,6 +3,7 @@ import copy
 import json
 import re
 import academic_import
+import calendar_subscription
 
 FIELDS={'calendar':academic_import.calendar_rows,'timetable':academic_import.timetable_rows,'events':academic_import.event_rows,'references':academic_import.references}
 
@@ -24,8 +25,8 @@ class Calendar:
                     if not isinstance(row,dict):raise ValueError('日历安排格式有误。')
                     group=row.get('calendar_group','')
                     if not isinstance(group,str) or not re.fullmatch(r'[a-zA-Z0-9_|-]{0,100}',group):raise ValueError('日历来源标识无效。')
-                    groups.setdefault(group,[]).append(row)
-                clean[field]=[{**r,**({'calendar_group':group} if group else {})} for group,rows in groups.items() for r in validator(rows)]
+                    groups.setdefault((group,row.get('source_id','')),[]).append(row)
+                clean[field]=[{**r,**({'calendar_group':group} if group else {})} for (group,source),rows in groups.items() for chunk in ([rows] if field=='timetable' or len(rows)<=180 else [rows[i:i+180] for i in range(0,len(rows),180)]) for r in validator(chunk)]
         except ValueError as error:self.fail(str(error))
         colors=data.get('colors',{})
         if not isinstance(colors,dict):self.fail('日历颜色格式无效。')
@@ -33,6 +34,21 @@ class Calendar:
         for key,value in colors.items():
             if key not in ('calendar','timetable','exam') or not isinstance(value,str) or not re.fullmatch(r'#[0-9a-fA-F]{6}',value):self.fail('请选择有效的日历颜色。')
             clean['colors'][key]=value.lower()
+        sources=data.get('sources',[])
+        if not isinstance(sources,list) or len(sources)>100:self.fail('最多支持 100 个日历来源。')
+        clean['sources']=[];ids=set()
+        for row in sources:
+            if not isinstance(row,dict):self.fail('日历来源格式无效。')
+            key=row.get('id');name=row.get('name');kind=row.get('kind');source_type=row.get('type')
+            if not isinstance(key,str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}',key) or key in ids or not isinstance(name,str) or not name.strip() or len(name)>150 or kind not in academic_import.KINDS or source_type not in ('import','subscription'):self.fail('日历来源格式无效。')
+            item={'id':key,'name':name.strip(),'kind':kind,'type':source_type,'visible':row.get('visible') is not False}
+            try:
+                item.update(academic_import.row_color({'color':row.get('color','')}))
+                if source_type=='subscription':item['url']=calendar_subscription.subscription_url(row.get('url'))
+            except ValueError as error:self.fail(str(error))
+            if isinstance(row.get('updated_at'),str):item['updated_at']=row['updated_at'][:40]
+            clean['sources'].append(item);ids.add(key)
+        if any(row.get('source_id') and row['source_id'] not in ids for key in ('calendar','timetable','events') for row in clean[key]):self.fail('安排对应的日历来源缺失。')
         return clean
     def document(self):
         if self.path.exists():

@@ -38,7 +38,7 @@
  }
  function page(){
   if(!V.data||!V.draft)return '';
-  return `<section class="study-settings-shell">${navigationMarkup(V.mode,'',V.data.templates,V.selected,V.draft.name,icon)}<div class="template-page study-settings-content ${V.mode==='calendar'?'calendar-settings-content':''}">${V.mode==='calendar'?root.StudySchedule.markup():promptPage()}</div></section>`;
+  return `<section class="study-settings-shell">${navigationMarkup(V.mode,'',V.data.templates,V.selected,V.draft.name,icon).replace('</aside>',`${V.mode==='calendar'?root.AcademicCalendar.sidebar():''}</aside>`)}<div class="template-page study-settings-content ${V.mode==='calendar'?'calendar-settings-content':''}">${V.mode==='calendar'?root.StudySchedule.markup():promptPage()}</div></section>`;
  }
  function paint(){
   const input=document.activeElement?.closest('[data-template-field]');const field=input?.dataset.templateField,start=input?.selectionStart,end=input?.selectionEnd;

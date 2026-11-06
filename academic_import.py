@@ -33,10 +33,15 @@ def text(value, limit=150):
 
 def row_color(row):
     value=row.get('color','')
-    if not value:return {}
+    meta={}
+    if row.get('source_id'):
+        source=row['source_id']
+        if not isinstance(source,str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}',source):raise ValueError('日历来源无效。')
+        meta['source_id']=source
+    if not value:return meta
     if not isinstance(value,str) or not re.fullmatch(r'#[0-9a-fA-F]{6}',value):
         raise ValueError('请选择有效的日历颜色。')
-    return {'color':value.lower()}
+    return {**meta,'color':value.lower()}
 
 
 def calendar_rows(values):
@@ -91,7 +96,7 @@ def timetable_rows(values):
 
 
 def event_rows(values):
-    if not isinstance(values,list) or len(values)>500:raise ValueError('学期安排最多支持 500 项。')
+    if not isinstance(values,list) or len(values)>5000:raise ValueError('日历安排最多支持 5000 项。')
     rows=[];ids=set()
     for row in values:
         if not isinstance(row,dict):raise ValueError('日历安排格式有误。')

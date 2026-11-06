@@ -2,7 +2,7 @@
 (function(root){
  'use strict';
  let M=null;
- const snapshot=doc=>JSON.stringify(Object.fromEntries(['calendar','timetable','events','references','colors'].map(k=>[k,doc[k]||(k==='colors'?{}:[])])));
+ const snapshot=doc=>JSON.stringify(Object.fromEntries(['calendar','timetable','events','references','sources','colors'].map(k=>[k,doc[k]||(k==='colors'?{}:[])])));
  async function prepare(){const owner=S.user?.id,doc=await api('/api/calendar');if(owner!==S.user?.id)return;M={...structuredClone(doc),owner,saving:false,referenceFiles:[],visible:{calendar:true,timetable:true,exam:true}};M.baseline=snapshot(M);}
  function changed(){return !!M&&(snapshot(M)!==M.baseline||M.referenceFiles.length);}
  function dirty(){return changed()||!!M&&root.AcademicReferences.pending(M);}
@@ -17,7 +17,7 @@
   const node=event.target.closest('[data-schedule-action]');if(!node||!M||busy())return;event.preventDefault();event.stopImmediatePropagation();
   if(node.dataset.scheduleAction==='cancel'){await prepare();paint();return;}
   const owner=M.owner;
-  try{root.AcademicReferences.validate(M);M.saving=true;M.error='';paint();const doc=await api('/api/calendar',{...Object.fromEntries(['calendar','timetable','events','references','colors','etag'].map(k=>[k,M[k]])),reference_files:M.referenceFiles});if(owner!==S.user?.id)return;Object.assign(M,doc,{referenceFiles:[]});M.baseline=snapshot(M);if(M.importUI)M.importUI.notice='';toast('已保存');}
+  try{root.AcademicReferences.validate(M);M.saving=true;M.error='';paint();const doc=await api('/api/calendar',{...Object.fromEntries(['calendar','timetable','events','references','sources','colors','etag'].map(k=>[k,M[k]])),reference_files:M.referenceFiles});if(owner!==S.user?.id)return;Object.assign(M,doc,{referenceFiles:[]});M.baseline=snapshot(M);if(M.importUI)M.importUI.notice='';toast('已保存');}
   catch(error){reportError(error.message);}finally{if(owner===S.user?.id){M.saving=false;paint();}}
  },true);
  document.addEventListener('change',event=>{const key=event.target.dataset.calendarFilter;if(M&&key){M.visible[key]=event.target.checked;paint();}});

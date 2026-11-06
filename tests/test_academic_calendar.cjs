@@ -27,3 +27,12 @@ test('day view clips multiday spans to its one visible day',()=>{
  const rows=periodLanes({calendar:[{kind:'teaching',week:8,start:'2026-11-02',end:'2026-11-08'}]},['2026-11-06']);
  assert.equal(rows.length,1);assert.equal(rows[0].left,0);assert.equal(rows[0].span,1);
 });
+test('sources independently control visibility and color without losing week mappings',()=>{
+ const t={...structuredClone(term),sources:[{id:'a',visible:false,color:'#527eac'},{id:'b',visible:true,color:'#548568'}]};
+ t.timetable[0].source_id='a';t.timetable[1].source_id='b';
+ assert.equal(C.entriesForDay(t,'2026-09-07').length,2);
+ assert.equal(C.colorFor(t,'timetable',t.timetable[0]),'#527eac');
+ t.sources[0].visible=true;assert.equal(C.entriesForDay(t,'2026-09-07').length,3);
+ t.calendar.push({kind:'nonteaching',start:'2026-09-07',end:'2026-09-07',source_id:'holiday'});t.sources.push({id:'holiday',type:'subscription'});
+ assert.equal(C.entriesForDay(t,'2026-09-07').filter(e=>e.kind==='course').length,2);
+});

@@ -9,6 +9,7 @@ import learning_templates
 import academic_import
 import study_settings
 import calendar_store
+import calendar_subscription
 import academic_organization
 import file_operations
 import base64
@@ -1034,6 +1035,7 @@ def route_post(path, data):
     if path == '/api/context/upload':return upload_background(data)
     if path == '/api/academic-settings':return academic_store().save(data)
     if path == '/api/calendar':return calendar_store.Calendar(globals()).save(data)
+    if path == '/api/calendar/subscribe':return calendar_subscription.subscribe(globals(),data)
     if path == '/api/calendar/import':return academic_import.Importer(globals()).recognize(data)
     if path == '/api/context/academic':
         c=get_course(valid_id(data.get('course_id')));academic=academic_from_data(data)
