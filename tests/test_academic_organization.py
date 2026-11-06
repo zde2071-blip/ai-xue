@@ -73,22 +73,3 @@ class AcademicOrganizationTest(unittest.TestCase):
         for removed in (None,['university|0|1'],['unknown|2|1'],['university|02|1'],[{}]):
             with self.subTest(removed=removed),self.assertRaises(app.Problem):self.save(removed_terms=removed)
         self.assertEqual(app.academic_store().path.read_bytes(),before)
-
-    def test_ai_semester_proposals_need_evidence_and_do_not_write_or_move_assigned_courses(self):
-        from unittest.mock import patch
-        self.save(terms=[self.term()],assignments={'数学':'university|2|1'})
-        before=app.academic_store().path.read_bytes()
-        text='大学 Year 3 Semester 2；数学属于此学期；编程属于此学期。'
-        answer={'terms':[{'stage':'university','year':3,'semester':2,'source':'输入','evidence':'大学 Year 3 Semester 2'},{'stage':'university','year':4,'semester':1,'source':'输入','evidence':'原文没有这句话'}],'assignments':[{'course':'数学','term_key':'university|3|2','source':'输入','evidence':'数学属于此学期'},{'course':'编程','term_key':'university|3|2','source':'输入','evidence':'编程属于此学期'}],'reply':'识别到了学期。'}
-        with patch.object(app,'ask',return_value=answer):result=app.route_post('/api/academic-settings/assist',{'request':text,'current':{'course_names':['数学','编程']}})
-        self.assertEqual([t['key'] for t in result['terms']],['university|3|2'])
-        self.assertEqual(result['assignments'],[{'course':'编程','term_key':'university|3|2'}])
-        self.assertEqual(app.academic_store().path.read_bytes(),before)
-
-    def test_ai_semester_invalid_requests_leave_the_store_untouched(self):
-        from unittest.mock import patch
-        for data in ({},{'request':'x','attachments':[{'filename':'a.exe','file':''}]},{'request':'x','current':{'course_names':[{}]}},{'request':'x','history':[{'role':'system','content':'bad'}]}):
-            with self.subTest(data=data),self.assertRaises(app.Problem):app.academic_store().assist(data)
-        answer={'terms':[{'stage':'university','year':2,'semester':1,'source':{},'evidence':'大学'}],'assignments':[]}
-        with patch.object(app,'ask',return_value=answer):result=app.academic_store().assist({'request':'大学'})
-        self.assertEqual(result['terms'],[]);self.assertFalse(app.VAULT.exists())

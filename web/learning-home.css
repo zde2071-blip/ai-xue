@@ -38,3 +38,5 @@
 .learning-home.is-empty .learning-import h1{font-size:22px;font-weight:550;line-height:30px;margin:0 0 8px;color:#30373b}
 @media(max-width:700px){.learning-home .learning-home-toolbar{width:calc(100% - 32px);min-height:56px;gap:16px;padding:10px 0}.learning-home-content{width:calc(100% - 32px);margin-top:12px}.learning-import{padding:16px;gap:16px}.learning-history-search{width:176px}.learning-record{gap:8px}.learning-record-title small{gap:10px}.learning-recents{margin-top:24px}.learning-home.is-empty .learning-home-content{width:calc(100% - 32px)}.learning-home.is-empty .learning-import{padding:28px 20px}}
 @media(max-width:420px){.learning-import{gap:10px;padding:14px 12px}.learning-home.has-learning .learning-import h1{font-size:14px}.learning-import p,.learning-import p .text-button{font-size:11px}.learning-import .learning-choose{font-size:11px;padding:7px 10px}.learning-record-course{max-width:48%}.learning-record-title small{gap:8px}.learning-home.is-empty .learning-import{flex-direction:column;align-items:flex-start;gap:20px}}
+
+.learning-home-toolbar>.learning-history-search{margin-left:auto}

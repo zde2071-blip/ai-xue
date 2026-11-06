@@ -128,28 +128,4 @@
 .academic-switcher-menu footer{border-top:1px solid #eceeef;margin-top:8px;padding-top:8px;flex-shrink:0}
 .academic-switcher-menu footer button{justify-content:flex-start}
 .academic-switcher-menu :is(button,summary):focus-visible{outline:2px solid #70777c;outline-offset:-2px}
-#modal.academic-management-dialog{width:min(740px,calc(100vw - 32px));max-height:88vh}
-.academic-management-dialog .modal-head{padding:22px 24px 18px}
-.academic-management-dialog .modal-head h2{font-size:17px}
-.academic-management-dialog .modal-body{padding:0 24px 22px}
-.academic-management{display:grid;grid-template-columns:170px minmax(0,1fr);min-height:310px;border-top:1px solid #e9ebed}
-.academic-management>nav{display:flex;flex-direction:column;align-items:stretch;gap:3px;padding:17px 14px 16px 0;border-right:1px solid #eceeef;max-height:440px;overflow:auto}
-.academic-management>nav button{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-height:42px;padding:10px;border-radius:5px;text-align:left;color:#626b70}
-.academic-management>nav button strong{font-size:12px;font-weight:500;overflow-wrap:anywhere}
-.academic-management>nav button small{font-size:10px;color:#90989d}
-.academic-management>nav button.selected,.academic-management>nav button:hover{background:#f0f1f2;color:#252c30}
-.academic-management>nav button.academic-add-term{flex-direction:row;align-items:center;gap:7px;font-size:12px;margin-top:7px}
-.academic-add-term svg{width:14px;height:14px}
-.academic-term-editor{min-width:0;padding:22px 0 0 24px;max-height:440px;overflow:auto}
-#academic-management-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 12px}
-#academic-management-form>label{display:flex;flex-direction:column;gap:8px;min-width:0;font-size:11px;color:#7d8589}
-#academic-management-form .academic-wide{grid-column:1/-1}
-#academic-management-form input,#academic-management-form select{min-width:0;width:100%;padding:9px 8px;border:1px solid #e1e4e6;border-radius:5px;background:#fff;font-size:12px;color:#353d42}
-.academic-term-courses{margin-top:24px;border-top:1px solid #eceeef;padding-top:17px}
-.academic-term-courses h3{font-size:11px;font-weight:500;color:#7d8589;margin:0 0 10px}
-.academic-term-courses>label{display:flex;align-items:center;gap:9px;padding:9px 0;font-size:12px;color:#505a60;cursor:pointer}
-.academic-term-courses input{accent-color:#343b3f;width:13px;height:13px;flex-shrink:0}
-.academic-term-courses>label>span{min-width:0;flex:1;overflow-wrap:anywhere}
-.academic-term-courses small{font-size:10px;color:#8b9398}
-.academic-term-courses p,.academic-no-term{font-size:12px;color:#92999e}
-@media(max-width:700px){.academic-switcher{max-width:190px;flex:1}.academic-organization{padding-left:0}.academic-management{grid-template-columns:130px minmax(0,1fr)}.academic-term-editor{padding-left:16px}#academic-management-form{grid-template-columns:1fr}#academic-management-form .academic-wide{grid-column:auto}.academic-management-dialog .modal-body{padding:0 16px 18px}}
+@media(max-width:700px){.academic-switcher{max-width:190px;flex:1}.academic-organization{padding-left:0}}

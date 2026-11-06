@@ -8,6 +8,7 @@ import learning_units
 import learning_templates
 import academic_import
 import study_settings
+import calendar_store
 import academic_organization
 import file_operations
 import base64
@@ -1032,8 +1033,8 @@ def route_post(path, data):
     if path == '/api/library/recognize':return recognize_material(data)
     if path == '/api/context/upload':return upload_background(data)
     if path == '/api/academic-settings':return academic_store().save(data)
-    if path == '/api/academic-settings/assist':return academic_store().assist(data)
-    if path == '/api/academic-settings/import':return academic_import.Importer(globals()).recognize(data)
+    if path == '/api/calendar':return calendar_store.Calendar(globals()).save(data)
+    if path == '/api/calendar/import':return academic_import.Importer(globals()).recognize(data)
     if path == '/api/context/academic':
         c=get_course(valid_id(data.get('course_id')));academic=academic_from_data(data)
         if academic:c['academic']=academic
@@ -1266,6 +1267,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(ai_state())
             if path == '/api/state':
                 return self.respond({**state(),'user':self.user})
+            if path=='/api/calendar':return self.respond(calendar_store.Calendar(globals()).document())
             if path=='/api/academic-settings':return self.respond(academic_store().document())
             reference_match=re.fullmatch(r'/api/academic-references/([a-f0-9]{64})',path)
             if reference_match:

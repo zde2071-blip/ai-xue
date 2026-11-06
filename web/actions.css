@@ -1,43 +1,32 @@
 /* Action buttons: outlined operations, filled submissions. Navigation keeps its own selection style. */
-:root{--action-height:36px;--action-border:#dce1e4;--action-ink:#384247;--action-fill:#2b3033;--action-radius:6px}
+:root{--action-height:36px;--action-border:#e0e0e0;--action-ink:#404040;--action-fill:#2f2f2f;--action-radius:6px}
 button.primary,button.outline-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:var(--action-height);padding:7px 14px;border:1px solid var(--action-border);border-radius:var(--action-radius);font-family:inherit;font-size:12px;font-weight:500;line-height:20px;white-space:nowrap;box-shadow:none}
 button.primary{background:var(--action-fill);border-color:var(--action-fill);color:#fff}
-button.primary:hover:not(:disabled){background:#41484d;border-color:#41484d}
+button.primary:hover:not(:disabled){background:#474747;border-color:#474747}
 button.outline-button{background:#fff;border-color:var(--action-border);color:var(--action-ink)}
-button.outline-button:hover:not(:disabled){background:#f5f6f6;border-color:#bdc5ca}
-button.outline-button[aria-expanded="true"]{border-color:#929da5;background:#fff;color:var(--action-ink)}
-button.primary:focus-visible,button.outline-button:focus-visible{outline:2px solid #a9b2b8;outline-offset:2px}
+button.outline-button:hover:not(:disabled){background:#f6f6f6;border-color:#c4c4c4}
+button.outline-button[aria-expanded="true"]{border-color:#9c9c9c;background:#fff;color:var(--action-ink)}
+button.primary:focus-visible,button.outline-button:focus-visible{outline:2px solid #b1b1b1;outline-offset:2px}
 button.primary:disabled,button.outline-button:disabled{opacity:.45;cursor:not-allowed}
 button.primary>svg,button.outline-button>svg{width:14px;height:14px;flex-shrink:0}
 .settings-operation-group{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-shrink:0;margin-left:auto}
 .template-tabs-row>.settings-operation-group{padding-bottom:0}
-.study-settings-content .settings-fields-bar .outline-button,.study-settings-content .template-tabs-row .outline-button{height:36px;min-height:36px;padding:7px 14px;font-size:12px;line-height:20px}
+.study-settings-content .template-tabs-row .outline-button{height:36px;min-height:36px;padding:7px 14px;font-size:12px;line-height:20px}
 .study-settings-content .template-editor-tools:has([data-template-action="undo"]){height:44px;min-height:44px;justify-content:flex-end}
 .account-settings-content .settings-add-button{min-height:36px;line-height:20px;padding:7px 14px;border:1px solid var(--action-border);border-radius:var(--action-radius);background:#fff;color:var(--action-ink);font-size:12px;gap:7px}
-.account-settings-content .settings-add-button:hover{background:#f5f6f6;border-color:#bdc5ca;color:var(--action-ink)}
+.account-settings-content .settings-add-button:hover{background:#f6f6f6;border-color:#c4c4c4;color:var(--action-ink)}
 .account-settings-content .settings-add-button>svg{width:14px;height:14px}
-.academic-settings-page .academic-management>nav .academic-add-term{border-color:var(--action-border);color:var(--action-ink);border-radius:var(--action-radius)}
-.academic-term-context-menu{position:fixed;z-index:160;min-width:180px;padding:5px;border:1px solid #dfe4e7;border-radius:6px;background:#fff;color:#424c52}
-.academic-term-context-menu>button{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;text-align:left;font-family:inherit;font-size:12px;line-height:20px;border-radius:4px;color:#424c52}
-.academic-term-context-menu>button:hover,.academic-term-context-menu>button:focus-visible{background:#f1f3f4;outline:none}
-.academic-term-context-menu>button>svg{width:15px;height:15px;flex-shrink:0}
-@media(max-width:700px){.settings-operation-group{gap:8px}.study-settings-content .template-tabs-row{flex-wrap:wrap;gap:8px}.template-tabs-row>.settings-operation-group{padding-bottom:8px}.study-settings-content .settings-fields-bar .outline-button,.study-settings-content .template-tabs-row .outline-button{padding-left:10px;padding-right:10px}}
+@media(max-width:700px){.settings-operation-group{gap:8px}.study-settings-content .template-tabs-row{flex-wrap:wrap;gap:8px}.template-tabs-row>.settings-operation-group{padding-bottom:8px}.study-settings-content .template-tabs-row .outline-button{padding-left:10px;padding-right:10px}}
 
 /* Adding and editing are different actions; each menu names its available methods. */
 .settings-action-menu{position:relative;flex-shrink:0}
 .settings-action-menu>summary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:7px 14px;border:1px solid var(--action-border);border-radius:var(--action-radius);background:#fff;color:var(--action-ink);font-family:inherit;font-size:12px;font-weight:500;line-height:20px;white-space:nowrap;cursor:pointer;list-style:none}
 .settings-action-menu>summary::-webkit-details-marker{display:none}
-.settings-action-menu>summary:hover{background:#f5f6f6;border-color:#bdc5ca}
-.settings-action-menu[open]>summary{border-color:#929da5}
+.settings-action-menu>summary:hover{background:#f6f6f6;border-color:#c4c4c4}
+.settings-action-menu[open]>summary{border-color:#9c9c9c}
 .settings-action-menu>summary>svg{width:14px;height:14px;flex-shrink:0}
-.settings-action-options{position:absolute;z-index:90;top:calc(100% + 6px);right:0;min-width:176px;padding:5px;border:1px solid #dfe4e7;border-radius:6px;background:#fff}
-.settings-action-menu .settings-action-options>button{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:9px;width:100%;min-height:36px;margin:0;padding:8px 10px;border:0;border-radius:4px;background:#fff;color:#424c52;text-align:left;font-family:inherit;font-size:12px;font-weight:400;line-height:20px}
-.settings-action-menu .settings-action-options>button:hover,.settings-action-menu .settings-action-options>button:focus-visible{background:#f1f3f4;outline:none}
+.settings-action-options{position:absolute;z-index:90;top:calc(100% + 6px);right:0;min-width:176px;padding:5px;border:1px solid #e3e3e3;border-radius:6px;background:#fff}
+.settings-action-menu .settings-action-options>button{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:9px;width:100%;min-height:36px;margin:0;padding:8px 10px;border:0;border-radius:4px;background:#fff;color:#4b4b4b;text-align:left;font-family:inherit;font-size:12px;font-weight:400;line-height:20px}
+.settings-action-menu .settings-action-options>button:hover,.settings-action-menu .settings-action-options>button:focus-visible{background:#f3f3f3;outline:none}
 .settings-action-options>button>svg{width:15px;height:15px;flex-shrink:0}
-.academic-settings-page .academic-management>nav>.settings-action-menu{margin-left:auto}
-.settings-operation-group>.icon-button{display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;color:#929ca3}
-.settings-operation-group>.icon-button>svg{width:16px;height:16px}
-.academic-settings-layout{display:flex;gap:24px;flex:1;min-height:0;min-width:0}
-.academic-settings-layout>.academic-settings-page{min-width:0}
-.academic-settings-layout>.settings-ai{padding-left:24px}
-@media(max-width:760px){.academic-settings-layout{flex-direction:column;overflow-y:auto;gap:0}.academic-settings-layout>.academic-settings-page{flex:0 0 auto;overflow:visible}.academic-settings-layout>.settings-ai{min-height:400px;padding-left:0}.settings-action-menu>summary{padding-left:10px;padding-right:10px}}
+.settings-operation-group>.icon-button{display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;color:#9b9b9b}

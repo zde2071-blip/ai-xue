@@ -68,8 +68,8 @@ test('configured choices are offered without discarding a note using a removed o
  assert.match(html,/data-value="Lecture" aria-pressed="true"/);assert.equal(hasChanges(data,draftFromDetails(data)),false);
 });
 
-test('all four fields use choices with one shared management destination and no free-form add flow',()=>{
+test('all four fields retain their choices without links to the retired settings screen',()=>{
  const data=sample(),html=detailsMarkup(data,draftFromDetails(data));
  for(const key of ['course','class_type','weeks','note_kind'])assert.match(html,new RegExp(`data-details-list="${key}"`));
- assert.equal((html.match(/data-details-action="manage"/g)||[]).length,4);assert.doesNotMatch(html,/<select|<datalist|data-details-add=|data-details-field=/);
+ assert.equal((html.match(/data-details-action="manage"/g)||[]).length,0);assert.doesNotMatch(html,/<select|<datalist|data-details-add=|data-details-field=/);
 });

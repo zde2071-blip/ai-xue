@@ -37,7 +37,6 @@
 .settings-fields-bar>div{padding-bottom:0;gap:12px}
 .settings-fields-bar .property-add-button{min-height:var(--ui-control);padding:7px 14px;line-height:20px}
 .settings-fields-bar .text-button{min-height:var(--ui-control);line-height:20px}
-.study-settings-content #property-settings-form>fieldset{max-width:none}
 .property-option-row{min-height:48px;align-items:center;padding:6px 0;gap:8px}
 .property-option-row input{min-height:var(--ui-control);line-height:20px;padding:8px 10px}
 .property-option-row>.icon-button{width:32px;height:32px;min-height:32px;display:flex;align-items:center;justify-content:center;padding:0}
@@ -46,7 +45,7 @@
 .template-workspace{gap:24px}
 .template-ai{padding-left:24px}
 .template-ai-composer{padding-bottom:24px}
-.template-actions,.property-settings-actions{align-items:center;gap:10px}
+.template-actions{align-items:center;gap:10px}
 .template-actions button{min-height:var(--ui-control);line-height:20px;padding:7px 14px}
 .template-ai-tools{align-items:center;min-height:42px;padding:4px 8px 8px}
 .template-ai-tools>.icon-button,.template-send{width:28px;height:28px;min-height:28px;padding:0;display:flex;align-items:center;justify-content:center}
@@ -115,8 +114,6 @@ dialog .classification-fields{gap:16px;align-items:start}
 dialog .academic-form-fields{gap:12px;align-items:start}
 dialog .modal-actions{align-items:center;gap:10px;margin-top:24px}
 dialog .modal-actions>.primary,dialog .modal-actions>.outline-button,dialog .modal-actions>.secondary-button{min-height:var(--ui-control);padding:7px 14px;line-height:20px;margin:0}
-#academic-management-form>label{line-height:20px}
-#academic-management-form input,#academic-management-form select{height:var(--ui-form-control);min-height:var(--ui-form-control);padding:9px 10px;line-height:20px;font-family:inherit}
 /* Account pages and service editors preserve their existing layout and content. */
 .account-dialog .modal-head{top:36px;right:32px}
 .account-dialog .modal-head button{width:32px;height:32px;min-height:32px;padding:0}
@@ -158,5 +155,5 @@ dialog .modal-actions>.primary,dialog .modal-actions>.outline-button,dialog .mod
 /* Keep narrow layouts aligned without forcing desktop widths into them. */
 @media(max-width:1000px){:root{--study-inset:24px}.study-settings-content{padding-left:20px;padding-right:20px}.template-workspace{gap:20px}.template-ai{padding-left:20px}}
 @media(max-width:760px){.study-settings-content{padding-top:20px}.study-settings-nav{padding-top:24px}.settings-fields-bar{gap:8px}.settings-fields-bar>nav{width:100%}.settings-fields-bar>div{padding-bottom:8px}.study-settings-content .template-workspace{gap:0}.template-ai{padding-left:0}.account-settings-content{padding:32px 20px 24px}.account-settings-nav{padding-top:32px}.account-dialog .modal-head{right:20px}}
-@media(max-width:700px){:root{--ui-gutter:16px;--ui-header:56px;--study-inset:20px}.navigation-rail,.navigation-rail:hover,.navigation-rail:has(button:focus-visible){width:56px;min-width:56px}.classified-toolbar{min-height:56px}.classified-organization{padding-left:0}.unit-title-row{padding:8px 0}.unit-parts{gap:12px}.reading-toolbar{gap:8px}.status-open .status-panel{padding:0 16px 24px}.learning-import .learning-choose{padding:8px 12px}.learning-home-content{width:calc(100% - 32px)}.academic-management-dialog .modal-body{padding-left:16px;padding-right:16px}.ai-service-dialog .model-test-field,.ai-service-dialog .ai-default-settings .settings-model-row{grid-template-columns:minmax(75px,1fr) minmax(0,2fr)}}
+@media(max-width:700px){:root{--ui-gutter:16px;--ui-header:56px;--study-inset:20px}.navigation-rail,.navigation-rail:hover,.navigation-rail:has(button:focus-visible){width:56px;min-width:56px}.classified-toolbar{min-height:56px}.classified-organization{padding-left:0}.unit-title-row{padding:8px 0}.unit-parts{gap:12px}.reading-toolbar{gap:8px}.status-open .status-panel{padding:0 16px 24px}.learning-import .learning-choose{padding:8px 12px}.learning-home-content{width:calc(100% - 32px)}.ai-service-dialog .model-test-field,.ai-service-dialog .ai-default-settings .settings-model-row{grid-template-columns:minmax(75px,1fr) minmax(0,2fr)}}
 @media(max-width:520px){.study-settings-content{padding-left:14px;padding-right:14px}.settings-fields-bar>nav{gap:14px}.template-ai{width:100%;min-width:0}.account-settings-content .settings-page-title{gap:12px;flex-wrap:wrap}.account-settings-content .settings-section-head .primary{font-size:12px}.ai-service-dialog .ai-service-actions{justify-content:flex-end;flex-wrap:wrap}.ai-service-dialog .ai-default-settings .settings-model-row,.ai-service-dialog .model-test-field{grid-template-columns:1fr}.ai-service-dialog .ai-save-actions{gap:12px}}

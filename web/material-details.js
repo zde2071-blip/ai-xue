@@ -60,7 +60,7 @@
   if(!multiple&&key!=='note_kind')values.unshift({value:'',label:'未设置'});
   const selected=multiple?draft.tags.weeks.map(String):[value];
   const summary=key==='note_kind'?displayValue(draft,key,templates):displayValue(draft,key);
-  return `<div class="details-property" data-field="${key}"><label class="details-label">${label}</label><details class="details-picker" data-details-list="${key}"><summary aria-label="选择${label}"><span class="details-picker-value">${summary}</span>${glyph('chevron-down')}</summary><div class="details-picker-menu"><input class="details-choice-search" data-details-search="${key}" aria-label="搜索${label}" placeholder="搜索"><div class="details-picker-options" aria-label="${label}选项">${values.map(row=>multiple?`<label class="details-choice-row"><input type="checkbox" data-details-choice="weeks" aria-label="${escape(row.label)}" value="${escape(row.value)}" ${selected.includes(row.value)?'checked':''}><span>${escape(row.label)}</span></label>`:`<button type="button" class="details-choice-row ${selected.includes(row.value)?'selected':''}" data-details-action="choose" data-key="${key}" data-value="${escape(row.value)}" aria-pressed="${selected.includes(row.value)}">${escape(row.label)}</button>`).join('')}</div><button type="button" class="details-manage-options" data-details-action="manage" data-key="${key}">${glyph('sliders-horizontal')}管理选项</button></div></details></div>`;
+  return `<div class="details-property" data-field="${key}"><label class="details-label">${label}</label><details class="details-picker" data-details-list="${key}"><summary aria-label="选择${label}"><span class="details-picker-value">${summary}</span>${glyph('chevron-down')}</summary><div class="details-picker-menu"><input class="details-choice-search" data-details-search="${key}" aria-label="搜索${label}" placeholder="搜索"><div class="details-picker-options" aria-label="${label}选项">${values.map(row=>multiple?`<label class="details-choice-row"><input type="checkbox" data-details-choice="weeks" aria-label="${escape(row.label)}" value="${escape(row.value)}" ${selected.includes(row.value)?'checked':''}><span>${escape(row.label)}</span></label>`:`<button type="button" class="details-choice-row ${selected.includes(row.value)?'selected':''}" data-details-action="choose" data-key="${key}" data-value="${escape(row.value)}" aria-pressed="${selected.includes(row.value)}">${escape(row.label)}</button>`).join('')}</div></div></details></div>`;
  }
  function originalsMarkup(draft){
   return `<section class="details-originals"><h3>原始材料</h3>${draft.relations.map(row=>row.available===false
@@ -174,7 +174,6 @@
      const picker=button.closest('.details-picker');for(const option of picker.querySelectorAll('[data-details-action="choose"]')){const selected=option===button;option.classList.toggle('selected',selected);option.setAttribute('aria-pressed',String(selected));}
      picker.open=false;picker.querySelector('summary')?.focus();
     }
-    if(action==='manage'){const key=button.dataset.key;if(!canDismiss())return;close(true);await root.StudyTemplates?.open('information',key);}
    }catch(error){setError(error.message);}
   },true);
   document.addEventListener('input',event=>{

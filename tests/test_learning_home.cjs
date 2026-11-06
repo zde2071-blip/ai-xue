@@ -7,7 +7,7 @@ test('learning opens on import and conversation records, while review retains cl
  const listeners=[];const context=vm.createContext({document:{querySelector:()=>({addEventListener(){}}),addEventListener:(name,fn)=>listeners.push([name,fn])},window:{addEventListener(){}},localStorage:{getItem:()=>null,setItem(){}},clearTimeout(){}});
  for(const name of ['unit-workspace.js','academic-workspace.js','learning-home.js','classified-navigation.js','app.js'])vm.runInContext(readFileSync(join(__dirname,'../web',name),'utf8').replace(/\ninit\(\);\s*$/,''),context);
  vm.runInContext(`S.user={id:'home-test'};S.profile={};S.view='library';S.courses=${JSON.stringify(courses)};S.resources=${JSON.stringify(entries.map(r=>({...r,kind:'originals'})))};`,context);
- const home=vm.runInContext('library()',context);assert.match(home,/学习首页/);assert.match(home,/选择课件/);assert.match(home,/继续学习/);assert.doesNotMatch(home,/全部记录|data-learning-action="filter"|learning-import-mark|learning-drop-hint/);assert.doesNotMatch(home,/classified-columns|快速分类|排序方式/);assert.match(home,/切换学期/);
+ const home=vm.runInContext('library()',context);assert.match(home,/学习首页/);assert.match(home,/选择课件/);assert.match(home,/继续学习/);assert.doesNotMatch(home,/全部记录|data-learning-action="filter"|learning-import-mark|learning-drop-hint/);assert.doesNotMatch(home,/classified-columns|快速分类|排序方式/);assert.doesNotMatch(home,/切换学期/);
  const review=vm.runInContext(`S.view='note';library()`,context);assert.match(review,/classified-columns/);assert.doesNotMatch(review,/learning-import/);
 });
 
