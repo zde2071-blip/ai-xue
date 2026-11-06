@@ -24,3 +24,15 @@ test('the first toolbar or close click after dragging an event is never swallowe
  for(const fn of listeners.click)await fn({target:{closest:selector=>selector==='[data-calendar-action]'||selector==='button'?button:null},timeStamp:1100,preventDefault(){},stopImmediatePropagation(){}});
  assert.equal(model.calendarView.editor,null);
 });
+
+test('source settings Done persists once and a version conflict preserves the editor without applying changes',async()=>{
+ let stored={calendar:[],timetable:[],events:[],references:[],colors:{},sources:[{id:'image',kind:'calendar',type:'import',name:'原名称',visible:true}],etag:'v1'},writes=0,reject=false;
+ const listeners={},root={AcademicReferences:{pending:()=>false,busy:()=>false,validate(){}}};
+ const context={window:root,structuredClone,S:{user:{id:'owner'}},api:async(url,data)=>{if(data){writes++;assert.equal(data.etag,'v1');if(reject)throw new Error('日历已在其他位置修改');stored={...structuredClone(data),etag:'v2'};}return structuredClone(stored);},render(){},toast(){},document:{querySelector:()=>null,querySelectorAll:()=>[],addEventListener:(type,fn)=>(listeners[type]||=[]).push(fn)}};
+ for(const name of ['study-schedule.js','academic-calendar.js'])vm.runInNewContext(fs.readFileSync(require.resolve('../web/'+name),'utf8'),context);
+ await root.StudySchedule.prepare();const m=root.StudySchedule.manager();
+ function edit(name){m.calendarView={sourceEditor:{id:'image',isSource:true,busy:false,draft:{...m.sources[0],name},initialColor:'#808080'}};}
+ async function done(){await listeners.submit[0]({target:{id:'calendar-source-settings-form'},preventDefault(){},stopImmediatePropagation(){}});}
+ edit('新名称');await done();assert.equal(writes,1);assert.equal(stored.sources[0].name,'新名称');assert.equal(root.StudySchedule.dirty(),false);assert.equal(m.calendarView.sourceEditor,null);
+ stored.etag='v1';await root.StudySchedule.prepare();const current=root.StudySchedule.manager();current.calendarView={sourceEditor:{id:'image',isSource:true,busy:false,draft:{...current.sources[0],name:'冲突编辑'},initialColor:'#808080'}};reject=true;await done();assert.equal(current.sources[0].name,'新名称');assert.equal(current.calendarView.sourceEditor.draft.name,'冲突编辑');assert.match(current.calendarView.sourceEditor.error,/其他位置/);assert.equal(stored.sources[0].name,'新名称');
+});

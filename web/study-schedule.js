@@ -25,13 +25,16 @@
  function paint(){render();refreshActions();}
  function canLeave(){if(busy()){reportError('请等待识别或保存完成。');return false;}if(dirty()){reportError('请先保存或取消日历修改。');return false;}return true;}
  function markup(){if(!M)return '';return `<section class="study-calendar-page" aria-label="学习日历">${root.AcademicReferences.markup(M)}<p id="schedule-error" class="error-message" role="alert" ${M.error?'':'hidden'}>${esc(M.error||'')}</p><footer class="schedule-save-actions" ${changed()?'':'hidden'}><button type="button" class="outline-button" data-schedule-action="cancel">取消</button><button type="button" class="primary" data-schedule-action="save">保存</button></footer></section>`;}
- root.StudySchedule={prepare,markup,manager:()=>M,dirty,busy,canLeave,paint,refreshActions,reportError};
+ async function save(){if(!M||busy())return false;
+ const owner=M.owner;
+  try{root.AcademicReferences.validate(M);M.saving=true;M.error='';paint();const doc=await api('/api/calendar',saveDocument());if(owner!==S.user?.id)return false;Object.assign(M,activeDocument(doc),{referenceFiles:[]});M.baseline=snapshot(M);if(M.importUI)M.importUI.notice='';toast('已保存');return true;}
+  catch(error){reportError(error.message);return false;}finally{if(owner===S.user?.id){M.saving=false;paint();}}
+ }
+ root.StudySchedule={prepare,save,markup,manager:()=>M,dirty,busy,canLeave,paint,refreshActions,reportError};
  document.addEventListener('click',async event=>{
   const node=event.target.closest('[data-schedule-action]');if(!node||!M||busy())return;event.preventDefault();event.stopImmediatePropagation();
   if(node.dataset.scheduleAction==='cancel'){await prepare();paint();return;}
-  const owner=M.owner;
-  try{root.AcademicReferences.validate(M);M.saving=true;M.error='';paint();const doc=await api('/api/calendar',saveDocument());if(owner!==S.user?.id)return;Object.assign(M,activeDocument(doc),{referenceFiles:[]});M.baseline=snapshot(M);if(M.importUI)M.importUI.notice='';toast('已保存');}
-  catch(error){reportError(error.message);}finally{if(owner===S.user?.id){M.saving=false;paint();}}
+  await save();
  },true);
  document.addEventListener('change',event=>{const key=event.target.dataset.calendarFilter;if(M&&key){M.visible[key]=event.target.checked;paint();}});
 })(window);

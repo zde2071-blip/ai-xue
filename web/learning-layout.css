@@ -13,3 +13,5 @@
 @media(max-width:1150px){.learning-source{width:33%;flex-basis:33%;min-width:260px}.workspace:is(.view-learn,.view-overview) .status-panel{width:190px;flex-basis:190px;padding:16px 10px}.review-file-tree{width:220px;flex-basis:220px}.review-active .note-page{padding:28px}}
 
 .workspace:is(.view-learn,.view-overview)>.navigation-rail{flex:0 0 68px;position:relative}.workspace:is(.view-learn,.view-overview) .status-panel{position:relative;inset:auto;box-shadow:none}
+
+.review-document-pane{display:flex;flex-direction:column;min-width:0;flex:1;overflow:hidden}.review-document-body{display:flex;min-height:0;flex:1;overflow:hidden}.review-document-body>.content-scroll{flex:1;min-width:0}.review-active .review-document-pane .review-focus-header{flex-shrink:0}.review-active .review-file-tree{height:100%}

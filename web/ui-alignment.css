@@ -3,8 +3,7 @@
 /* Keep the tool rail stationary. Labels never intercept another pane's controls. */
 .navigation-rail,.navigation-rail:hover,.navigation-rail:has(button:focus-visible){width:68px;min-width:68px;overflow:visible;box-shadow:none;transition:none}
 .navigation-rail .sidebar-nav>button,.navigation-rail .profile-button{position:relative;width:44px;height:44px;min-height:44px;justify-content:center;padding:0;gap:0}
-.navigation-rail .sidebar-nav>button>span,.navigation-rail .rail-account-label{position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%);width:max-content;max-width:210px;display:block;padding:8px 10px;border:1px solid #e5e7e8;border-radius:6px;background:#fff;box-shadow:0 4px 16px #0000000c;color:#505a60;font-size:12px;line-height:20px;white-space:nowrap;visibility:hidden;opacity:0;pointer-events:none;z-index:100}
-.navigation-rail .sidebar-nav>button:hover>span,.navigation-rail .sidebar-nav>button:focus-visible>span,.navigation-rail .profile-button:hover .rail-account-label,.navigation-rail .profile-button:focus-visible .rail-account-label{visibility:visible;opacity:1}
+.navigation-rail .sidebar-nav>button>span,.navigation-rail .rail-account-label{display:none!important}
 /* One top edge and control rhythm across the main browsing surfaces. */
 .classified-toolbar,.learning-home-toolbar{min-height:var(--ui-header);padding-left:var(--ui-gutter);padding-right:var(--ui-gutter)}
 .classified-toolbar{gap:12px 16px}
