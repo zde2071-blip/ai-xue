@@ -7,6 +7,15 @@ test('weekly recurring lessons honor applicable weeks; exams can overlap lessons
 test('period-only classes never acquire fabricated clock times',()=>{assert.equal(C.clockRange('第3–4节'),null);assert.deepEqual(C.clockRange('09:00–10:30'),{start:540,end:630});assert.equal(C.clockRange('25:00–26:00'),null);assert.equal(C.clockRange('12:00–11:00'),null);});
 test('overlapping timed entries get separate columns and later clusters recover full width',()=>{const rows=C.timedLayout([{key:'a',range:{start:540,end:600}},{key:'b',range:{start:570,end:630}},{key:'c',range:{start:700,end:750}}]);assert.equal(rows[0].columns,2);assert.equal(rows[1].column,1);assert.equal(rows[2].columns,1);});
 
+test('a minimum card height keeps short adjacent lessons clickable without overlap',()=>{
+ const lessons=[{key:'short',range:{start:540,end:560}},{key:'next',range:{start:560,end:620}}];
+ const ordinary=C.timedLayout(lessons);
+ const compact=C.timedLayout(lessons,40);
+ assert.deepEqual(ordinary.map(row=>row.columns),[1,1]);
+ assert.deepEqual(compact.map(row=>[row.column,row.columns]),[[0,2],[1,2]]);
+ assert.equal(compact[0].range.end,560);
+});
+
 test('a one-day holiday suppresses recurring classes while preserving its teaching week',()=>{const t={...term,calendar:[...term.calendar,{kind:'break',week:null,start:'2026-09-07',end:'2026-09-07',label:'假期'}]};assert.equal(C.weekAt(t,'2026-09-07'),1);assert.equal(C.entriesForDay(t,'2026-09-07').filter(e=>e.kind==='course').length,0);assert.equal(C.entriesForDay(t,'2026-09-07').filter(e=>e.kind==='exam').length,1);});
 
 test('multiday periods span the correct weekdays and overlapping periods use separate lanes',()=>{const t={calendar:[{kind:'teaching',week:8,start:'2026-11-02',end:'2026-11-08'},{kind:'break',start:'2026-11-05',end:'2026-11-05'}]},days=Array.from({length:7},(_,i)=>C.addDays('2026-11-02',i));const rows=C.periodLanes(t,days);assert.deepEqual(rows.map(r=>[r.left,r.span,r.lane]),[[0,7,0],[3,1,1]]);assert.deepEqual(C.periodLanes({...t,visible:{calendar:false}},days),[]);});

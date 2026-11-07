@@ -92,11 +92,21 @@
   (t.events||[]).forEach((r,i)=>{if(shown(t,r,'exam')&&r.date===day)result.push({key:'events:'+i,title:r.title,subtitle:r.location,time:r.start?`${r.start}–${r.end}`:'',range:r.start?clockRange(`${r.start}–${r.end}`):null,kind:r.kind,color:colorFor(t,'events',r)});});
   return result;
  }
- function timedLayout(entries){
+ function timedLayout(entries,minimumMinutes=0){
   const sorted=entries.filter(r=>r.range).map(r=>({...r})).sort((a,b)=>a.range.start-b.range.start||a.range.end-b.range.end);
   let cluster=[],ends=[],until=-1;
   function flush(){for(const row of cluster)row.columns=ends.length;cluster=[];ends=[];}
-  for(const row of sorted){if(row.range.start>=until){flush();until=-1;}let col=ends.findIndex(end=>end<=row.range.start);if(col<0)col=ends.length;ends[col]=row.range.end;row.column=col;cluster.push(row);until=Math.max(until,row.range.end);}
+  for(const row of sorted){
+   const {start,end}=row.range;
+   const displayEnd=Math.max(end,start+minimumMinutes);
+   if(start>=until){flush();until=-1;}
+   let col=ends.findIndex(end=>end<=start);
+   if(col<0)col=ends.length;
+   ends[col]=displayEnd;
+   row.column=col;
+   cluster.push(row);
+   until=Math.max(until,displayEnd);
+  }
   flush();return sorted;
  }
  function tabsMarkup(mode){return `<div class="calendar-view-switch" aria-label="日历视图">${[['day','日'],['week','周'],['month','月'],['year','年']].map(([key,label])=>`<button type="button" data-calendar-action="view" data-view="${key}" aria-pressed="${mode===key}" class="${mode===key?'selected':''}">${label}</button>`).join('')}</div>`;}
@@ -117,17 +127,23 @@
  }
  const button=(entry,layout='')=>entryButton(entry,layout,`data-calendar-action="edit" data-entry="${esc(entry.key)}"`);
 
- function weekGrid(dates,entries,{currentDate,renderDay,dayAttributes=()=>'',renderEntry,hourHeight=HOUR}){
+ function weekGrid(dates,entries,{currentDate,renderDay,dayAttributes=()=>'',renderEntry,hourHeight=HOUR,fitHours=false}){
   const all=entries.flat(),timed=all.filter(entry=>entry.range);
-  const first=Math.min(8,...timed.map(entry=>Math.floor(entry.range.start/60)));
-  const last=Math.max(20,...timed.map(entry=>Math.ceil(entry.range.end/60)));
   const headings=dates.map(day=>`<div class="${day===currentDate?'is-today':''}"><span>${dayNames[weekday(day)]}</span>${renderDay(day)}</div>`).join('');
   const allDay=all.some(entry=>!entry.range)
    ?`<div class="week-all-day"><span>全天 / 节次</span>${entries.map(rows=>`<div>${rows.filter(entry=>!entry.range).map(entry=>renderEntry(entry,'')).join('')}</div>`).join('')}</div>`:'';
+  const header=`<div class="week-day-headings"><span></span>${headings}</div>${allDay}`;
+  if(fitHours&&!timed.length)return header;
+
+  const first=Math.min(fitHours?24:8,...timed.map(entry=>Math.floor(entry.range.start/60)));
+  const last=Math.max(fitHours?0:20,...timed.map(entry=>Math.ceil(entry.range.end/60)));
+  const minimumMinutes=fitHours?24*60/hourHeight:0;
+  const durationHeight=(last-first)*hourHeight;
+  const gridHeight=fitHours?Math.max(durationHeight,...timed.map(entry=>((entry.range.start-first*60)/60)*hourHeight+24)):durationHeight;
   const hourLabels=Array.from({length:last-first+1},(_,i)=>`<span style="top:${i*hourHeight}px">${String(first+i).padStart(2,'0')}:00</span>`).join('');
   const hourLines=Array.from({length:last-first},(_,i)=>`<div class="calendar-hour-line" style="top:${i*hourHeight}px"></div>`).join('');
   const columns=dates.map((day,index)=>{
-   const events=timedLayout(entries[index]).map(entry=>{
+   const events=timedLayout(entries[index],minimumMinutes).map(entry=>{
     const top=(entry.range.start-first*60)/60*hourHeight;
     const height=Math.max(24,(entry.range.end-entry.range.start)/60*hourHeight);
     const style=`top:${top}px;height:${height}px;left:calc(${entry.column/entry.columns*100}% + 3px);width:calc(${100/entry.columns}% - 6px)`;
@@ -135,17 +151,17 @@
    }).join('');
    return `<div class="week-time-day" ${dayAttributes(day,first)}>${hourLines}${events}</div>`;
   }).join('');
-  return `<div class="week-day-headings"><span></span>${headings}</div>${allDay}<div class="week-time-scroll"><div class="week-time-grid" style="height:${(last-first)*hourHeight}px"><div class="week-hours">${hourLabels}</div>${columns}</div></div>`;
+  return `${header}<div class="week-time-scroll"><div class="week-time-grid" style="height:${gridHeight}px"><div class="week-hours">${hourLabels}</div>${columns}</div></div>`;
  }
  function learningWeekGrid(week,currentDate){
   const dates=week.days.map(day=>day.date);
   const entries=week.days.map(day=>day.classes.map((lesson,index)=>({
-   ...lesson,index,title:lesson.course,subtitle:[lesson.classType,lesson.location].filter(Boolean).join(' · '),range:clockRange(lesson.time)
+   ...lesson,index,title:lesson.course,range:clockRange(lesson.time)
   })));
   const grid=weekGrid(dates,entries,{
-   currentDate,hourHeight:46,
+   currentDate,hourHeight:36,fitHours:true,
    renderDay:day=>`<time datetime="${day}" ${day===currentDate?'aria-current="date"':''}>${Number(day.slice(8))}</time>`,
-   renderEntry:(entry,layout)=>entryButton(entry,layout,`data-learning-action="lesson" data-date="${entry.date}" data-index="${entry.index}" aria-haspopup="dialog" ${entry.range&&entry.range.end-entry.range.start<75?'data-compact':''}`)
+   renderEntry:(entry,layout)=>entryButton(entry,layout,`data-learning-action="lesson" data-date="${entry.date}" data-index="${entry.index}" aria-haspopup="dialog"`)
   });
   return `<div class="learning-week-scroll"><div class="semester-week" aria-label="周课表">${grid}</div></div>`;
  }
