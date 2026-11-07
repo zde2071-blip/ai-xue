@@ -6,6 +6,13 @@ import calendar_subscription
 
 FIELDS={'calendar':academic_import.calendar_rows,'timetable':academic_import.timetable_rows,'events':academic_import.event_rows,'references':academic_import.references}
 
+def imported_courses(document):
+    sources = {source['id'] for source in document.get('sources', []) if source['kind'] == 'timetable'}
+    recurring = {row['course'] for row in document.get('timetable', []) if row.get('source_id') in sources}
+    dated = {row['title'] for row in document.get('events', []) if row.get('source_id') in sources and row['kind'] != 'exam'}
+    return sorted(recurring | dated, key=str.casefold)
+
+
 class Calendar:
     def __init__(self,host):self.h=host
     @property

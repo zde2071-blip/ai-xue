@@ -16,7 +16,7 @@ test('confirmed blocks awaiting note finalization stay reachable with an accurat
 test('scheduled imports wait for confirmation, and ordinary imports suggest editable course tags',async()=>{
  const listeners={};let shown='',sent=null,form=null;
  const picker={click(){}},region={querySelector:()=>null};
- const calendar={timetable:[{course:'ADS102',weekday:2,time:'09:00–11:00',weeks:[8,9],class_type:'Lecture'}],calendar:[{kind:'teaching',week:8,start:'2026-11-02',end:'2026-11-08'},{kind:'teaching',week:9,start:'2026-11-09',end:'2026-11-15'}]};
+ const calendar={course_choices:['ADS102','CSI101'],timetable:[{course:'ADS102',weekday:2,time:'09:00–11:00',weeks:[8,9],class_type:'Lecture'}],calendar:[{kind:'teaching',week:8,start:'2026-11-02',end:'2026-11-08'},{kind:'teaching',week:9,start:'2026-11-09',end:'2026-11-15'}]};
  const helper=require('../web/academic-calendar.js');
  const modal={open:true,contains:target=>target===form};
  const window={
@@ -25,12 +25,14 @@ test('scheduled imports wait for confirmation, and ordinary imports suggest edit
   StudyUnits:{importFile:async (file,context)=>{sent=context;}}
  };
  const document={querySelector:id=>id==='#learning-current-week'?region:id==='#learning-import-confirm'?form:picker,addEventListener:(name,fn)=>{listeners[name]=fn;}};
- const api=async path=>path==='/api/calendar'?calendar:{course_title:'CSI101',fields:{weeks:[8],class_type:'Tutorial'}};
+ let recognizedCourse='CSI101',recognitionCalls=0;
+ const api=async path=>{if(path==='/api/calendar')return calendar;recognitionCalls++;return {course_title:recognizedCourse,course_choices:calendar.course_choices,fields:{weeks:[8],class_type:'Tutorial'}};};
  const modalContent=(title,body)=>{
   shown=title+body;
   if(!body.includes('id="learning-import-confirm"'))return;
   const status={},submit={disabled:body.includes('disabled')},error={};
-  const elements=Object.fromEntries(['course','weeks','class_type'].map(name=>[name,{value:'',dataset:{}}]));
+  const elements=Object.fromEntries(['course','weeks','class_type_choice','class_type_custom'].map(name=>[name,{value:'',dataset:{}}]));
+  elements.class_type_choice.options=['','Lecture','Tutorial','Lab','__custom__'].map(value=>({value}));
   form={id:'learning-import-confirm',elements,querySelector:s=>s==='[data-import-status]'?status:s==='[data-import-error]'?error:submit};
  };
  const context=vm.createContext({window,document,modal,S:{user:{id:'a'},courses:[{id:'existing',title:'集合与关系',tags:{course:'ADS102 · 离散数学与统计',weeks:[8],class_type:'Lecture'}}]},api,readUpload:async()=> 'content',icons(){},esc:String,icon:()=>'',modalContent,toast:assert.fail});
@@ -45,9 +47,12 @@ test('scheduled imports wait for confirmation, and ordinary imports suggest edit
  await click({learningAction:'lesson',date:'2026-11-03',index:'0'});
  assert.match(shown,/继续学习 · 集合与关系/);
  await change('learning-lesson-file');
- assert.match(shown,/确认课件归属/);assert.equal(form.elements.course.value,'ADS102');assert.equal(sent,null);
+ assert.match(shown,/确认课件归属/);assert.doesNotMatch(shown,/datalist|离散数学与统计/);
+ assert.equal(form.elements.course.value,'ADS102');assert.equal(form.elements.class_type_choice.value,'Tutorial');
+ assert.equal(recognitionCalls,1);assert.equal(sent,null);
+ form.elements.class_type_choice.value='Lab';
  await submit();
- assert.equal(sent.scheduled_lesson.date,'2026-11-03');assert.equal(sent.tags.weeks[0],8);
+ assert.equal(sent.scheduled_lesson.date,'2026-11-03');assert.equal(sent.tags.weeks[0],8);assert.equal(sent.tags.class_type,'Lab');
 
  await click({learningAction:'next-week'});
  assert.match(region.innerHTML,/2026年11月9日–15日/);
@@ -62,10 +67,17 @@ test('scheduled imports wait for confirmation, and ordinary imports suggest edit
  sent=null;
  await change('learning-home-file');
  assert.equal(form.elements.course.value,'CSI101');assert.equal(form.elements.weeks.value,'8');assert.equal(sent,null);
- form.elements.course.value='SOE101';
+ form.elements.course.value='ADS102';
  await submit();
- assert.equal(sent.tags.course,'SOE101');assert.equal(sent.recognition.course_title,'CSI101');
+ assert.equal(sent.tags.course,'ADS102');assert.equal(sent.recognition.course_title,'CSI101');
  assert.equal(sent.scheduled_lesson,undefined);
+
+ recognizedCourse='NOT-IN-TIMETABLE';
+ sent=null;
+ await change('learning-home-file');
+ assert.equal(form.elements.course.value,'');
+ await submit();
+ assert.equal(sent,null);
 });
 
 test('one completed course only checks the exact lesson when the same class meets twice',()=>{

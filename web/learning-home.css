@@ -76,3 +76,10 @@
 .learning-import-filename svg{width:16px;height:16px;flex:none}
 .learning-import-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .learning-import-fields input{min-width:0}
+
+.learning-import-select{
+ width:100%;min-height:40px;appearance:none;cursor:pointer;padding-right:34px;
+ background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23636b70' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
+}
+.learning-import-select:hover{border-color:#a6afb6}
+.learning-import-fields select{min-width:0}
