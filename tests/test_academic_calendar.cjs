@@ -73,3 +73,26 @@ test('dated subscription courses keep their source category instead of becoming 
  assert.equal(C.editorCategory(t,'events',{source_id:'calendar'}),'calendar');
  assert.equal(C.editorCategory(t,'events',{}),'events');
 });
+
+test('the learning week combines dated subscriptions and recurring classes without pulling in exams or holiday recurrences',()=>{
+ const {learningWeek}=require('../web/academic-calendar.js');
+ const calendar=[
+  {kind:'teaching',week:8,start:'2026-11-02',end:'2026-11-06',calendar_group:'current'},
+  {kind:'teaching',week:8,start:'2025-11-03',end:'2025-11-07',calendar_group:'old'},
+  {kind:'break',start:'2026-11-04',end:'2026-11-04'},
+ ];
+ const row={course:'ADS102',class_type:'Lecture',time:'09:00–11:00',weeks:[8],calendar_group:'current'};
+ const week=learningWeek({calendar,timetable:[{...row,weekday:2},{...row,weekday:3},{...row,weekday:2,course:'OLD100',calendar_group:'old'}],
+  sources:[{id:'school',kind:'timetable',type:'subscription'},{id:'exams',kind:'exam'},{id:'off',kind:'timetable',visible:false}],
+  events:[{title:'CSI101',date:'2026-11-05',start:'14:00',end:'16:00',kind:'event',source_id:'school'},
+  {title:'Hidden',date:'2026-11-05',kind:'event',source_id:'off'},
+  {title:'Exam',date:'2026-11-05',kind:'exam',source_id:'exams'}]},'2026-11-07');
+ assert.deepEqual([week.start,week.end,week.weeks],['2026-11-02','2026-11-08',[8]]);
+ assert.deepEqual(week.days.flatMap(d=>d.classes.map(c=>[c.course,c.week,c.date])),[['ADS102',8,'2026-11-03'],['CSI101',8,'2026-11-05']]);
+});
+test('a dated lesson is still available without a teaching calendar and is not assigned a guessed week',()=>{
+ const {learningWeek}=require('../web/academic-calendar.js');
+ const week=learningWeek({sources:[{id:'school',kind:'timetable'}],events:[{title:'ADS102',source_id:'school',date:'2026-11-06',start:'09:00',end:'11:00'}]},'2026-11-07');
+ assert.deepEqual(week.weeks,[]);
+ assert.equal(week.days[4].classes[0].week,null);
+});

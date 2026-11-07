@@ -62,7 +62,7 @@
    }catch(error){S.importError=error.message;}
    finally{S.importPending=false;S.busy=false;if(!S.importError&&localSourceUrl){URL.revokeObjectURL(localSourceUrl);localSourceUrl='';}render();resetScroll();}
   }
-  root.StudyUnits.importFile=file=>importLearning({},file);
+  root.StudyUnits.importFile=(file,context={})=>importLearning(context,file);
   root.StudyUnits.importMaterial=id=>importLearning({material_id:id});
   root.StudyUnits.mountSource=function(previous){
    const slot=document.querySelector('#learning-source-slot');if(!slot)return;

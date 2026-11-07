@@ -330,6 +330,7 @@ function notePage(){
   return `<article class="page note-page"><div class="note-metadata"><span>${esc(n.course_title)}</span><span>${dateText(n.created_at)}</span><button class="text-button" data-action="note-threads">${icon('message-square')}旁注</button></div><div id="note-body" data-selectable="note">${html}</div></article>`;
 }
 function render(){
+  const hadLearningHome=!!$('#learning-current-week');
   selectionAnchor=null;
   const scroll=$('.content-scroll')?.scrollTop||0,input=$('#main-question textarea')?.value;rememberBrowserScroll();
   const panel=statusPanel(),studying=['overview','learn'].includes(S.view);
@@ -337,6 +338,7 @@ function render(){
   if(noteEditor){editorSnapshot={id:noteEditor.noteId,state:noteEditor.view.state};noteEditor.destroy();noteEditor=null;}
   $('#app').innerHTML=`<div class="workspace view-${S.view} ${panel?'has-status':''}">${sidebar()}${studying?'<div id="learning-source-slot"></div>':''}<main class="main">${header()}${S.view==='note'&&!S.editing?readingToolbar():''}${S.busy?`<div class="busybar" role="status">${icon('loader-circle')}${esc(S.busyText)}</div>`:''}<div class="content-scroll">${S.view==='courses'?coursesPage():S.view==='overview'?overview():S.view==='learn'?learn():S.view==='library'?library():notePage()}</div>${['overview','learn'].includes(S.view)?composer():''}</main>${panel}</div>`;
   if(studying)window.StudyUnits.mountSource?.(oldSource);
+  if(!hadLearningHome&&$('#learning-current-week'))window.StudyLearningHome?.mount();
   if(input&&$('#main-question textarea')&&!S.threadBusy)$('#main-question textarea').value=S.studyDraft||input;
   $('.content-scroll').scrollTop=scroll;$$('[data-browser-scroll]').forEach(el=>el.scrollTop=B.scroll[el.dataset.browserScroll]||0);icons();applyMarks();mountEditor();if($('#note-body'))$('#note-body').style.setProperty('--reading-size',readingSize+'px');syncReadingTools();
   $$('.markdown a').forEach(a=>{a.target='_blank';a.rel='noopener noreferrer';});

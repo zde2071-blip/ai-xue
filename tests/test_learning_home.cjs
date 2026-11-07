@@ -12,3 +12,23 @@ test('learning opens on import and conversation records, while review uses a nes
 });
 
 test('confirmed blocks awaiting note finalization stay reachable with an accurate label',()=>{const row=records([{...courses[0],completed:['b1','b2']}],entries)[0];assert.equal(row.location,'待整理笔记');});
+
+test('selecting a scheduled class supplies confirmed tags, while the ordinary import still has no preset classification',async()=>{
+ const listeners={};let shown='',sent;
+ const picker={click(){}},region={};
+ const calendar={timetable:[{course:'ADS102',weekday:2,time:'09:00–11:00',weeks:[8],class_type:'Lecture'}],calendar:[{kind:'teaching',week:8,start:'2026-11-02',end:'2026-11-08'}]};
+ const helper=require('../web/academic-calendar.js');
+ const window={AcademicCalendar:{...helper,today:()=> '2026-11-07',teachingWeekLabel:weeks=>weeks.join(',')},StudyUnits:{importFile:async (file,context)=>{sent=context;}}};
+ const document={querySelector:id=>id==='#learning-current-week'?region:picker,addEventListener:(name,fn)=>{listeners[name]=fn;}};
+ const context=vm.createContext({window,document,S:{user:{id:'a'},courses:[{id:'existing',title:'集合与关系',tags:{course:'ADS102 · 离散数学与统计',weeks:[8],class_type:'Lecture'}}]},api:async()=>calendar,icons(){},esc:String,icon:()=>'',modalContent:(title,body)=>{shown=title+body;},toast:assert.fail});
+ vm.runInContext(readFileSync(join(__dirname,'../web/learning-home.js'),'utf8'),context);
+ window.StudyLearningHome.install();await window.StudyLearningHome.mount();
+ assert.match(region.innerHTML,/ADS102/);
+ await listeners.click({target:{closest:()=>({dataset:{learningAction:'lesson',date:'2026-11-03',index:'0'}})},preventDefault(){},stopImmediatePropagation(){}});
+ assert.match(shown,/ADS102/);assert.match(shown,/继续学习 · 集合与关系/);
+ const change=id=>listeners.change({target:{id,files:[{size:300}],value:'chosen'}});
+ await change('learning-lesson-file');
+ assert.deepEqual(JSON.parse(JSON.stringify(sent)),{tags:{course:'ADS102',weeks:[8],class_type:'Lecture'},confirm_fields:['course','weeks','class_type'],sessions:[{week:8,class_type:'Lecture'}]});
+ await change('learning-home-file');
+ assert.deepEqual(JSON.parse(JSON.stringify(sent)),{});
+});

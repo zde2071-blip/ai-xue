@@ -47,12 +47,44 @@
   if(rows.some(r=>(r.date||r.start)<=current&&(r.date||r.end)>=current))return current;
   return rows.map(r=>r.date||r.start).filter(Boolean).sort()[0]||current;
  }
+ function currentTeachingWeeks(t,day){
+  const start=monday(day),end=addDays(start,6);
+  return [...new Set((t.calendar||[]).filter(r=>r.kind==='teaching'&&r.week!=null&&r.start<=end&&r.end>=start).map(r=>r.week))].sort((a,b)=>a-b);
+ }
+ function teachingWeekLabel(weeks){return weeks.length?'第 '+weeks.join('、')+' 教学周':'';}
+ function classWeek(t,row,day,fallback){
+  const group=row.calendar_group||'';
+  return (t.calendar||[]).some(c=>c.kind==='teaching'&&(c.calendar_group||'')===group)?weekAt(t,day,group):fallback;
+ }
+ function learningWeek(t,day){
+  const start=monday(day),end=addDays(start,6),weeks=currentTeachingWeeks(t,day),days=[];
+  const sources=new Map((t.sources||[]).map(r=>[r.id,r]));
+  for(let i=0;i<7;i++){
+   const date=addDays(start,i),week=weekAt(t,date),classes=[];
+   const off=(t.calendar||[]).some(r=>['break','nonteaching'].includes(r.kind)&&sources.get(r.source_id)?.type!=='subscription'&&r.start<=date&&r.end>=date);
+   for(const r of t.timetable||[]){
+    const mapped=classWeek(t,r,date,week);
+    if(off||r.weekday!==i+1||mapped===null||(r.weeks?.length&&!r.weeks.includes(mapped))||sources.get(r.source_id)?.visible===false)continue;
+    classes.push({course:r.course,date,week:mapped,classType:r.class_type||'',time:r.time,location:r.location||''});
+   }
+   for(const r of t.events||[]){
+    const source=sources.get(r.source_id);
+    if(r.date!==date||r.kind==='exam'||source?.kind!=='timetable'||source.visible===false)continue;
+    classes.push({course:r.title,date,week,classType:'',time:r.start?(r.end?r.start+'–'+r.end:r.start):'',location:r.location||''});
+   }
+   const seen=new Set();
+   days.push({date,label:dayNames[i],classes:classes.filter(r=>{
+    const key=JSON.stringify([r.course.trim().toLowerCase(),r.week,r.classType,clockRange(r.time)||r.time]);
+    if(seen.has(key))return false;seen.add(key);return true;
+   }).sort((a,b)=>(clockRange(a.time)?.start??1440)-(clockRange(b.time)?.start??1440)||a.course.localeCompare(b.course,'zh-CN'))});
+  }
+  return {start,end,weeks,days};
+ }
  function entriesForDay(t,day,genericWeek=null){
   const off=(t.calendar||[]).some(r=>['break','nonteaching'].includes(r.kind)&&sourceOf(t,r)?.type!=='subscription'&&r.start<=day&&r.end>=day);
   const w=genericWeek===null?(off?null:weekAt(t,day)):genericWeek,result=[];
   (t.timetable||[]).forEach((r,i)=>{
-   const ownGroup=r.calendar_group||'',ownRanges=(t.calendar||[]).some(c=>c.kind==='teaching'&&(c.calendar_group||'')===ownGroup);
-   const mapped=ownRanges?weekAt(t,day,ownGroup):w;
+   const mapped=classWeek(t,r,day,w);
    if(!shown(t,r,'timetable')||off||r.weekday!==weekday(day)+1||mapped===null||r.weeks.length&&!r.weeks.includes(mapped))return;
    result.push({key:'timetable:'+i,title:r.course,subtitle:[r.class_type,r.location].filter(Boolean).join(' · '),time:r.time,range:clockRange(r.time),kind:'course',color:colorFor(t,'timetable',r)});
   });
@@ -68,7 +100,7 @@
   flush();return sorted;
  }
  function tabsMarkup(mode){return `<div class="calendar-view-switch" aria-label="日历视图">${[['day','日'],['week','周'],['month','月'],['year','年']].map(([key,label])=>`<button type="button" data-calendar-action="view" data-view="${key}" aria-pressed="${mode===key}" class="${mode===key?'selected':''}">${label}</button>`).join('')}</div>`;}
- if(typeof module!=='undefined'&&module.exports){module.exports={addDays,weekday,monday,monthDays,moveMonth,weekAt,clockRange,firstDate,entriesForDay,timedLayout,periodLanes,colorFor,colorStyle,localSource,removeCalendarSource,importedDate,editorCategory};return;}
+ if(typeof module!=='undefined'&&module.exports){module.exports={addDays,weekday,monday,monthDays,moveMonth,weekAt,clockRange,firstDate,entriesForDay,timedLayout,periodLanes,colorFor,colorStyle,localSource,removeCalendarSource,importedDate,editorCategory,learningWeek};return;}
  const manager=()=>root.StudySchedule?.manager(),term=manager;
  const redraw=()=>root.StudySchedule?.paint();
  function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -176,8 +208,9 @@
  function markup(M,t,kind,{tools='',importPanel='',message=''}={}){
   const s=view(M),generic=['day','week'].includes(s.mode)&&!!t.timetable?.length&&!(t.calendar||[]).some(r=>r.kind==='teaching')&&!(t.events||[]).length,date=dateOf(s.cursor),allWeeks=[...new Set((t.timetable||[]).flatMap(r=>r.weeks))].sort((a,b)=>a-b);
   const title=generic?'每周课表':`${date.getUTCFullYear()}年${s.mode==='year'?'':`${date.getUTCMonth()+1}月${s.mode==='day'?date.getUTCDate()+'日':''}`}`;
+  const currentWeek=teachingWeekLabel(currentTeachingWeeks(t,today()));
   const unit={day:'天',week:'周',month:'月',year:'年'}[s.mode];
-  return `<section class="academic-calendar" aria-label="学习日历"><div class="calendar-body"><div class="calendar-main"><div class="calendar-navigation-row"><div class="calendar-period">${title}${generic?`<select aria-label="查看教学周" data-calendar-week>${(allWeeks.length?allWeeks:[1]).map(w=>`<option value="${w}" ${s.week===w?'selected':''}>Week ${w}</option>`).join('')}</select>`:''}</div>${tabsMarkup(s.mode)}<div class="calendar-date-nav"><button type="button" class="icon-button" data-calendar-action="previous" aria-label="上一${unit}">${icon('chevron-left')}</button><button type="button" data-calendar-action="today">今天</button><button type="button" class="icon-button" data-calendar-action="next" aria-label="下一${unit}">${icon('chevron-right')}</button></div></div>${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${s.mode==='year'?yearMarkup(t,s):s.mode==='month'?monthMarkup(t,s):weekMarkup(t,s)}</div>${editorMarkup(t,s)}</div></div></div>${importPanel}${sourceSettingsMarkup(t,s)}</section>`;
+  return `<section class="academic-calendar" aria-label="学习日历"><div class="calendar-body"><div class="calendar-main"><div class="calendar-navigation-row"><div class="calendar-period">${title}${generic?`<select aria-label="查看教学周" data-calendar-week>${(allWeeks.length?allWeeks:[1]).map(w=>`<option value="${w}" ${s.week===w?'selected':''}>Week ${w}</option>`).join('')}</select>`:''}${currentWeek?`<small class="calendar-current-week">本周 · ${currentWeek}</small>`:''}</div>${tabsMarkup(s.mode)}<div class="calendar-date-nav"><button type="button" class="icon-button" data-calendar-action="previous" aria-label="上一${unit}">${icon('chevron-left')}</button><button type="button" data-calendar-action="today">今天</button><button type="button" class="icon-button" data-calendar-action="next" aria-label="下一${unit}">${icon('chevron-right')}</button></div></div>${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${s.mode==='year'?yearMarkup(t,s):s.mode==='month'?monthMarkup(t,s):weekMarkup(t,s)}</div>${editorMarkup(t,s)}</div></div></div>${importPanel}${sourceSettingsMarkup(t,s)}</section>`;
  }
  function open(source,index,draft,original=null){const s=view();if(s.editor?.dirty){s.error='请先完成或取消当前编辑。';redraw();return;}s.error='';s.editor={source,index,draft:structuredClone(draft),dirty:false,original};redraw();document.querySelector('#calendar-event-form input')?.focus();}
  async function applyEditor(form){
@@ -206,7 +239,7 @@
  }
  let dragStart=null,suppressedSlotClick=null;
  function newDate(day){open('events',-1,{id:'',title:'',date:day,kind:'exam',start:'',end:'',location:''});}
- root.AcademicCalendar={focusImported(M,kind,rows){view(M).cursor=importedDate(kind,rows,today());},markup,sidebar:()=>manager()&&view().sidebar!==false?sidebarMarkup(manager()):'',sidebarExpanded:()=>!!manager()&&view().sidebar!==false,toggleSidebar(){if(manager()){view().sidebar=view().sidebar===false;redraw();}},pending:M=>!!(M?.calendarView?.editor||M?.calendarView?.sourceEditor),reset(M){delete M.calendarView;}};
+ root.AcademicCalendar={learningWeek,teachingWeekLabel,today,focusImported(M,kind,rows){view(M).cursor=importedDate(kind,rows,today());},markup,sidebar:()=>manager()&&view().sidebar!==false?sidebarMarkup(manager()):'',sidebarExpanded:()=>!!manager()&&view().sidebar!==false,toggleSidebar(){if(manager()){view().sidebar=view().sidebar===false;redraw();}},pending:M=>!!(M?.calendarView?.editor||M?.calendarView?.sourceEditor),reset(M){delete M.calendarView;}};
  function setColor(node,value){if(!manager()||manager().saving||root.AcademicReferences.busy(manager())||value&&!validColor(value))return;if(node.hasAttribute('data-source-settings-color')&&view().sourceEditor){view().sourceEditor.draft.color=value;redraw();}else if(node.hasAttribute('data-calendar-source-color')){const source=sourceOf(manager(),{source_id:node.dataset.calendarSourceColor});if(source)source.color=value;redraw();}else if(node.hasAttribute('data-calendar-category-color')){manager().colors||={};manager().colors[node.dataset.calendarCategoryColor]=value;redraw();}else if(node.hasAttribute('data-calendar-editor-color')&&view().editor){view().editor.draft.color=value;view().editor.dirty=true;redraw();}}
  document.addEventListener('click',event=>{const node=event.target.closest('button[data-color]');if(!node||!node.closest('.study-settings-shell'))return;event.preventDefault();setColor(node,node.dataset.color);},true);
  document.addEventListener('change',event=>{if(event.target.type==='color')setColor(event.target,event.target.value);if(event.target.hasAttribute('data-calendar-source')){const source=sourceOf(manager(),{source_id:event.target.dataset.calendarSource});if(source)source.visible=event.target.checked;redraw();}if(event.target.hasAttribute('data-source-name')){const source=sourceOf(manager(),{source_id:event.target.dataset.sourceName});if(source)source.name=event.target.value.trim()||source.name;redraw();}});
