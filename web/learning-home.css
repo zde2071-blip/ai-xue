@@ -41,21 +41,28 @@
 
 .learning-home-toolbar>.learning-history-search{margin-left:auto}
 
+/* The learning timetable shares the calendar's time grid and event cards. */
+.learning-home:has(.learning-week:not([hidden])) .learning-home-toolbar,
+.learning-home-content:has(.learning-week:not([hidden])){width:min(1120px,calc(100% - 64px))}
 .learning-week{margin-top:28px}
-.learning-week>header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.learning-week h2{font-size:15px;font-weight:600;margin:0;color:#30373b}
-.learning-week>header>span,.learning-week-empty{font-size:12px;color:#696f74}
-.learning-week>ul{list-style:none;margin:0;padding:0;border:1px solid #e3e5e6;border-radius:8px}
-.learning-week-day{display:grid;grid-template-columns:106px minmax(0,1fr);align-items:start}
-.learning-week-day+.learning-week-day{border-top:1px solid #e8e9ea}
-.learning-week-date{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:12px;font-size:12px;color:#656c70}
-.learning-week-date small{font-size:10px;background:#e9e9ea;border-radius:4px;padding:2px 4px}
-.learning-week-lessons{min-width:0;padding:4px}
-.learning-week-lesson{display:grid;grid-template-columns:104px minmax(0,1fr) 16px;align-items:center;gap:8px;text-align:left;width:100%;padding:8px 10px;min-height:42px;border-radius:5px;color:#30373b}
-.learning-week-lesson:hover,.learning-week-lesson:focus-visible{background:#f1f2f3}
-.learning-week-time{font-size:12px;color:#646c71;font-variant-numeric:tabular-nums;white-space:nowrap}
-.learning-week-class{min-width:0;display:grid;gap:2px}.learning-week-class strong{font-size:13px;font-weight:550}.learning-week-class small{font-size:11px;color:#696f74}
-.learning-week-class>*{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.learning-week-lesson>svg{width:14px;height:14px;color:#727a80}
-.learning-week-resume{display:grid;gap:8px}.learning-week-resume>button{text-align:left}
-@media(max-width:540px){.learning-week-day{grid-template-columns:72px minmax(0,1fr)}.learning-week-date{padding:10px 7px}.learning-week-lesson{grid-template-columns:84px minmax(0,1fr) 12px;gap:4px;padding:7px 4px}.learning-week-time{font-size:11px}}
+.learning-week>header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+.learning-week-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 12px}
+.learning-week h2{font-size:18px;font-weight:600;margin:0;color:#30373b}
+.learning-week-heading>span,.learning-week-empty{font-size:12px;color:#696f74}
+.learning-week .calendar-date-nav{flex:0 0 auto}
+.learning-week-scroll{overflow-x:auto;border:1px solid #e3e5e6;border-radius:8px}
+.learning-week-scroll .semester-week{min-width:660px;border:0}
+.learning-week-scroll :is(.week-day-headings,.week-all-day,.week-time-grid){grid-template-columns:48px repeat(7,minmax(0,1fr));scrollbar-gutter:auto}
+.learning-week-scroll .week-day-headings>div{gap:4px;min-height:62px}
+.learning-week-scroll .week-day-headings time{display:grid;place-items:center;width:27px;height:27px;border-radius:50%;color:#444;font-size:16px}
+.learning-week-scroll .week-day-headings .is-today time{background:#333;color:#fff}
+.learning-week-scroll :is(.week-time-day,.week-all-day>div,.week-day-headings>div):nth-last-child(-n+2){background:#fafafa}
+.learning-week-scroll .week-time-grid{margin-bottom:12px}
+.learning-week-scroll .week-time-day>.calendar-entry{padding:5px 6px}
+.learning-week-scroll .week-time-day>.calendar-entry.is-short{padding:2px 4px;gap:4px}
+.learning-week-resume{display:grid;gap:8px}
+.learning-week-resume>button{text-align:left}
+@media(max-width:700px){
+ .learning-home:has(.learning-week:not([hidden])) .learning-home-toolbar,
+ .learning-home-content:has(.learning-week:not([hidden])){width:calc(100% - 32px)}
+}

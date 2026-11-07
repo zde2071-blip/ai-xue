@@ -23,16 +23,38 @@
   return {tags,confirm_fields:Object.keys(tags),...(week!=null||classType?{sessions:[{week,class_type:classType}]}:{})};
  }
  if(typeof module!=='undefined'&&module.exports){module.exports={records,lessonImport};return;}
- let owner='',query='',expanded=false,opening=false,calendar=null,request=null,selectedLesson=null;
- function resetOwner(){const next=S.user?.id||'guest';if(next===owner)return;owner=next;query='';expanded=false;calendar=null;request=null;selectedLesson=null;}
- const weekView=()=>calendar?.document&&root.AcademicCalendar.learningWeek(calendar.document,root.AcademicCalendar.today());
+ let owner='',query='',expanded=false,opening=false,calendar=null,request=null,selectedLesson=null,weekCursor=null;
+ function resetOwner(){const next=S.user?.id||'guest';if(next===owner)return;owner=next;query='';expanded=false;calendar=null;request=null;selectedLesson=null;weekCursor=null;}
+ const weekView=date=>calendar?.document&&root.AcademicCalendar.learningWeek(calendar.document,date||weekCursor||root.AcademicCalendar.today());
  const shortDate=date=>date.slice(5).split('-').map(Number).join('/');
+ function dateRange(start,end){
+  const [year,month,day]=start.split('-').map(Number);
+  const [endYear,endMonth,endDay]=end.split('-').map(Number);
+  const first=`${year}年${month}月${day}日`;
+  const last=endYear!==year?`${endYear}年${endMonth}月${endDay}日`:endMonth!==month?`${endMonth}月${endDay}日`:`${endDay}日`;
+  return first+'–'+last;
+ }
  function weekMarkup(){
-  if(calendar?.error)return '<header><h2>本周课程</h2><button type="button" class="outline-button" data-learning-action="refresh-week">重新加载</button></header><p class="learning-week-empty">暂时无法读取日历。</p>';
+  if(calendar?.error)return '<header><h2>周课表</h2><button type="button" class="outline-button" data-learning-action="refresh-week">重新加载</button></header><p class="learning-week-empty">暂时无法读取日历。</p>';
   const week=weekView();if(!week)return '';
   const today=root.AcademicCalendar.today(),label=root.AcademicCalendar.teachingWeekLabel(week.weeks);
-  const rows=week.days.filter(d=>d.classes.length).map(d=>`<li class="learning-week-day"><div class="learning-week-date" ${d.date===today?'aria-current="date"':''}>${d.label} <time datetime="${d.date}">${shortDate(d.date)}</time>${d.date===today?'<small>今天</small>':''}</div><div class="learning-week-lessons">${d.classes.map((c,i)=>`<button type="button" class="learning-week-lesson" data-learning-action="lesson" data-date="${d.date}" data-index="${i}" aria-haspopup="dialog"><span class="learning-week-time">${esc(c.time||'全天')}</span><span class="learning-week-class"><strong>${esc(c.course)}</strong>${c.classType||c.location?`<small>${esc([c.classType,c.location].filter(Boolean).join(' · '))}</small>`:''}</span>${icon('chevron-right')}</button>`).join('')}</div></li>`).join('');
-  return `<header><h2>本周课程</h2><span>${[label,shortDate(week.start)+'–'+shortDate(week.end)].filter(Boolean).join(' · ')}</span></header>${rows?`<ul>${rows}</ul>`:`<p class="learning-week-empty">${label?'本周没有安排课程。':'本周没有可显示的课程，可在学习设置的日历中添加课表和校历。'}</p>`}`;
+  const hasClasses=week.days.some(day=>day.classes.length);
+  return `<header>
+   <div class="learning-week-heading"><h2 aria-live="polite">${dateRange(week.start,week.end)}</h2>${label?`<span>${label}</span>`:''}</div>
+   <div class="calendar-date-nav" aria-label="切换周课表">
+    <button type="button" class="icon-button" data-learning-action="previous-week" aria-label="上一周">${icon('chevron-left')}</button>
+    <button type="button" data-learning-action="current-week">本周</button>
+    <button type="button" class="icon-button" data-learning-action="next-week" aria-label="下一周">${icon('chevron-right')}</button>
+   </div>
+  </header>${hasClasses?'':'<p class="learning-week-empty">这一周没有安排课程。</p>'}${root.AcademicCalendar.learningWeekGrid(week,today)}`;
+ }
+ function paintWeek(focusAction){
+  const region=document.querySelector('#learning-current-week');
+  if(!region)return;
+  region.innerHTML=weekMarkup();
+  region.hidden=false;
+  icons();
+  if(focusAction)region.querySelector(`[data-learning-action="${focusAction}"]`)?.focus({preventScroll:true});
  }
  async function mount(){
   resetOwner();if(S.demonstration||request)return;
@@ -42,8 +64,7 @@
   finally{
    if(request===token){
     request=null;
-    const region=document.querySelector('#learning-current-week');
-    if(id===S.user?.id&&region){region.innerHTML=weekMarkup();region.hidden=false;icons();}
+    if(id===S.user?.id)paintWeek();
    }
   }
  }
@@ -66,7 +87,7 @@
    const location=['待开始','尚未开始'].includes(r.location)?'待开始':r.location==='待整理笔记'?r.location:'接着学：'+r.location;
    return `<button type="button" class="learning-record" data-action="nav-select" data-id="${esc(r.id)}" aria-label="${esc(r.title)}" aria-haspopup="menu"><span class="learning-record-mark">${icon('messages-square')}</span><span class="learning-record-title"><strong>${esc(r.title)}</strong><small><span class="learning-record-course">${esc(r.course||'未设置课程')}</span><span class="learning-record-location">${esc(location)}</span></small></span>${icon('arrow-up-right')}</button>`;
   }).join('');
-  return `<section class="learning-home has-learning" aria-label="学习首页"><header class="learning-home-toolbar">${search}</header><div class="learning-home-content"><section class="learning-import" aria-label="导入课件" data-learning-drop><div class="learning-import-copy"><h1>导入课件</h1><p>将课件拖到这里</p></div><button type="button" class="outline-button learning-choose" data-learning-action="choose" title="PDF、PPTX、Word、文字或图片，最大 15 MB">${icon('plus')}选择课件</button><input id="learning-home-file" type="file" aria-label="选择新课件" accept=".pdf,.ppt,.pptx,.doc,.docx,.md,.txt,.png,.jpg,.jpeg,.webp" hidden></section>${S.demonstration?'':`<section id="learning-current-week" class="learning-week" aria-label="本周课程" ${calendar?'':'hidden'}>${weekMarkup()}</section>`}${empty?'':`<section class="learning-recents" aria-label="学习记录"><header><h2>继续学习</h2></header><div class="learning-record-list">${rows||`<p class="learning-no-records">${query?'没有找到相关记录':'暂无未完成的学习'}</p>`}</div>${!expanded&&!query&&items.length>5?'<button type="button" class="learning-more" data-learning-action="more">显示更多</button>':''}</section>`}</div></section>`;
+  return `<section class="learning-home has-learning" aria-label="学习首页"><header class="learning-home-toolbar">${search}</header><div class="learning-home-content"><section class="learning-import" aria-label="导入课件" data-learning-drop><div class="learning-import-copy"><h1>导入课件</h1><p>将课件拖到这里</p></div><button type="button" class="outline-button learning-choose" data-learning-action="choose" title="PDF、PPTX、Word、文字或图片，最大 15 MB">${icon('plus')}选择课件</button><input id="learning-home-file" type="file" aria-label="选择新课件" accept=".pdf,.ppt,.pptx,.doc,.docx,.md,.txt,.png,.jpg,.jpeg,.webp" hidden></section>${S.demonstration?'':`<section id="learning-current-week" class="learning-week" aria-label="周课表" ${calendar?'':'hidden'}>${weekMarkup()}</section>`}${empty?'':`<section class="learning-recents" aria-label="学习记录"><header><h2>继续学习</h2></header><div class="learning-record-list">${rows||`<p class="learning-no-records">${query?'没有找到相关记录':'暂无未完成的学习'}</p>`}</div>${!expanded&&!query&&items.length>5?'<button type="button" class="learning-more" data-learning-action="more">显示更多</button>':''}</section>`}</div></section>`;
  }
  async function openImport(file,lesson=null){
   if(opening||S.busy||S.threadBusy)return;opening=true;
@@ -79,11 +100,16 @@
   document.addEventListener('click',async event=>{const button=event.target.closest('[data-learning-action]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();if(S.busy||S.threadBusy)return;
    if(button.dataset.learningAction==='choose')document.querySelector('#learning-home-file')?.click();
    else if(button.dataset.learningAction==='lesson'){
-    const lesson=weekView()?.days.find(d=>d.date===button.dataset.date)?.classes[Number(button.dataset.index)];
+    const lesson=weekView(button.dataset.date)?.days.find(d=>d.date===button.dataset.date)?.classes[Number(button.dataset.index)];
     if(lesson)showLesson(lesson);
    }
    else if(button.dataset.learningAction==='choose-lesson')document.querySelector('#learning-lesson-file')?.click();
    else if(button.dataset.learningAction==='resume-lesson'){modal.close();await loadCourse(button.dataset.id);}
+   else if(['previous-week','current-week','next-week'].includes(button.dataset.learningAction)){
+    const action=button.dataset.learningAction;
+    weekCursor=action==='current-week'?null:root.AcademicCalendar.addDays(weekView().start,action==='previous-week'?-7:7);
+    paintWeek(action);
+   }
    else if(button.dataset.learningAction==='refresh-week')await mount();
    else if(button.dataset.learningAction==='more'){expanded=true;render();}
   },true);

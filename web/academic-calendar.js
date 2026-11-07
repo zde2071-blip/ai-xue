@@ -65,12 +65,12 @@
    for(const r of t.timetable||[]){
     const mapped=classWeek(t,r,date,week);
     if(off||r.weekday!==i+1||mapped===null||(r.weeks?.length&&!r.weeks.includes(mapped))||sources.get(r.source_id)?.visible===false)continue;
-    classes.push({course:r.course,date,week:mapped,classType:r.class_type||'',time:r.time,location:r.location||''});
+    classes.push({course:r.course,date,week:mapped,classType:r.class_type||'',time:r.time,location:r.location||'',color:colorFor(t,'timetable',r)});
    }
    for(const r of t.events||[]){
     const source=sources.get(r.source_id);
     if(r.date!==date||r.kind==='exam'||source?.kind!=='timetable'||source.visible===false)continue;
-    classes.push({course:r.title,date,week,classType:'',time:r.start?(r.end?r.start+'–'+r.end:r.start):'',location:r.location||''});
+    classes.push({course:r.title,date,week,classType:'',time:r.start?(r.end?r.start+'–'+r.end:r.start):'',location:r.location||'',color:colorFor(t,'events',r)});
    }
    const seen=new Set();
    days.push({date,label:dayNames[i],classes:classes.filter(r=>{
@@ -100,7 +100,7 @@
   flush();return sorted;
  }
  function tabsMarkup(mode){return `<div class="calendar-view-switch" aria-label="日历视图">${[['day','日'],['week','周'],['month','月'],['year','年']].map(([key,label])=>`<button type="button" data-calendar-action="view" data-view="${key}" aria-pressed="${mode===key}" class="${mode===key?'selected':''}">${label}</button>`).join('')}</div>`;}
- if(typeof module!=='undefined'&&module.exports){module.exports={addDays,weekday,monday,monthDays,moveMonth,weekAt,clockRange,firstDate,entriesForDay,timedLayout,periodLanes,colorFor,colorStyle,localSource,removeCalendarSource,importedDate,editorCategory,learningWeek};return;}
+ if(typeof module!=='undefined'&&module.exports){module.exports={addDays,weekday,monday,monthDays,moveMonth,weekAt,clockRange,firstDate,entriesForDay,timedLayout,periodLanes,colorFor,colorStyle,localSource,removeCalendarSource,importedDate,editorCategory,learningWeek,learningWeekGrid};return;}
  const manager=()=>root.StudySchedule?.manager(),term=manager;
  const redraw=()=>root.StudySchedule?.paint();
  function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -108,7 +108,48 @@
   const t=M;
   return M.calendarView||={cursor:firstDate(t,today()),mode:'month',week:[...new Set((t.timetable||[]).flatMap(r=>r.weeks))].sort((a,b)=>a-b)[0]||1,editor:null,error:''};
  }
- const button=(r,layout='')=>`<button type="button" class="calendar-entry ${r.kind==='exam'?'is-exam':''} ${r.range&&r.range.end-r.range.start<45?'is-short':''}" data-calendar-action="edit" data-entry="${esc(r.key)}" title="${esc([r.title,r.time,r.subtitle].filter(Boolean).join(' · '))}" style="${colorStyle(r.color)}${layout}"><strong>${esc(r.title)}</strong>${r.time?`<span>${esc(r.time)}</span>`:''}${r.subtitle?`<small>${esc(r.subtitle)}</small>`:''}</button>`;
+ function entryButton(entry,layout,attributes){
+  const classes=['calendar-entry'];
+  if(entry.kind==='exam')classes.push('is-exam');
+  if(entry.range&&entry.range.end-entry.range.start<45)classes.push('is-short');
+  const title=[entry.title,entry.time,entry.subtitle].filter(Boolean).join(' · ');
+  return `<button type="button" class="${classes.join(' ')}" ${attributes} title="${esc(title)}" style="${colorStyle(entry.color)}${layout}"><strong>${esc(entry.title)}</strong>${entry.time?`<span>${esc(entry.time)}</span>`:''}${entry.subtitle?`<small>${esc(entry.subtitle)}</small>`:''}</button>`;
+ }
+ const button=(entry,layout='')=>entryButton(entry,layout,`data-calendar-action="edit" data-entry="${esc(entry.key)}"`);
+
+ function weekGrid(dates,entries,{currentDate,renderDay,dayAttributes=()=>'',renderEntry,hourHeight=HOUR}){
+  const all=entries.flat(),timed=all.filter(entry=>entry.range);
+  const first=Math.min(8,...timed.map(entry=>Math.floor(entry.range.start/60)));
+  const last=Math.max(20,...timed.map(entry=>Math.ceil(entry.range.end/60)));
+  const headings=dates.map(day=>`<div class="${day===currentDate?'is-today':''}"><span>${dayNames[weekday(day)]}</span>${renderDay(day)}</div>`).join('');
+  const allDay=all.some(entry=>!entry.range)
+   ?`<div class="week-all-day"><span>全天 / 节次</span>${entries.map(rows=>`<div>${rows.filter(entry=>!entry.range).map(entry=>renderEntry(entry,'')).join('')}</div>`).join('')}</div>`:'';
+  const hourLabels=Array.from({length:last-first+1},(_,i)=>`<span style="top:${i*hourHeight}px">${String(first+i).padStart(2,'0')}:00</span>`).join('');
+  const hourLines=Array.from({length:last-first},(_,i)=>`<div class="calendar-hour-line" style="top:${i*hourHeight}px"></div>`).join('');
+  const columns=dates.map((day,index)=>{
+   const events=timedLayout(entries[index]).map(entry=>{
+    const top=(entry.range.start-first*60)/60*hourHeight;
+    const height=Math.max(24,(entry.range.end-entry.range.start)/60*hourHeight);
+    const style=`top:${top}px;height:${height}px;left:calc(${entry.column/entry.columns*100}% + 3px);width:calc(${100/entry.columns}% - 6px)`;
+    return renderEntry(entry,style);
+   }).join('');
+   return `<div class="week-time-day" ${dayAttributes(day,first)}>${hourLines}${events}</div>`;
+  }).join('');
+  return `<div class="week-day-headings"><span></span>${headings}</div>${allDay}<div class="week-time-scroll"><div class="week-time-grid" style="height:${(last-first)*hourHeight}px"><div class="week-hours">${hourLabels}</div>${columns}</div></div>`;
+ }
+ function learningWeekGrid(week,currentDate){
+  const dates=week.days.map(day=>day.date);
+  const entries=week.days.map(day=>day.classes.map((lesson,index)=>({
+   ...lesson,index,title:lesson.course,subtitle:[lesson.classType,lesson.location].filter(Boolean).join(' · '),range:clockRange(lesson.time)
+  })));
+  const grid=weekGrid(dates,entries,{
+   currentDate,hourHeight:46,
+   renderDay:day=>`<time datetime="${day}" ${day===currentDate?'aria-current="date"':''}>${Number(day.slice(8))}</time>`,
+   renderEntry:(entry,layout)=>entryButton(entry,layout,`data-learning-action="lesson" data-date="${entry.date}" data-index="${entry.index}" aria-haspopup="dialog"`)
+  });
+  return `<div class="learning-week-scroll"><div class="semester-week" aria-label="周课表">${grid}</div></div>`;
+ }
+
  function periodLanes(t,days){
   const rows=(t.calendar||[]).map((r,i)=>({...r,key:'calendar:'+i,color:colorFor(t,'calendar',r)})).filter(r=>shown(t,r,r.kind==='exam'?'exam':'calendar')&&r.start<=days[days.length-1]&&r.end>=days[0]);
   const lanes=[];
@@ -131,12 +172,16 @@
  function weekMarkup(t,s){
   const dayView=s.mode==='day';
   const generic=!!t.timetable?.length&&!(t.calendar||[]).some(r=>r.kind==='teaching')&&!(t.events||[]).length,start=dayView?s.cursor:monday(s.cursor),dates=Array.from({length:dayView?1:7},(_,i)=>addDays(start,i));
-  const entries=dates.map(day=>entriesForDay(t,day,generic?s.week:null));
-  // With no school calendar, show the recurring pattern without inventing dates.
+  const entries=dates.map(day=>entriesForDay(t,day,generic?s.week:null).filter(entry=>!entry.key.startsWith('calendar:')));
   const periods=periodLanes(t,dates);
-  for(const rows of entries)for(let i=rows.length-1;i>=0;i--)if(rows[i].key.startsWith('calendar:'))rows.splice(i,1);
-  const hasUntimed=entries.flat().some(r=>!r.range),timed=entries.flat().filter(r=>r.range),first=Math.min(8,...timed.map(r=>Math.floor(r.range.start/60))),last=Math.max(20,...timed.map(r=>Math.ceil(r.range.end/60))),height=(last-first)*HOUR;
-  return `<div class="semester-week ${dayView?'is-day-view':''}" style="--day-count:${dates.length}" aria-label="${dayView?'日历':generic?'每周课表':'周历'}">${periods.length?`<div class="week-period-row"><span></span><div class="week-period-lanes">${periodsMarkup(periods)}</div></div>`:''}<div class="week-day-headings"><span></span>${dates.map((day,i)=>`<div class="${day===today()&&!generic?'is-today':''}"><span>${dayNames[weekday(day)]}</span>${!generic?`<button type="button" data-calendar-action="day" data-date="${day}" aria-label="查看 ${day}">${Number(day.slice(8))}</button>`:''}</div>`).join('')}</div>${hasUntimed?`<div class="week-all-day"><span>全天 / 节次</span>${entries.map(rows=>`<div>${rows.filter(r=>!r.range).map(r=>button(r)).join('')}</div>`).join('')}</div>`:''}<div class="week-time-scroll"><div class="week-time-grid" style="height:${height}px"><div class="week-hours">${Array.from({length:last-first+1},(_,i)=>`<span style="top:${i*HOUR}px">${String(i+first).padStart(2,'0')}:00</span>`).join('')}</div>${dates.map((day,i)=>`<div class="week-time-day" data-calendar-slot="${day}" data-grid-start="${first}" tabindex="0" role="gridcell" aria-label="${dayNames[weekday(day)]}，点击添加课程">${Array.from({length:last-first},(_,h)=>`<div class="calendar-hour-line" style="top:${h*HOUR}px"></div>`).join('')}${timedLayout(entries[i]).map(r=>button(r,`top:${(r.range.start-first*60)/60*HOUR}px;height:${Math.max(24,(r.range.end-r.range.start)/60*HOUR)}px;left:calc(${r.column/r.columns*100}% + 3px);width:calc(${100/r.columns}% - 6px)`)).join('')}</div>`).join('')}</div></div>${generic?'<p class="calendar-unmapped">尚未导入校历，当前显示每周排课。</p>':''}</div>`;
+  const grid=weekGrid(dates,entries,{
+   currentDate:generic?null:today(),
+   renderDay:day=>generic?'':`<button type="button" data-calendar-action="day" data-date="${day}" aria-label="查看 ${day}">${Number(day.slice(8))}</button>`,
+   dayAttributes:(day,first)=>`data-calendar-slot="${day}" data-grid-start="${first}" tabindex="0" role="gridcell" aria-label="${dayNames[weekday(day)]}，点击添加课程"`,
+   renderEntry:button
+  });
+  return `<div class="semester-week ${dayView?'is-day-view':''}" style="--day-count:${dates.length}" aria-label="${dayView?'日历':generic?'每周课表':'周历'}">${periods.length?`<div class="week-period-row"><span></span><div class="week-period-lanes">${periodsMarkup(periods)}</div></div>`:''}${grid}${generic?'<p class="calendar-unmapped">尚未导入校历，当前显示每周排课。</p>':''}</div>`;
+
  }
  function field(name,label,value,type='text',extra=''){return `<label><span>${label}</span><input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
  function editorMarkup(t,s){
@@ -239,7 +284,7 @@
  }
  let dragStart=null,suppressedSlotClick=null;
  function newDate(day){open('events',-1,{id:'',title:'',date:day,kind:'exam',start:'',end:'',location:''});}
- root.AcademicCalendar={learningWeek,teachingWeekLabel,today,focusImported(M,kind,rows){view(M).cursor=importedDate(kind,rows,today());},markup,sidebar:()=>manager()&&view().sidebar!==false?sidebarMarkup(manager()):'',sidebarExpanded:()=>!!manager()&&view().sidebar!==false,toggleSidebar(){if(manager()){view().sidebar=view().sidebar===false;redraw();}},pending:M=>!!(M?.calendarView?.editor||M?.calendarView?.sourceEditor),reset(M){delete M.calendarView;}};
+ root.AcademicCalendar={learningWeek,learningWeekGrid,teachingWeekLabel,today,addDays,focusImported(M,kind,rows){view(M).cursor=importedDate(kind,rows,today());},markup,sidebar:()=>manager()&&view().sidebar!==false?sidebarMarkup(manager()):'',sidebarExpanded:()=>!!manager()&&view().sidebar!==false,toggleSidebar(){if(manager()){view().sidebar=view().sidebar===false;redraw();}},pending:M=>!!(M?.calendarView?.editor||M?.calendarView?.sourceEditor),reset(M){delete M.calendarView;}};
  function setColor(node,value){if(!manager()||manager().saving||root.AcademicReferences.busy(manager())||value&&!validColor(value))return;if(node.hasAttribute('data-source-settings-color')&&view().sourceEditor){view().sourceEditor.draft.color=value;redraw();}else if(node.hasAttribute('data-calendar-source-color')){const source=sourceOf(manager(),{source_id:node.dataset.calendarSourceColor});if(source)source.color=value;redraw();}else if(node.hasAttribute('data-calendar-category-color')){manager().colors||={};manager().colors[node.dataset.calendarCategoryColor]=value;redraw();}else if(node.hasAttribute('data-calendar-editor-color')&&view().editor){view().editor.draft.color=value;view().editor.dirty=true;redraw();}}
  document.addEventListener('click',event=>{const node=event.target.closest('button[data-color]');if(!node||!node.closest('.study-settings-shell'))return;event.preventDefault();setColor(node,node.dataset.color);},true);
  document.addEventListener('change',event=>{if(event.target.type==='color')setColor(event.target,event.target.value);if(event.target.hasAttribute('data-calendar-source')){const source=sourceOf(manager(),{source_id:event.target.dataset.calendarSource});if(source)source.visible=event.target.checked;redraw();}if(event.target.hasAttribute('data-source-name')){const source=sourceOf(manager(),{source_id:event.target.dataset.sourceName});if(source)source.name=event.target.value.trim()||source.name;redraw();}});
