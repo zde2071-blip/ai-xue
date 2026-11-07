@@ -58,7 +58,9 @@
 .learning-week-scroll .week-day-headings .is-today time{background:#333;color:#fff}
 .learning-week-scroll :is(.week-time-day,.week-all-day>div,.week-day-headings>div):nth-last-child(-n+2){background:#fafafa}
 .learning-week-scroll .week-time-grid{margin-bottom:12px}
-.learning-week-scroll .week-time-day>.calendar-entry{padding:5px 6px}
+.learning-week-scroll .week-time-day>.calendar-entry{padding:4px 6px;gap:2px}
+.learning-week-scroll .week-time-day>.calendar-entry>*{line-height:1.25}
+.learning-week-scroll .calendar-entry[data-compact]>small{display:none}
 .learning-week-scroll .week-time-day>.calendar-entry.is-short{padding:2px 4px;gap:4px}
 .learning-week-resume{display:grid;gap:8px}
 .learning-week-resume>button{text-align:left}

@@ -145,7 +145,7 @@
   const grid=weekGrid(dates,entries,{
    currentDate,hourHeight:46,
    renderDay:day=>`<time datetime="${day}" ${day===currentDate?'aria-current="date"':''}>${Number(day.slice(8))}</time>`,
-   renderEntry:(entry,layout)=>entryButton(entry,layout,`data-learning-action="lesson" data-date="${entry.date}" data-index="${entry.index}" aria-haspopup="dialog"`)
+   renderEntry:(entry,layout)=>entryButton(entry,layout,`data-learning-action="lesson" data-date="${entry.date}" data-index="${entry.index}" aria-haspopup="dialog" ${entry.range&&entry.range.end-entry.range.start<75?'data-compact':''}`)
   });
   return `<div class="learning-week-scroll"><div class="semester-week" aria-label="周课表">${grid}</div></div>`;
  }

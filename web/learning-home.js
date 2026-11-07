@@ -77,7 +77,7 @@
    const tags=c.tags||{},type=tags.class_type||c.class_type;
    return identity(tags.course||c.course_label)===identity(lesson.course)&&(tags.weeks||c.weeks||[]).includes(lesson.week)&&(!lesson.classType||normalize(type)===normalize(lesson.classType));
   });
-  const details=[shortDate(lesson.date),lesson.time,lesson.week!=null?root.AcademicCalendar.teachingWeekLabel([lesson.week]):'',lesson.classType].filter(Boolean);
+  const details=[shortDate(lesson.date),lesson.time,lesson.week!=null?root.AcademicCalendar.teachingWeekLabel([lesson.week]):'',lesson.classType,lesson.location].filter(Boolean);
   modalContent(esc(lesson.course),`<p class="modal-description">${esc(details.join(' · '))}</p>${courses.length?`<div class="learning-week-resume">${courses.map(c=>`<button type="button" class="outline-button" data-learning-action="resume-lesson" data-id="${esc(c.id)}">继续学习 · ${esc(c.title)}</button>`).join('')}</div>`:''}<div class="modal-actions"><button type="button" class="primary" data-learning-action="choose-lesson">${icon('plus')}选择课件</button><input type="file" id="learning-lesson-file" accept=".pdf,.ppt,.pptx,.doc,.docx,.md,.txt,.png,.jpg,.jpeg,.webp" hidden></div>`);
  }
  function markup({scope,entries}){
