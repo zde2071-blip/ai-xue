@@ -28,6 +28,13 @@ class Metadata(unittest.TestCase):
  def test_background_reused_without_date_guess(self):
   r=app.upload_background({'filename':'课程表.md','text':'# 课程表\nADS102 离散数学与统计\n星期一 09:00','kind':'originals','academic_stage':'university','academic_year':2,'academic_semester':1,'use_ai':False});self.assertEqual(r['context']['references'][0]['courses'][0]['code'],'ADS102')
   r=app.recognize_material({'filename':'ADS102 Tutorial 2.md','text':'数列练习','use_ai':False,'academic_stage':'university','academic_year':2,'academic_semester':1});self.assertEqual(r['course_title'],'离散数学与统计');self.assertNotIn('week',r['fields'])
+ def test_learning_import_suggests_course_from_current_calendar_subscription(self):
+  calendar={'sources':[{'id':'school','kind':'timetable'}],'events':[{'title':'ISA104','kind':'event','source_id':'school'}]}
+  with patch.object(app.calendar_store.Calendar,'document',return_value=calendar):
+   result=app.recognize_material({'filename':'ISA104 Week 8 Lecture.md','text':'课堂材料','use_ai':False,'learning_import':True})
+  self.assertEqual(result['course_title'],'ISA104')
+  self.assertEqual(result['fields']['weeks'],[8])
+
  def test_manual_overrides_recognition(self):
   r=app.upload_material({'kind':'originals','filename':'Week 3 Lecture.md','text':'# 条件概率','week':'6','class_type':'Tutorial','recognition':meta.rules('Week 3 Lecture.md','')})['item'];self.assertEqual(r['week'],6);self.assertEqual(r['metadata_sources']['weeks']['source'],'用户确认')
  def test_ai_requires_document_evidence(self):

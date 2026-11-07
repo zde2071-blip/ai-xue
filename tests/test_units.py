@@ -65,6 +65,13 @@ class CoreUnits(unittest.TestCase):
    self.assertEqual(c['learning_kind'],'solutions');self.assertIn('题目块',model.call_args.args[0][0]['content'])
   with patch.object(app,'ask',return_value='### 题目\nP(A|B)\n### 解析\n0.12/0.3\n### 答案\n0.4') as model:
    app.get_lesson(c,c['active']);self.assertIn('题干',model.call_args.args[0][0]['content'])
+ def test_calendar_link_is_preserved_when_reloading_imported_material(self):
+  outline={'title':'集合','overview':'集合复习','blocks':[{'title':'集合','description':'定义与例子','points':['集合']}]}
+  lesson={'date':'2026-11-06','course':'ADS102','time':'09:00–11:00','class_type':'Lecture'}
+  with patch.object(app,'ask',return_value=outline):
+   course=app.import_course({'filename':'Week 8 Lecture.md','text':'集合是数学基础，包含元素、子集、交集和并集。'*4,'tags':{'course':'ADS102','weeks':[8],'class_type':'Lecture'},'scheduled_lesson':lesson})
+  self.assertEqual(app.get_course(course['id'])['scheduled_lesson'],lesson)
+
  def test_starting_existing_asset_is_idempotent_and_preserves_original(self):
   asset=app.upload_material({'filename':'Tutorial.md','kind':'exercises','text':'已知 P(B)=0.3，P(A∩B)=0.12，求 P(A|B)。'*3})['item'];original=Path(asset['path']).read_bytes()
   outline={'title':'条件概率','overview':'一题','blocks':[{'title':'第1题','description':'题干','points':['条件概率']}]}

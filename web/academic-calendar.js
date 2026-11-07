@@ -122,8 +122,10 @@
   const classes=['calendar-entry'];
   if(entry.kind==='exam')classes.push('is-exam');
   if(entry.range&&entry.range.end-entry.range.start<45)classes.push('is-short');
-  const title=[entry.title,entry.time,entry.subtitle].filter(Boolean).join(' · ');
-  return `<button type="button" class="${classes.join(' ')}" ${attributes} title="${esc(title)}" style="${colorStyle(entry.color)}${layout}"><strong>${esc(entry.title)}</strong>${entry.time?`<span>${esc(entry.time)}</span>`:''}${entry.subtitle?`<small>${esc(entry.subtitle)}</small>`:''}</button>`;
+  if(entry.completed)classes.push('learning-lesson-complete');
+  const title=[entry.title,entry.time,entry.subtitle,entry.completed?'已学完课件':''].filter(Boolean).join(' · ');
+  const completion=entry.completed?'<i data-lucide="check" class="learning-lesson-check" aria-hidden="true"></i>':'';
+  return `<button type="button" class="${classes.join(' ')}" ${attributes} ${entry.completed?`aria-label="${esc(title)}"`:''} title="${esc(title)}" style="${colorStyle(entry.color)}${layout}"><strong>${esc(entry.title)}</strong>${entry.time?`<span>${esc(entry.time)}</span>`:''}${entry.subtitle?`<small>${esc(entry.subtitle)}</small>`:''}${completion}</button>`;
  }
  const button=(entry,layout='')=>entryButton(entry,layout,`data-calendar-action="edit" data-entry="${esc(entry.key)}"`);
 

@@ -235,7 +235,26 @@ def make_outline(title, text, method, learning_kind='concepts'):
     return clean_text(result.get('title') or title, 150), clean_text(result.get('overview'), 1200), cleaned
 
 
+def scheduled_lesson(raw):
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise Problem('课表关联无效。')
+    date = raw.get('date')
+    try:
+        if not isinstance(date, str) or datetime.strptime(date, '%Y-%m-%d').date().isoformat() != date:
+            raise ValueError()
+    except ValueError:
+        raise Problem('课表日期无效。') from None
+    course = clean_text(raw.get('course'), 150)
+    if not course:
+        raise Problem('请填写要关联的课程。')
+    return {'date': date, 'course': course, 'time': clean_text(raw.get('time'), 80),
+            'class_type': clean_text(raw.get('class_type'), 60)}
+
+
 def import_course(data, source_item=None):
+    lesson = scheduled_lesson(data.get('scheduled_lesson'))
     fields = resolved_material_fields(data)
     method = clean_text(data.get('method') or METHOD, 4000)
     name = Path(clean_text(data.get('filename') or '学习资料.md', 150)).name
@@ -264,6 +283,8 @@ def import_course(data, source_item=None):
         try:c['tags']=learning_units.clean_tags({'weeks':fields.get('weeks',[]),'class_type':fields.get('class_type',''),'topic':fields.get('topic',''),'chapter':fields.get('chapter',''),**data['tags']},material_metadata.normalize_fields)
         except ValueError as error:raise Problem(str(error)) from None
         c.update(course_label=c['tags']['course'],week=c['tags']['weeks'][0] if c['tags']['weeks'] else None,weeks=c['tags']['weeks'],class_type=c['tags']['class_type'],topic=c['tags']['topic'],chapter=c['tags']['chapter'])
+    if lesson:
+        c['scheduled_lesson'] = lesson
     if data.get('academic_stage') in ('highschool','university','postgraduate'):
         c['academic']=academic_from_data(data)
     if source_item:
@@ -739,6 +760,14 @@ def recognize_material(data):
     scheduled=academic_store().document()['terms']
     if academic:scheduled=[term for term in scheduled if academic_organization.key_for(term)==academic_organization.key_for(academic)]
     schedule_names={row['course'] for term in scheduled for row in term.get('timetable',[])}
+    if data.get('learning_import') is True:
+        try:
+            calendar = calendar_store.Calendar(globals()).document()
+        except Problem:
+            calendar = {}
+        timetable_ids = {source['id'] for source in calendar.get('sources', []) if source['kind'] == 'timetable'}
+        schedule_names.update(row['course'] for row in calendar.get('timetable', []))
+        schedule_names.update(row['title'] for row in calendar.get('events', []) if row.get('source_id') in timetable_ids and row['kind'] != 'exam')
     matched=[]
     haystack=name+'\n'+text[:6000]
     for course_name in schedule_names:

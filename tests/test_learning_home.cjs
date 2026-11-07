@@ -1,4 +1,4 @@
-const {test}=require('node:test');const assert=require('node:assert/strict');const vm=require('node:vm');const {readFileSync}=require('node:fs');const {join}=require('node:path');const {records}=require('../web/learning-home.js');
+const {test}=require('node:test');const assert=require('node:assert/strict');const vm=require('node:vm');const {readFileSync}=require('node:fs');const {join}=require('node:path');const {records,markCompleted}=require('../web/learning-home.js');
 const courses=[{id:'a',title:'集合与关系',status:'paused',notes:[{id:'partial-note'}],active:'b2',completed:['b1'],blocks:[{id:'b1',title:'集合'},{id:'b2',title:'关系'}],updated_at:'2026-10-25'}, {id:'b',title:'已学完的课程',status:'completed',blocks:[],completed:[],updated_at:'2026-10-26'}];
 const entries=[{id:'source-a',unit_id:'a',title:'source.md',course:'ADS102',weeks:[2],available:true},{id:'duplicate',unit_id:'a',title:'same source',course:'ADS102',weeks:[2],available:true},{id:'source-b',unit_id:'b',title:'done',course:'B',weeks:[],available:true},{id:'unstarted',title:'待学习.pdf',course:'C',weeks:[3],available:true}];
 test('continue list preserves resume location, deduplicates units and excludes completed sessions',()=>{const rows=records(courses,entries);assert.deepEqual(rows.map(r=>r.id),['source-a','unstarted']);assert.equal(rows[0].location,'关系');assert.equal(rows[1].location,'尚未开始');assert.ok(!records(courses,entries,{all:true}).some(row=>row.unit_id==='b'));});
@@ -13,31 +13,71 @@ test('learning opens on import and conversation records, while review uses a nes
 
 test('confirmed blocks awaiting note finalization stay reachable with an accurate label',()=>{const row=records([{...courses[0],completed:['b1','b2']}],entries)[0];assert.equal(row.location,'待整理笔记');});
 
-test('selecting a scheduled class supplies confirmed tags, while the ordinary import still has no preset classification',async()=>{
- const listeners={};let shown='',sent;
+test('scheduled imports wait for confirmation, and ordinary imports suggest editable course tags',async()=>{
+ const listeners={};let shown='',sent=null,form=null;
  const picker={click(){}},region={querySelector:()=>null};
  const calendar={timetable:[{course:'ADS102',weekday:2,time:'09:00–11:00',weeks:[8,9],class_type:'Lecture'}],calendar:[{kind:'teaching',week:8,start:'2026-11-02',end:'2026-11-08'},{kind:'teaching',week:9,start:'2026-11-09',end:'2026-11-15'}]};
  const helper=require('../web/academic-calendar.js');
- const window={AcademicCalendar:{...helper,today:()=> '2026-11-07',teachingWeekLabel:weeks=>weeks.join(',')},StudyUnits:{importFile:async (file,context)=>{sent=context;}}};
- const document={querySelector:id=>id==='#learning-current-week'?region:picker,addEventListener:(name,fn)=>{listeners[name]=fn;}};
- const context=vm.createContext({window,document,S:{user:{id:'a'},courses:[{id:'existing',title:'集合与关系',tags:{course:'ADS102 · 离散数学与统计',weeks:[8],class_type:'Lecture'}}]},api:async()=>calendar,icons(){},esc:String,icon:()=>'',modalContent:(title,body)=>{shown=title+body;},toast:assert.fail});
+ const modal={open:true,contains:target=>target===form};
+ const window={
+  AcademicCalendar:{...helper,today:()=> '2026-11-07',teachingWeekLabel:weeks=>weeks.join(',')},
+  AcademicReferences:require('../web/academic-references.js'),
+  StudyUnits:{importFile:async (file,context)=>{sent=context;}}
+ };
+ const document={querySelector:id=>id==='#learning-current-week'?region:id==='#learning-import-confirm'?form:picker,addEventListener:(name,fn)=>{listeners[name]=fn;}};
+ const api=async path=>path==='/api/calendar'?calendar:{course_title:'CSI101',fields:{weeks:[8],class_type:'Tutorial'}};
+ const modalContent=(title,body)=>{
+  shown=title+body;
+  if(!body.includes('id="learning-import-confirm"'))return;
+  const status={},submit={disabled:body.includes('disabled')},error={};
+  const elements=Object.fromEntries(['course','weeks','class_type'].map(name=>[name,{value:'',dataset:{}}]));
+  form={id:'learning-import-confirm',elements,querySelector:s=>s==='[data-import-status]'?status:s==='[data-import-error]'?error:submit};
+ };
+ const context=vm.createContext({window,document,modal,S:{user:{id:'a'},courses:[{id:'existing',title:'集合与关系',tags:{course:'ADS102 · 离散数学与统计',weeks:[8],class_type:'Lecture'}}]},api,readUpload:async()=> 'content',icons(){},esc:String,icon:()=>'',modalContent,toast:assert.fail});
  vm.runInContext(readFileSync(join(__dirname,'../web/learning-home.js'),'utf8'),context);
  window.StudyLearningHome.install();await window.StudyLearningHome.mount();
- assert.match(region.innerHTML,/ADS102/);
- const click=dataset=>listeners.click({target:{closest:()=>({dataset})},preventDefault(){},stopImmediatePropagation(){}});
+ assert.match(region.innerHTML,/点课程卡片/);
+ const event=target=>({target,preventDefault(){},stopImmediatePropagation(){}});
+ const click=dataset=>listeners.click(event({closest:()=>({dataset})}));
+ const change=id=>listeners.change({target:{id,files:[{name:'Week 8.md',size:300}],value:'chosen'}});
+ const submit=()=>listeners.submit(event(form));
+
  await click({learningAction:'lesson',date:'2026-11-03',index:'0'});
- assert.match(shown,/ADS102/);assert.match(shown,/继续学习 · 集合与关系/);
- const change=id=>listeners.change({target:{id,files:[{size:300}],value:'chosen'}});
+ assert.match(shown,/继续学习 · 集合与关系/);
  await change('learning-lesson-file');
- assert.deepEqual(JSON.parse(JSON.stringify(sent)),{tags:{course:'ADS102',weeks:[8],class_type:'Lecture'},confirm_fields:['course','weeks','class_type'],sessions:[{week:8,class_type:'Lecture'}]});
+ assert.match(shown,/确认课件归属/);assert.equal(form.elements.course.value,'ADS102');assert.equal(sent,null);
+ await submit();
+ assert.equal(sent.scheduled_lesson.date,'2026-11-03');assert.equal(sent.tags.weeks[0],8);
+
  await click({learningAction:'next-week'});
  assert.match(region.innerHTML,/2026年11月9日–15日/);
  assert.doesNotMatch(region.innerHTML,/2026-11-03/);
  await click({learningAction:'lesson',date:'2026-11-10',index:'0'});
  await change('learning-lesson-file');
- assert.equal(sent.tags.weeks[0],9);
+ await submit();
+ assert.equal(sent.tags.weeks[0],9);assert.equal(sent.scheduled_lesson.date,'2026-11-10');
  await click({learningAction:'current-week'});
  assert.match(region.innerHTML,/2026年11月2日–8日/);
+
+ sent=null;
  await change('learning-home-file');
- assert.deepEqual(JSON.parse(JSON.stringify(sent)),{});
+ assert.equal(form.elements.course.value,'CSI101');assert.equal(form.elements.weeks.value,'8');assert.equal(sent,null);
+ form.elements.course.value='SOE101';
+ await submit();
+ assert.equal(sent.tags.course,'SOE101');assert.equal(sent.recognition.course_title,'CSI101');
+ assert.equal(sent.scheduled_lesson,undefined);
+});
+
+test('one completed course only checks the exact lesson when the same class meets twice',()=>{
+ const one={course:'ADS102',classType:'Lecture',week:8,date:'2026-11-03',time:'09:00–11:00'};
+ const two={...one,time:'14:00–16:00'};
+ const week={start:'2026-11-02',end:'2026-11-08',days:[{classes:[one,two]}]};
+ const tags={course:'ADS102',weeks:[8],class_type:'Lecture'};
+ const course={status:'completed',tags};
+ const checks=courses=>markCompleted(week,courses).days[0].classes.map(row=>row.completed);
+ assert.deepEqual(checks([course]),[false,false]);
+ const linked={...course,scheduled_lesson:{date:two.date,course:two.course,time:two.time,class_type:two.classType}};
+ assert.deepEqual(checks([linked]),[false,true]);
+ assert.deepEqual(checks([{...linked,status:'learning',blocks:[{id:'a'},{id:'b'}],completed:['a']}]),[false,false]);
+ assert.deepEqual(checks([{...linked,status:'learning',blocks:[{id:'a'}],completed:['a']}]),[false,true]);
 });

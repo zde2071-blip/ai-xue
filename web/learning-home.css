@@ -64,3 +64,15 @@
 @media(max-width:700px){
  .learning-home-content:has(.learning-week:not([hidden])){width:calc(100% - 32px)}
 }
+
+.learning-week-title p{margin:5px 0 0;color:#696f74;font-size:12px}
+.learning-week-done{display:flex;align-items:center;gap:7px;color:#396348;font-size:13px}
+.learning-week-done svg{width:16px;height:16px;flex:none}
+.learning-week-scroll .week-all-day .learning-lesson-complete{position:relative;padding-right:21px}
+.learning-week-scroll .week-time-day>.learning-lesson-complete,
+.learning-week-scroll .week-time-day>.learning-lesson-complete.is-short{padding-right:21px}
+.learning-lesson-check{position:absolute;top:4px;right:4px;width:13px;height:13px;color:#315e43}
+.learning-import-filename{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:14px;font-weight:550;overflow-wrap:anywhere}
+.learning-import-filename svg{width:16px;height:16px;flex:none}
+.learning-import-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.learning-import-fields input{min-width:0}
