@@ -39,22 +39,22 @@
  }
  function navigationMarkup(mode,templates=[],selected,draftName='',glyph=()=> '',calendarTree='',calendarExpanded=true,templatesExpanded=true,addMenu=''){
   const templateTree=`<div class="settings-template-tree" aria-label="学习模板列表">${templates.map(row=>`<button type="button" data-template-action="select" data-id="${escape(row.id)}" class="${row.id===selected?'selected':''}" aria-pressed="${row.id===selected}">${glyph('file-text')}<span>${escape(row.name)}</span></button>`).join('')}${!selected&&draftName?`<span class="settings-template-pending">${escape(draftName)}</span>`:''}</div>`;
-  const sections=[['calendar','calendar-days','日历'],['rules','sliders-horizontal','课程类型'],['prompts','text-cursor-input','学习模板']];
+  const sections=[['calendar','calendar-days','日历'],['rules','list-tree','课堂分类'],['prompts','text-cursor-input','学习模板']];
   return `<aside class="study-settings-nav" aria-label="学习设置二级导航"><nav>${sections.map(([id,name,label])=>{
    const active=mode===id,expandable=active&&id!=='rules',expanded=id==='calendar'?calendarExpanded:templatesExpanded;
-   return `<div class="settings-nav-branch"><button type="button" data-settings-action="mode" data-mode="${id}" class="settings-section ${active?'selected':''}" aria-pressed="${active}" ${expandable?`aria-expanded="${expanded}"`:''}>${glyph(name)}<span>${label}</span>${expandable?`<span class="settings-disclosure">${glyph(expanded?'chevron-down':'chevron-right')}</span>`:''}</button>${expandable?(id==='calendar'?calendarTree:expanded?templateTree:''):''}${expandable?`<div class="settings-branch-add">${id==='calendar'?addMenu:`<button type="button" class="outline-button" data-template-action="new" aria-label="新建学习模板">${glyph('plus')}</button>`}</div>`:''}</div>`;
+   return `<div class="settings-nav-branch"><button type="button" data-settings-action="mode" data-mode="${id}" class="settings-section ${active?'selected':''}" aria-pressed="${active}" ${expandable?`aria-expanded="${expanded}"`:''}>${glyph(name)}<span>${label}</span>${expandable?`<span class="settings-disclosure">${glyph(expanded?'chevron-down':'chevron-right')}</span>`:''}</button>${expandable?(id==='calendar'?calendarTree:expanded?templateTree:''):''}${active&&id==='calendar'?`<div class="settings-branch-add">${addMenu}</div>`:''}</div>`;
   }).join('')}</nav></aside>`;
  }
  function promptPage(){
   if(!V.data||!V.draft)return '';
   const isNew=!V.selected;
-  const stageSwitch=`<div class="template-tabs template-stage-switch" role="group" aria-label="Prompt 阶段">${Object.entries(stages).map(([key,label])=>`<button type="button" data-template-action="stage" data-stage="${key}" class="${V.stage===key?'selected':''}" aria-pressed="${V.stage===key}" ${working()||chat().recording?'disabled':''}>${label}</button>`).join('')}</div>`;
-  return `<div class="template-tabs-row"><strong class="template-current-name">${escape(V.draft.name||'新模板')}</strong><div class="settings-operation-group">${actionMenuMarkup('编辑模板',{label:'手动编辑',icon:'square-pen',attributes:'data-template-action="manual-edit"'},{label:'用 AI 整理',icon:'sparkles',attributes:'data-template-action="edit-ai"'},{glyph:icon,className:'prompt-edit-menu',ariaLabel:'编辑当前笔记模板',triggerIcon:'square-pen'})}</div></div>${stageSwitch}<div class="template-workspace ${V.aiOpen?'with-ai':''}"><form id="learning-template-form" aria-busy="${V.saving}">${V.undo?'<div class="template-editor-tools"><button type="button" class="outline-button" data-template-action="undo">撤销应用</button></div>':''}<fieldset ${V.saving?'disabled':''}>${promptMarkup(V.draft,isNew,V.stage)}</fieldset><div class="template-save-area"><p id="template-error" class="template-error" role="alert" ${V.error?'':'hidden'}>${escape(V.error)}</p><p class="template-notice" role="status" ${V.notice?'':'hidden'}>${escape(V.notice)}</p><footer class="template-actions" ${dirty()?'':'hidden'}><button type="button" class="outline-button" data-template-action="cancel" ${V.saving?'disabled':''}>取消</button><button type="submit" class="primary" ${V.saving?'disabled':''}>${V.saving?'保存中…':'保存'}</button></footer></div></form>${V.aiOpen?panelMarkup():''}</div>`;
+  const stageSwitch=`<div class="template-stage-switch" role="group" aria-label="Prompt 阶段">${Object.entries(stages).map(([key,label])=>`<button type="button" data-template-action="stage" data-stage="${key}" class="${V.stage===key?'selected':''}" aria-pressed="${V.stage===key}" ${working()||chat().recording?'disabled':''}>${label}</button>`).join('')}</div>`;
+  return `<div class="template-tabs-row"><strong class="template-current-name">${escape(V.draft.name||'新模板')}</strong><div class="settings-operation-group">${actionMenuMarkup('模板操作',{label:'新建模板',icon:'plus',attributes:'data-template-action="new"'},{label:'用 AI 整理',icon:'sparkles',attributes:'data-template-action="edit-ai"'},{glyph:icon,className:'prompt-edit-menu',triggerIcon:'ellipsis'})}</div></div>${stageSwitch}<div class="template-workspace ${V.aiOpen?'with-ai':''}"><form id="learning-template-form" aria-busy="${V.saving}">${V.undo?'<div class="template-editor-tools"><button type="button" class="outline-button" data-template-action="undo">撤销应用</button></div>':''}<fieldset ${V.saving?'disabled':''}>${promptMarkup(V.draft,isNew,V.stage)}</fieldset><div class="template-save-area"><p id="template-error" class="template-error" role="alert" ${V.error?'':'hidden'}>${escape(V.error)}</p><p class="template-notice" role="status" ${V.notice?'':'hidden'}>${escape(V.notice)}</p><footer class="template-actions" ${dirty()?'':'hidden'}><button type="button" class="outline-button" data-template-action="cancel" ${V.saving?'disabled':''}>取消</button><button type="submit" class="primary" ${V.saving?'disabled':''}>${V.saving?'保存中…':'保存'}</button></footer></div></form>${V.aiOpen?panelMarkup():''}</div>`;
  }
  function rulesPage(){
   const rows=Object.entries(typeRules.draft).map(([name,kind])=>`<label class="field template-rule-row"><span>${escape(name)}</span><select class="learning-import-select" name="${escape(name)}">${choicesMarkup(V.data.templates,kind)}</select></label>`).join('');
   return `<form id="template-type-rules" aria-busy="${V.saving}">
-   <header class="template-page-header"><h1>按课程类型选择模板</h1><p>导入课件时按确认的课程类型选用模板，用于 AI 讲解和笔记整理。</p></header>
+   <header class="template-page-header"><h1>课堂分类</h1><p>导入课件时，按所选课堂类型使用对应的讲解和笔记要求。</p></header>
    <fieldset ${V.saving?'disabled':''}>${rows}</fieldset>
    <p id="template-error" class="template-error" role="alert" ${V.error?'':'hidden'}>${escape(V.error)}</p>
    <footer class="template-actions" ${rulesDirty()?'':'hidden'}>
@@ -160,8 +160,7 @@
    if(action==='open'){await open();return;}
    if(working())return;
    try{
-    if(action==='manual-edit'){document.querySelector('.template-prompt')?.focus();}
-    else if(action==='edit-ai'){V.aiOpen=true;paint();document.querySelector('[data-template-field="message"]')?.focus();}
+    if(action==='edit-ai'){V.aiOpen=true;paint();document.querySelector('[data-template-field="message"]')?.focus();}
     else if(action==='stage'){
      if(chat().recording||V.stage===button.dataset.stage)return;
      V.stage=button.dataset.stage;V.undo=null;V.error='';paint();
@@ -170,7 +169,7 @@
     else if(action==='select'||action==='new'){
      if(!canLeave())return;
      V.selected=action==='new'?'':button.dataset.id;V.draft=draftOf(selected()||{});V.stage='learning_prompt';V.error='';V.notice='';V.undo=null;
-     if(action==='new'){for(const stage of Object.keys(stages))delete V.chats[chatKey('',stage)];V.aiOpen=true;}
+     if(action==='new'){for(const stage of Object.keys(stages))delete V.chats[chatKey('',stage)];V.aiOpen=false;}
      paint();if(action==='new')document.querySelector('[data-template-field="name"]')?.focus();
     }else if(action==='cancel-rules'){
      resetRules(typeRules.settings);V.error='';paint();

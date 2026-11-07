@@ -139,9 +139,9 @@ def handbook_date(value):
     return ''
 
 
-def references(values):
-    if not isinstance(values, list) or len(values) > 50:
-        raise ValueError('每个学期最多保存 50 份参考原件。')
+def references(values, limit=50):
+    if not isinstance(values,list):
+        raise ValueError('参考原件信息无效。')
     result = []
     for row in values:
         if not isinstance(row, dict) or row.get('kind') not in KINDS or not isinstance(row.get('id'), str) or not re.fullmatch('[a-f0-9]{64}', row['id']):
@@ -152,6 +152,8 @@ def references(values):
         clean = {'id': row['id'], 'filename': name, 'kind': row['kind']}
         if clean not in result:
             result.append(clean)
+        if len(result)>limit:
+            raise ValueError(f'最多保存 {limit} 份参考原件。')
     return result
 
 
@@ -166,9 +168,10 @@ class Importer:
     def directory(self):
         return self.h['VAULT'] / '学期参考'
 
-    def files(self, values):
-        if not isinstance(values, list) or len(values) > 3:
-            self.fail('每次最多导入 3 份文件。')
+    def files(self, values, *, extract=True):
+        limit=3 if extract else 15
+        if not isinstance(values, list) or len(values)>limit:
+            self.fail(f'每次最多处理 {limit} 份文件。')
         prepared = []
         for value in values:
             if not isinstance(value, dict) or value.get('kind') not in KINDS:
@@ -179,13 +182,18 @@ class Importer:
             except (ValueError,TypeError):self.fail('附件读取失败，请重新选择。')
             if not raw or len(raw)>5*1024*1024:self.fail('请选择 5 MB 内的非空文件。',413)
             mime=image_mime(raw)
+            suffix=Path(name).suffix.lower()
             if mime:
                 # A timetable is spatial data. Preserve pixels instead of flattening OCR lines.
                 material={'filename':name,'text':''}
-            elif Path(name).suffix.lower() in ('.png','.jpg','.jpeg','.webp','.gif'):
+            elif suffix in ('.png','.jpg','.jpeg','.webp','.gif'):
                 self.fail('图片格式无法读取，请从微信另存为原图后再试。',422)
+            elif not extract:
+                if suffix not in ('.pdf','.docx','.pptx','.md','.txt','.json','.yaml','.yml'):
+                    self.fail('原件文件类型无效。')
+                material={'filename':name,'text':''}
             else:material=self.h['template_store']().attachment(value)
-            reference = {'id': hashlib.sha256(raw).hexdigest(), 'filename': material['filename'], 'kind': value['kind']}
+            reference = {'id': hashlib.sha256(raw).hexdigest(), 'filename': material['filename'].strip(), 'kind': value['kind']}
             prepared.append({'reference': reference, 'raw': raw, 'text': material['text'],'mime':mime})
         if sum(len(row['text']) for row in prepared) > 60000:
             self.fail('文件文字过多，请拆分导入。', 413)
@@ -377,13 +385,14 @@ class Importer:
             except ValueError:continue
         if not entries:self.fail('未找到有原文依据的考试信息。请确认手册包含考核说明。',422)
         return {'kind':'exam','rows':event_rows(events),'handbook':{'course':course,'filename':filename,'entries':entries},
-                'incomplete':len(entries)<len(answer['entries'])}
+                'references':[prepared['reference']],'incomplete':len(entries)<len(answer['entries'])}
 
     def file(self, key):
-        doc = self.h['academic_store']().document()
-        ref = next((ref for term in doc['terms'] for ref in term.get('references', []) if ref['id'] == key), None)
-        if not ref and self.h.get('calendar_store'):
-            ref=next((r for r in self.h['calendar_store'].Calendar(self.h).document()['references'] if r['id']==key),None)
+        calendar=self.h.get('calendar_store')
+        ref=next((r for r in calendar.Calendar(self.h).document()['references'] if r['id']==key),None) if calendar else None
+        if not ref:
+            doc=self.h['academic_store']().document()
+            ref=next((r for term in doc['terms'] for r in term.get('references',[]) if r['id']==key),None)
         if not ref:
             self.fail('原始材料不存在。', 404)
         path = self.directory / key

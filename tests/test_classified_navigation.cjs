@@ -28,6 +28,15 @@ test('classification numbers follow click order while quantity counters stay hid
 
 test('drag reordering can move a category before or after another without adding duplicates',()=>{assert.deepEqual(moveOrder(['chapter','course','week'],'week','chapter'),['week','chapter','course']);assert.deepEqual(moveOrder(['chapter','course','week'],'chapter','week',true),['course','week','chapter']);});
 
+test('review classification labels show the actual parent-to-child order',()=>{
+ const {context,store}=installed();
+ store.set('study-navigation-v2-test',JSON.stringify({mode:'review',review:{order:['course','type','week']}}));
+ const html=vm.runInContext('library()',context);
+ const levels=[...html.matchAll(/aria-label="第 (\d) 级，([^"]+)"/g)].map(match=>match.slice(1));
+ assert.deepEqual(levels,[['1','课程'],['2','课堂类型'],['3','周次']]);
+ assert.ok(html.indexOf('>Lecture<')<html.indexOf('>Week 2<'));
+});
+
 test('enabling a second and third category appends to the user click sequence',()=>{let order=[];for(const key of ['course','chapter','week'])order=toggleOrder(order,key);assert.deepEqual(order,['course','chapter','week']);});
 
 test('one click opens a review note',async()=>{const {context,listeners,store}=installed();store.set('study-navigation-v2-test',JSON.stringify({mode:'review'}));context.document.querySelectorAll=()=>[];context.opened=[];vm.runInContext('openResource=async id=>opened.push(id)',context);const click=listeners.find(([name,fn])=>name==='click'&&String(fn).includes("case 'nav-mode'"))[1];await click({target:{closest:()=>({dataset:{action:'nav-select',id:'note-l-n1'}})},preventDefault(){},stopImmediatePropagation(){}});assert.deepEqual(context.opened,['note-l-n1']);});

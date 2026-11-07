@@ -1384,7 +1384,13 @@ class Handler(BaseHTTPRequestHandler):
             reference_match=re.fullmatch(r'/api/academic-references/([a-f0-9]{64})',path)
             if reference_match:
                 resource,filename=academic_import.Importer(globals()).file(reference_match[1])
-                return self.respond(resource.read_bytes(),content_type=mimetypes.guess_type(filename)[0] or 'application/octet-stream',filename=filename)
+                raw=resource.read_bytes()
+                suffix=Path(filename).suffix.lower()
+                mime=academic_import.image_mime(raw)
+                if not mime and suffix=='.pdf' and raw.startswith(b'%PDF-'):mime='application/pdf'
+                if not mime and suffix in ('.txt','.md','.json','.yaml','.yml'):mime='text/plain'
+                if not mime and suffix in ('.docx','.pptx'):mime=mimetypes.guess_type(filename)[0]
+                return self.respond(raw,content_type=mime or 'application/octet-stream',filename=filename)
             if path=='/api/learning-settings':return self.respond(settings_store().document())
             if path=='/api/templates':return self.respond(template_store().document())
             if path=='/api/units':return self.respond(unit_store().index())

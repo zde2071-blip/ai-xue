@@ -21,3 +21,7 @@
 .pane-resize-handle{position:fixed;width:8px;z-index:90;cursor:col-resize;touch-action:none;background:transparent}.pane-resize-handle:hover,.pane-resize-handle:focus-visible{background:#8885}.pane-resize-handle[hidden]{display:none}.pane-resizing,.pane-resizing *{cursor:col-resize!important;user-select:none!important}.pane-resizing iframe{pointer-events:none}
 
 .template-workspace.with-ai{display:flex}.template-workspace.with-ai>form{flex:1;min-width:0}.template-workspace.with-ai>.template-ai{flex:0 0 320px;min-width:240px}
+.review-tree-settings .review-grouping-rank{width:20px;height:20px;flex:none;display:grid;place-items:center;border-radius:5px;font-size:11px;color:#555;background:#eee}
+.review-tree-settings .review-grouping-rank svg{width:12px;height:12px}
+.review-tree-settings button[aria-pressed="false"] .review-grouping-rank{background:transparent;color:#777}
+.review-tree-settings button:hover{background:#f4f4f4;border-radius:5px}

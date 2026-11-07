@@ -82,6 +82,13 @@
   header=function(){activeMode();return base.header().replace(/<div class="toggle-group unit-mode"[\s\S]*?<\/div>/,'').replace(/(<button class="text-button" data-action="browser-return">[\s\S]*?<\/i>)资料/,'$1返回');};
   function rowMarkup(r,selected,searching){const isNote=!!r.note_id||r.kind==='notes';return `<button class="classified-file ${selected?'selected':''}" data-action="nav-select" aria-haspopup="menu" data-id="${esc(r.id)}" aria-pressed="${selected}" aria-label="${esc(r.title)}">${icon(isNote?'notebook-pen':r.kind==='exercises'?'list-checks':'file-text')}<span><strong>${esc(r.title)}</strong>${searching?`<small>${esc([r.course||'未设置课程',r.weeks.length?'Week '+r.weeks.join(', '):'',r.class_type].filter(Boolean).join(' / '))}</small>`:''}</span><span class="classified-file-tags">${visibleTags(r,displayedKeys()).map(t=>`<span class="classified-tag" title="${esc(displayLabels[t.key])}">${esc(t.label)}</span>`).join('')}</span>${r.available===false?'<small>文件已移走</small>':''}</button>`;}
   const treeClosed=new Map();
+  function reviewGroupingMarkup(order){
+   const available=['course','week','type'].filter(key=>!order.includes(key));
+   return [...order,...available].map((key,index)=>{
+    const active=index<order.length,label=dimensions[key];
+    return `<button data-action="nav-order" data-key="${key}" aria-pressed="${active}" aria-label="${active?'第 '+(index+1)+' 级，'+label:'添加'+label+'分类'}"><span class="review-grouping-rank" aria-hidden="true">${active?index+1:icon('plus')}</span><span>${label}</span></button>`;
+   }).join('');
+  }
   function reviewTreeMarkup(){
    ensure();const v=views.review;v.order=v.order.filter(k=>k!=='session');const rows=entries('review').filter(r=>(v.scope==='all'||scopeKey(r.academic)===v.scope)&&(!v.query.trim()||matches(r,v.query))).sort((a,b)=>compareRows(a,b,v.sort));
    function branch(items,depth=0,path=[],context={}){
@@ -89,7 +96,7 @@
     const key=v.order[depth],groups=new Map();for(const row of items)for(const value of new Set(valuesFor(row,key,context))){if(!groups.has(value))groups.set(value,[]);groups.get(value).push(row);}
     return [...groups].sort(([a],[b])=>natural(a,b)).map(([value,group])=>{const id=JSON.stringify([S.user?.id,...path,key,value]);return `<details class="review-tree-folder" data-tree-key="${esc(id)}" ${treeClosed.get(id)?'':'open'}><summary>${icon('chevron-right')}<span>${esc(groupLabel(key,value))}</span></summary><div class="review-tree-children">${branch(group,depth+1,[...path,key,value],{...context,[key]:value})}</div></details>`;}).join('');
    }
-   return `<aside class="review-file-tree" aria-label="笔记目录"><header><strong>笔记</strong><details class="review-tree-settings"><summary class="icon-button" aria-label="目录分类">${icon('list-filter')}</summary><div>${Object.entries(dimensions).filter(([k])=>['course','week','type'].includes(k)).map(([key,label])=>`<button data-action="nav-order" data-key="${key}" aria-pressed="${v.order.includes(key)}">${v.order.includes(key)?icon('check'):''}${label}</button>`).join('')}</div></details></header><label class="review-tree-search">${icon('search')}<input id="classified-search" aria-label="搜索笔记" placeholder="搜索笔记" value="${esc(v.query)}"></label><div class="review-tree-scroll">${branch(rows)||'<p class="muted">暂无笔记</p>'}</div></aside>`;
+   return `<aside class="review-file-tree" aria-label="笔记目录"><header><strong>笔记</strong><details class="review-tree-settings"><summary class="icon-button" aria-label="目录分类">${icon('list-filter')}</summary><div aria-label="目录层级">${reviewGroupingMarkup(v.order)}</div></details></header><label class="review-tree-search">${icon('search')}<input id="classified-search" aria-label="搜索笔记" placeholder="搜索笔记" value="${esc(v.query)}"></label><div class="review-tree-scroll">${branch(rows)||'<p class="muted">暂无笔记</p>'}</div></aside>`;
   }
   root.StudyNavigation.reviewTreeMarkup=reviewTreeMarkup;
   document.addEventListener('toggle',event=>{const el=event.target;if(el.matches?.('[data-tree-key]')&&el.isConnected)treeClosed.set(el.dataset.treeKey,!el.open);},true);
@@ -152,7 +159,12 @@
   document.addEventListener('click',async event=>{const button=event.target.closest('[data-action^="nav-"]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();if(S.threadBusy||S.busy)return;const v=activeView();try{switch(button.dataset.action){
    case 'nav-mode':pendingNavigation=()=>navigate(button.dataset.mode);await navigate(button.dataset.mode);break;
    case 'nav-home':pendingNavigation=()=>navigate(activeMode());await navigate(activeMode());break;
-   case 'nav-order':v.order=toggleOrder(v.order,button.dataset.key);v.path=[];v.selected='';save();render();break;
+   case 'nav-order':{
+    const menu=button.closest?.('.review-tree-settings');
+    v.order=toggleOrder(v.order,button.dataset.key);v.path=[];v.selected='';save();render();
+    if(menu){const next=document.querySelector('.review-tree-settings');if(next){next.open=true;next.querySelector(`[data-key="${button.dataset.key}"]`)?.focus();}}
+    break;
+   }
    case 'nav-group':v.path=[...v.path.slice(0,Number(button.dataset.depth)),button.dataset.value];v.selected='';save();render();break;
    case 'nav-select':selectFile(button.dataset.id);await openEntry(button.dataset.id);break;
    case 'nav-clear-search':v.query='';save();render();$('#classified-search')?.focus();break;

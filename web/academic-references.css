@@ -17,3 +17,12 @@
 .handbook-details summary{cursor:pointer}
 .handbook-details blockquote{margin:6px 0 0;padding-left:9px;border-left:2px solid #ddd;white-space:pre-wrap}
 .handbook-hint{margin:10px 0;color:#666;font-size:12px;line-height:1.6}
+.calendar-originals{margin:14px 0;font-size:12px;color:#626262;min-width:0}
+.calendar-originals ul{margin:6px 0 0;padding:0;list-style:none}
+.calendar-originals li+li{margin-top:5px}
+.calendar-originals a,.calendar-originals li>span{display:flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid #e5e5e5;border-radius:6px;color:#3d3d3d;text-decoration:none}
+.calendar-originals a:hover{background:#f4f4f4}
+.calendar-originals a span,.calendar-originals li>span{overflow-wrap:anywhere;min-width:0}
+.calendar-originals a svg{width:13px;height:13px;flex:none}
+.calendar-originals a svg:last-child{margin-left:auto;color:#777}
+.calendar-originals small{display:block;margin:3px 9px 0;color:#777}

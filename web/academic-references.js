@@ -21,10 +21,46 @@
  const busy=M=>!!M&&state(M).busy;
  function validate(M){if(root.AcademicCalendar?.pending(M))throw new Error('请先完成或取消安排编辑。');if(state(M).open)throw new Error('请先完成或取消导入。');}
  function addMenu(){return `<details class="settings-action-menu calendar-add-menu"><summary class="outline-button" aria-label="添加日历内容" title="添加">${icon('plus')}<span>添加</span></summary><div class="settings-action-options"><button data-calendar-action="new">${icon('plus')}<span>手动添加</span></button><button data-reference-action="import">${icon('sparkles')}<span>用 AI 导入</span></button><button data-reference-action="subscribe">${icon('link')}<span>订阅日历链接</span></button></div></details>`;}
- function handbookDetails(handbook){
-  return `<section class="handbook-details" aria-label="手册考试信息"><div class="handbook-file">${icon('file-text')}<span>${esc(handbook.filename)}</span></div>
+ function handbookDetails(handbook,showFilename=true){
+  return `<section class="handbook-details" aria-label="手册考试信息">${showFilename?`<div class="handbook-file">${icon('file-text')}<span>${esc(handbook.filename)}</span></div>`:''}
    <ul>${handbook.entries.map(entry=>`<li><strong>${esc(entry.name)}</strong>${entry.weight?'<span>'+esc(entry.weight)+'</span>':''}${entry.timing?'<p>'+esc(entry.timing)+'</p>':''}
     <details><summary>核对手册原文</summary><blockquote>${esc(entry.evidence)}</blockquote></details></li>`).join('')}</ul></section>`;
+ }
+ function originalLinks(M,source){
+  if(source?.type!=='import')return '';
+  let label='原始文件';
+  const refs=M.references||[];
+  let originals=refs.filter(ref=>source.reference_ids?.includes(ref.id));
+  if(!originals.length){
+   const linked=new Set((M.sources||[]).flatMap(row=>row.reference_ids||[]));
+   const archived=refs.filter(ref=>ref.kind===source.kind&&!linked.has(ref.id));
+   originals=archived.filter(ref=>ref.filename.replace(/\.[^.]+$/,'')===source.name||ref.filename===source.handbook?.filename);
+   const peers=(M.sources||[]).filter(row=>row.kind===source.kind&&row.type==='import'&&!row.reference_ids?.length);
+   if(!originals.length&&archived.length===1&&peers.length===1&&!source.handbook){
+    originals=archived;label='同分类归档原件';
+   }
+  }
+  if(!originals.length)return '';
+  const pending=M.referenceFiles||[];
+  return `<div class="calendar-originals"><span>${label}</span><ul>${originals.map(ref=>{
+   const filename=esc(ref.filename);
+   if(pending.some(file=>file.referenceId===ref.id&&file.filename===ref.filename))return `<li><span>${filename}</span><small>保存后可打开</small></li>`;
+   return `<li><a href="/api/academic-references/${esc(ref.id)}" target="_blank" rel="noopener" title="${filename}">${icon('file-text')}<span>${filename}</span>${icon('external-link')}</a></li>`;
+  }).join('')}</ul></div>`;
+ }
+ function stageOriginals(M,files,references,source){
+  if(!Array.isArray(references)||references.length!==files.length)throw new Error('原件信息不完整，请重新识别。');
+  const refs=[...(M.references||[])],uploads=[...(M.referenceFiles||[])];
+  const ids=new Set(source.reference_ids||[]);
+  references.forEach((ref,index)=>{
+   ids.add(ref.id);
+   const same=row=>(row.referenceId||row.id)===ref.id&&row.filename===ref.filename&&row.kind===ref.kind;
+   if(!refs.some(same))refs.push(ref);
+   if(!uploads.some(same))uploads.push({referenceId:ref.id,filename:ref.filename,kind:ref.kind,file:files[index].file});
+  });
+  if(uploads.length>15||uploads.reduce((size,file)=>size+file.file.length,0)>20*1024*1024)throw new Error('请取消本次导入，保存当前日历后再继续。');
+  if(ids.size)source.reference_ids=[...ids];
+  M.references=refs;M.referenceFiles=uploads;
  }
  function handbookImport(M,s){
   const courses=M.course_choices||[],review=s.handbookResult;
@@ -72,6 +108,8 @@
   const existing=(M.sources||[]).find(source=>source.handbook?.course===handbook.course);
   const id=existing?.id||crypto.randomUUID();
   const source={id,name:handbook.course,kind:'exam',type:'import',visible:true,...existing,handbook};
+  try{stageOriginals(M,s.files,result.references,source);}
+  catch(error){s.error=error.message;redraw();return;}
   M.sources=[...(M.sources||[]).filter(row=>row.id!==id),source];
   M.events=M.events.filter(row=>row.source_id!==id).concat(result.rows.map(row=>({...row,source_id:id})));
   Object.assign(s,{open:false,files:[],handbookResult:null,error:'',notice:''});
@@ -97,8 +135,9 @@
    if(model()!==M||owner!==S.user?.id)return;
    if(!result.rows.length){s.error=result.reply||'没有读到完整安排，请换清晰原图或补充说明。';return;}
    const name=s.files[0]?.filename?.replace(/\.[^.]+$/,'')||names[kind];
-   const matches=s.files.length?(M.sources||[]).filter(row=>row.type==='import'&&row.kind===kind&&row.name===name):[];
+   const matches=s.files.length?(M.sources||[]).filter(row=>row.type==='import'&&!row.handbook&&row.kind===kind&&row.name===name):[];
    const existing=matches.length===1?matches[0]:null,id=existing?.id||crypto.randomUUID(),source={...existing,id,name,kind,type:'import',visible:true};
+   stageOriginals(M,files,result.references,source);
    M.sources||=[];M.sources=M.sources.filter(row=>row.id!==id);M.sources.push(source);
    if(existing)for(const field of ['calendar','timetable','events'])M[field]=M[field].filter(row=>row.source_id!==id);
    const target=kind==='exam'?'events':kind;M[target].push(...result.rows.map(row=>({...row,source_id:id})));
@@ -115,7 +154,7 @@
   }catch(e){if(existing){M.error=e.message;}else s.error=e.message;}finally{s.busy=false;if(model()===M&&owner===S.user?.id)redraw();}
  }
  function openImport(mode='ai'){const M=model();if(!M||busy(M)||M.saving)return;if(root.AcademicCalendar.pending(M)){root.StudySchedule.reportError('请先完成或取消安排编辑。');return;}Object.assign(state(M),{open:true,mode,error:'',notice:'',files:[],text:'',handbookCourse:'',handbookResult:null});redraw();}
- root.AcademicReferences={markup,addMenu,pending,busy,validate,parseWeeks,formatWeeks,openImport,readSubscription,handbookDetails};
+ root.AcademicReferences={markup,addMenu,pending,busy,validate,parseWeeks,formatWeeks,openImport,readSubscription,handbookDetails,originalLinks};
  document.addEventListener('click',async event=>{
   const button=event.target.closest('[data-reference-action]');if(!button||!model())return;event.preventDefault();event.stopImmediatePropagation();const M=model(),s=state(M);if(busy(M)||M.saving)return;
   button.closest('.settings-action-menu')?.removeAttribute('open');

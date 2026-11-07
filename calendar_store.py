@@ -1,10 +1,14 @@
 """One calendar independent of academic placement; old academic records are never auto-imported."""
 import json
+import os
 import re
+import tempfile
+from pathlib import Path
 import academic_import
 import calendar_subscription
 
-FIELDS={'calendar':academic_import.calendar_rows,'timetable':academic_import.timetable_rows,'events':academic_import.event_rows,'references':academic_import.references}
+MAX_REFERENCES=2000
+FIELDS={'calendar':academic_import.calendar_rows,'timetable':academic_import.timetable_rows,'events':academic_import.event_rows}
 
 def imported_courses(document):
     sources = {source['id'] for source in document.get('sources', []) if source['kind'] == 'timetable'}
@@ -22,6 +26,7 @@ class Calendar:
         if not isinstance(data,dict):self.fail('日历格式无效。')
         clean={}
         try:
+            clean['references']=academic_import.references(data.get('references',[]),MAX_REFERENCES)
             for field,validator in FIELDS.items():
                 values=data.get(field,[])
                 if field not in ('calendar','timetable'):clean[field]=validator(values);continue
@@ -43,6 +48,7 @@ class Calendar:
         sources=data.get('sources',[])
         if not isinstance(sources,list) or len(sources)>100:self.fail('最多支持 100 个日历来源。')
         clean['sources']=[];ids=set()
+        reference_ids={ref['id'] for ref in clean['references']}
         for row in sources:
             if not isinstance(row,dict):self.fail('日历来源格式无效。')
             key=row.get('id');name=row.get('name');kind=row.get('kind');source_type=row.get('type')
@@ -51,6 +57,12 @@ class Calendar:
             try:
                 item.update(academic_import.row_color({'color':row.get('color','')}))
                 if source_type=='subscription':item['url']=calendar_subscription.subscription_url(row.get('url'))
+                originals=row.get('reference_ids',[])
+                if not isinstance(originals,list) or len(originals)>MAX_REFERENCES or any(not isinstance(ref,str) or ref not in reference_ids for ref in originals):
+                    raise ValueError('日历来源引用了不存在的原始文件。')
+                if originals:
+                    if source_type!='import':raise ValueError('上传原件只能关联到导入来源。')
+                    item['reference_ids']=list(dict.fromkeys(originals))
                 if 'handbook' in row:
                     if kind!='exam' or source_type!='import':raise ValueError('Module Handbook 只能放在考试信息中。')
                     item['handbook']=academic_import.handbook_record(row['handbook'])
@@ -71,7 +83,7 @@ class Calendar:
         return {**doc,'etag':self.h['digest'](raw)}
     def save(self,data):
         normalized=self.normalize(data);importer=academic_import.Importer(self.h)
-        prepared=importer.files(data.get('reference_files',[]))
+        prepared=importer.files(data.get('reference_files',[]),extract=False)
         with self.h['LOCK']:
             latest=self.document()
             if data.get('etag')!=latest['etag']:self.fail('日历已在其他位置修改。当前修改已保留，请重新打开后再保存。',409)
@@ -83,12 +95,22 @@ class Calendar:
                     self.fail('请选择仍在课表中的课程，再保存考试信息。')
             known=latest['references']+[r['reference'] for r in prepared]
             if any(ref not in known for ref in normalized['references']):self.fail('原始材料缺失，请重新导入。')
+            try:normalized['references']=academic_import.references(latest['references']+normalized['references'],MAX_REFERENCES)
+            except ValueError as error:self.fail(str(error))
             for row in prepared:
+                if row['reference'] not in normalized['references']:continue
                 target=importer.directory/row['reference']['id']
-                if target.exists():
-                    if target.read_bytes()!=row['raw']:self.fail('原始材料发生冲突，未保存。',409)
-                else:
+                if not target.exists():
                     target.parent.mkdir(parents=True,exist_ok=True)
-                    with target.open('xb') as output:output.write(row['raw'])
+                    temp=None
+                    try:
+                        with tempfile.NamedTemporaryFile(dir=target.parent,delete=False) as output:
+                            temp=Path(output.name)
+                            output.write(row['raw'])
+                        try:os.link(temp,target)
+                        except FileExistsError:pass
+                    finally:
+                        if temp:temp.unlink(missing_ok=True)
+                if target.read_bytes()!=row['raw']:self.fail('原始材料发生冲突，未保存。',409)
             self.h['write_json'](self.path,{'version':1,**normalized})
             return self.document()

@@ -60,10 +60,19 @@ class CalendarStoreTest(unittest.TestCase):
         self.assertTrue(result['incomplete'])
         self.assertEqual([row['timing'] for row in result['handbook']['entries']],['Teaching Week 8','16 December 2026 09:00–11:00'])
         self.assertEqual([(row['date'],row['start'],row['end']) for row in result['rows']],[('2026-12-16','09:00','11:00')])
-        source={'id':'handbook','name':'ADS102','kind':'exam','type':'import','handbook':result['handbook']}
-        self.save(doc,sources=[*doc['sources'],source],events=[{**row,'source_id':'handbook'} for row in result['rows']])
-        self.assertEqual(self.store.document()['sources'][-1]['handbook'],result['handbook'])
-        self.assertFalse(app.academic_import.Importer(app.__dict__).directory.exists())
+        ref=result['references'][0]
+        source={'id':'handbook','name':'ADS102','kind':'exam','type':'import','handbook':result['handbook'],'reference_ids':[ref['id']]}
+        with self.assertRaises(app.Problem):
+            self.save(doc,sources=[*doc['sources'],source],references=[ref])
+        saved=self.save(doc,sources=[*doc['sources'],source],events=[{**row,'source_id':'handbook'} for row in result['rows']],
+                        references=[ref],reference_files=[{**data['attachments'][0],'kind':'exam'}])
+        self.assertEqual(self.store.document()['sources'][-1],{**source,'visible':True})
+        importer=app.academic_import.Importer(app.__dict__)
+        path,name=importer.file(ref['id'])
+        self.assertEqual(path.read_bytes(),original.encode())
+        self.assertEqual(name,'Handbook.txt')
+        self.save(saved,sources=doc['sources'],events=[],references=[])
+        self.assertEqual(importer.file(ref['id'])[0].read_bytes(),original.encode())
     def test_invalid_colors_do_not_write(self):
         doc=self.save(self.store.document());before=self.store.path.read_bytes()
         for colors in [{'exam':'red;position:fixed'},{'unknown':'#ffffff'},[]]:
