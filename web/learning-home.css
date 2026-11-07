@@ -9,7 +9,7 @@
 .learning-import p .text-button:hover{color:#252e33;text-decoration:underline}
 .learning-import .learning-choose{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;min-height:36px;padding:7px 16px;font-size:12px;border-radius:6px}
 .learning-choose svg{width:14px;height:14px}
-.learning-recents{margin-top:28px}
+.learning-recents{margin-top:24px;padding-top:18px;border-top:1px solid #e8e8e8}
 .learning-recents>header{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px;margin-bottom:4px}
 .learning-recents h2{font-size:13px;font-weight:550;color:#414a50;margin:0;padding:6px 0;line-height:20px}
 .learning-history-search{display:flex;align-items:center;gap:8px;width:208px;max-width:48%;height:36px;padding:0 11px;border:1px solid #e1e5e7;border-radius:6px;background:#fff;color:#939ca2;box-sizing:border-box}

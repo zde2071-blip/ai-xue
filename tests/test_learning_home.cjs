@@ -51,11 +51,11 @@ test('scheduled imports wait for confirmation, and ordinary imports suggest edit
  await change('learning-lesson-file');
  assert.match(shown,/确认课件归属/);assert.doesNotMatch(shown,/datalist|离散数学与统计/);
  assert.equal(form.elements.course.value,'ADS102');assert.equal(form.elements.class_type_choice.value,'Lecture');
- assert.equal(templateHint.textContent,'学习模板 · 知识点总结');
+ assert.equal(templateHint.textContent,'讲解与笔记 · 知识点总结');
  assert.equal(recognitionCalls,1);assert.equal(sent,null);
  form.elements.class_type_choice.value='Lab';
  await listeners.change(event(form.elements.class_type_choice));
- assert.equal(templateHint.textContent,'学习模板 · 实验记录');
+ assert.equal(templateHint.textContent,'讲解与笔记 · 实验记录');
  await submit();
  assert.equal(sent.scheduled_lesson.date,'2026-11-03');assert.equal(sent.tags.weeks[0],8);assert.equal(sent.tags.class_type,'Lab');
 
@@ -72,7 +72,7 @@ test('scheduled imports wait for confirmation, and ordinary imports suggest edit
  sent=null;
  await change('learning-home-file');
  assert.equal(form.elements.course.value,'CSI101');assert.equal(form.elements.weeks.value,'8');assert.equal(sent,null);
- assert.equal(templateHint.textContent,'学习模板 · 题目讲解');
+ assert.equal(templateHint.textContent,'讲解与笔记 · 题目讲解');
  form.elements.course.value='ADS102';
  await submit();
  assert.equal(sent.tags.course,'ADS102');assert.equal(sent.recognition.course_title,'CSI101');

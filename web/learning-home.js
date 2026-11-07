@@ -145,7 +145,7 @@
   const hint=form.querySelector('[data-import-template]');
   const name=root.StudyTemplates?.templateName(importType(form.elements));
   hint.hidden=!name;
-  hint.textContent=name?'学习模板 · '+name:'';
+  hint.textContent=name?'讲解与笔记 · '+name:'';
  }
  function setImportType(form,type){
   const select=form.elements.class_type_choice;

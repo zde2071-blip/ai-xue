@@ -24,9 +24,10 @@ test('course type rules are a separate settings destination',()=>{for(const mode
 test('only individual templates nest below the template section',()=>{
  const rows=[{id:'a',name:'知识点总结'},{id:'b',name:'题目讲解'}];
  const expanded=navigationMarkup('prompts',rows,'a','',()=>'', '',true,true);
- assert.ok(expanded.indexOf('data-mode="rules"')<expanded.indexOf('aria-label="学习模板列表"'));
+ assert.ok(expanded.indexOf('data-mode="rules"')<expanded.indexOf('aria-label="讲解与笔记方案"'));
  assert.match(expanded,/data-template-action="select" data-id="b"/);
+ assert.match(expanded,/settings-branch-add"><button[^>]+aria-label="新建模板"/);
  const collapsed=navigationMarkup('prompts',rows,'a','',()=>'', '',true,false);
- assert.doesNotMatch(collapsed,/aria-label="学习模板列表"/);
+ assert.doesNotMatch(collapsed,/aria-label="讲解与笔记方案"/);
  assert.match(collapsed,/aria-expanded="false"/);
 });

@@ -10,7 +10,7 @@
 .template-tabs-row svg{width:15px;height:15px}
 .template-tabs button:focus-visible{outline:2px solid #9d9d9d;outline-offset:-2px}
 .template-workspace{display:flex;min-height:0;gap:24px;align-items:flex-start}
-#learning-template-form{flex:0 1 640px;min-width:0;width:100%;display:flex;flex-direction:column;margin:0}
+#learning-template-form{flex:1 1 0;min-width:0;width:100%;display:flex;flex-direction:column;margin:0}
 .template-editor-tools{height:58px;min-height:58px;display:flex;align-items:center;gap:15px;color:#a3a3a3;font-size:12px}
 .template-editor-tools>span{margin-right:auto}
 .template-editor-tools .text-button{font-size:12px;color:#979797}
@@ -19,9 +19,12 @@
 #learning-template-form fieldset{min-width:0;display:flex;flex-direction:column;border:0;padding:0;margin:0}
 .template-name{border:0;border-bottom:1px solid #efefef;padding:10px 2px 13px;margin-bottom:15px;font-size:16px;outline:none;width:100%;background:transparent;color:#4d4d4d}
 .template-name:focus{border-bottom-color:#a6a6a6}
-.template-prompt{box-sizing:border-box;width:100%;height:clamp(180px,30vh,250px);min-height:140px;max-height:55vh;resize:vertical;border:1px solid #dedede;border-radius:8px;padding:12px 14px;background:#fff;color:#414141;font:14px/1.7 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;scrollbar-width:thin}
+.template-prompt-flow{position:relative;min-height:128px}
+.template-prompt-size,.template-prompt{box-sizing:border-box;width:100%;padding:4px 0;color:#414141;font:14px/1.8 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;white-space:pre-wrap;overflow-wrap:anywhere}
+.template-prompt-size{visibility:hidden}
+.template-prompt{position:absolute;inset:0;height:100%;resize:none;overflow:hidden;border:0;outline:0;border-radius:0;background:transparent}
 .template-prompt::placeholder,.template-name::placeholder{color:#b6b6b6}
-.template-prompt:focus-visible{outline:1px solid #939393;outline-offset:2px}
+.template-prompt:focus-visible{box-shadow:-2px 0 #dadada}
 .template-save-area{flex-shrink:0;min-height:28px;padding:5px 0 17px}
 .template-actions{display:flex;justify-content:flex-end;gap:10px;padding-top:8px}
 .template-actions button{font-size:12px;padding:7px 16px;min-height:35px;border-radius:6px}
@@ -60,7 +63,7 @@
 .template-attachments .icon-button{width:19px;height:19px;color:#a7a7a7;flex-shrink:0}
 @media(max-width:1050px){.template-workspace{gap:20px}.template-ai{width:300px;flex-basis:300px;padding-left:17px}.template-page{padding-left:23px;padding-right:23px}}
 @media(max-width:760px){.template-page{height:auto;min-height:100%;padding:27px 20px 0}.template-workspace{flex-direction:column;gap:0}#learning-template-form{flex-basis:auto}.template-ai{width:100%;flex-basis:auto;border-left:0;border-top:1px solid #f0f0f0;padding-left:0}.template-ai-history{max-height:340px;flex:0 1 auto}.template-ai-composer{margin-top:auto}.template-tabs{gap:20px}}
-@media(pointer:coarse){.template-prompt,.template-name,.template-ai-composer>textarea{font-size:16px}.template-ai-tools>.icon-button,.template-send{min-height:38px;min-width:38px}}
+@media(pointer:coarse){.template-prompt-size,.template-prompt,.template-name,.template-ai-composer>textarea{font-size:16px}.template-ai-tools>.icon-button,.template-send{min-height:38px;min-width:38px}}
 
 /* Learning settings share one navigation surface. */
 .study-settings-shell{height:100%;min-height:0;display:flex;background:#fff;--action-ink:#333;--action-border:#ddd;--action-radius:6px}
@@ -76,10 +79,8 @@
 .template-stage-switch{display:flex;align-self:flex-start;flex:none;max-width:100%;overflow-x:auto;gap:4px;padding:3px;background:#f0f0f0;border-radius:7px;margin-bottom:16px}
 .template-stage-switch button{min-height:32px;padding:5px 13px;border-radius:5px;color:#626262;white-space:nowrap;font-size:13px;line-height:20px}
 .template-stage-switch button.selected{background:#fff;color:#252525;box-shadow:0 1px 2px #00000012}
-.study-settings-content>.template-tabs-row{width:min(100%,640px)}
-.study-settings-content:has(.with-ai)>.template-tabs-row{width:min(100%,984px)}
 .study-settings-content:has(.template-workspace){overflow-y:auto}
-.study-settings-nav .settings-section[data-mode="prompts"],.study-settings-nav .settings-section[data-mode="rules"]{padding-right:12px}
+.study-settings-nav .settings-section[data-mode="prompts"]:not(.selected),.study-settings-nav .settings-section[data-mode="rules"]{padding-right:12px}
 
 #template-type-rules{width:min(100%,600px);min-height:0;overflow-y:auto;padding-bottom:20px}
 #template-type-rules .template-page-header p{margin:9px 0 0;color:#686868;font-size:13px;line-height:1.65}
