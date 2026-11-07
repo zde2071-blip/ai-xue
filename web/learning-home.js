@@ -138,6 +138,15 @@
  const classTypes=['Lecture','Tutorial','Lab','Seminar','Workshop','Exercise','Exam'];
  const customType='__custom__';
  const options=values=>values.map(value=>`<option value="${esc(value)}">${esc(value)}</option>`).join('');
+ function importType(fields){
+  return (fields.class_type_choice.value===customType?fields.class_type_custom.value:fields.class_type_choice.value).trim();
+ }
+ function showImportTemplate(form){
+  const hint=form.querySelector('[data-import-template]');
+  const name=root.StudyTemplates?.templateName(importType(form.elements));
+  hint.hidden=!name;
+  hint.textContent=name?'学习模板 · '+name:'';
+ }
  function setImportType(form,type){
   const select=form.elements.class_type_choice;
   if(type&&!Array.from(select.options).some(option=>option.value===type))select.add(new Option(type,type),select.options.length-1);
@@ -148,6 +157,8 @@
   if(opening||S.busy||S.threadBusy||!file)return;
   if(!file.size||file.size>15*1024*1024){toast('请选择 15 MB 以内的非空课件。');return;}
   const courses=calendar?.document?.course_choices||[];
+  const timetableTypes=(calendar?.document?.timetable||[]).map(row=>row.class_type).filter(Boolean);
+  const types=Array.from(new Map([...timetableTypes,...classTypes].map(type=>[normalized(type),type])).values());
   const preset={course:courses.includes(lesson?.course)?lesson.course:'',weeks:lesson?.week!=null?String(lesson.week):'',class_type:lesson?.classType||''};
   const draft={file,lesson,preset,courses,recognition:null,owner:S.user?.id};
   importDraft=draft;
@@ -160,10 +171,11 @@
    <div class="learning-import-fields">
     <label class="field"><span class="field-label">教学周</span><input name="weeks" maxlength="120" placeholder="如 8 或 8–10"></label>
     <label class="field"><span class="field-label">课程类型</span>
-     <select name="class_type_choice" class="learning-import-select"><option value="">选择类型（可选）</option>${options(classTypes)}<option value="${customType}">自定义…</option></select>
+     <select name="class_type_choice" class="learning-import-select"><option value="">选择类型（可选）</option>${options(types)}<option value="${customType}">自定义…</option></select>
      <input name="class_type_custom" aria-label="自定义课程类型" maxlength="60" placeholder="输入课程类型" hidden>
     </label>
    </div>
+   <p class="learning-import-template muted" data-import-template hidden></p>
    <p class="error-message" data-import-error role="alert"></p>
    <div class="modal-actions"><button type="button" class="outline-button" data-action="close-modal">取消</button><button type="submit" class="primary" >确认并开始学习</button></div>
   </form>`);
@@ -173,6 +185,7 @@
   form.elements.weeks.value=preset.weeks;
   setImportType(form,preset.class_type);
   const active=()=>importDraft===draft&&draft.owner===S.user?.id&&modal.open&&modal.contains(form);
+  root.StudyTemplates?.prepare().then(doc=>{if(doc&&active())showImportTemplate(form);});
   const status=form.querySelector('[data-import-status]');
   try{
    const encoded=await readUpload(file);
@@ -191,11 +204,12 @@
    draft.preset={
     course:draft.courses.includes(preset.course)?preset.course:recognizedCourse,
     weeks:preset.weeks||result.fields?.weeks?.join('、')||'',
-    class_type:result.fields?.class_type||preset.class_type
+    class_type:preset.class_type||result.fields?.class_type||''
    };
    if(!courseField.dataset.edited)courseField.value=draft.preset.course;
    if(!form.elements.weeks.dataset.edited)form.elements.weeks.value=draft.preset.weeks;
    if(!form.elements.class_type_choice.dataset.edited)setImportType(form,draft.preset.class_type);
+   showImportTemplate(form);
    const conflicting=recognizedCourse&&preset.course&&recognizedCourse!==preset.course;
    const hint=conflicting?`课件匹配到 ${recognizedCourse}，请核对所选课表课程。`
     :recognizedCourse?'已按课表匹配课件，请核对。'
@@ -212,7 +226,7 @@
   const fields=form.elements;
   const chosenType=fields.class_type_choice.value;
   const values={course:fields.course.value,weeks:fields.weeks.value.trim(),
-   class_type:(chosenType===customType?fields.class_type_custom.value:chosenType).trim()};
+   class_type:importType(fields)};
   const submit=form.querySelector('button[type="submit"]');
   const error=form.querySelector('[data-import-error]');
   if(submit.disabled)return;
@@ -269,6 +283,7 @@
      const custom=input.form.elements.class_type_custom;
      custom.hidden=input.value!==customType;
      if(!custom.hidden)custom.focus();
+     showImportTemplate(input.form);
     }
     return;
    }
@@ -276,7 +291,7 @@
    const file=input.files[0];input.value='';
    if(file)await openImport(file,input.id==='learning-lesson-file'?selectedLesson:null);
   },true);
-  document.addEventListener('input',event=>{if(event.target.form?.id==='learning-import-confirm')event.target.dataset.edited='true';if(event.target.id!=='learning-history-search')return;const start=event.target.selectionStart,end=event.target.selectionEnd;query=event.target.value;render();const next=document.querySelector('#learning-history-search');next?.focus();next?.setSelectionRange(start,end);},true);
+  document.addEventListener('input',event=>{const input=event.target;if(input.form?.id==='learning-import-confirm'){input.dataset.edited='true';if(input.name==='class_type_custom')showImportTemplate(input.form);}if(input.id!=='learning-history-search')return;const start=input.selectionStart,end=input.selectionEnd;query=input.value;render();const next=document.querySelector('#learning-history-search');next?.focus();next?.setSelectionRange(start,end);},true);
   document.addEventListener('dragover',event=>{const target=event.target.closest('[data-learning-drop]');if(!target)return;event.preventDefault();target.classList.add('dragging');});
   document.addEventListener('dragleave',event=>{const target=event.target.closest('[data-learning-drop]');if(target&&!target.contains(event.relatedTarget))target.classList.remove('dragging');});
   document.addEventListener('drop',async event=>{const target=event.target.closest('[data-learning-drop]');if(!target)return;event.preventDefault();target.classList.remove('dragging');if(event.dataTransfer.files.length>1){toast('请每次导入一份课件。');return;}const file=event.dataTransfer.files[0];if(file)await openImport(file);});

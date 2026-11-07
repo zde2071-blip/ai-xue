@@ -1,6 +1,7 @@
 """Account-local choice lists; changing choices never rewrites resource metadata."""
 import copy
 import json
+import calendar_store
 
 FIELDS={'course':'课程归属','class_type':'课程类型','weeks':'教学周','custom':'自定义标签'}
 LIMITS={'course':150,'class_type':60,'custom':60}
@@ -28,13 +29,15 @@ class Settings:
                 if value.casefold() not in seen:clean.append(value);seen.add(value.casefold())
             out[key]=sorted(clean,key=int) if key=='weeks' else clean
         return out
-    def type_defaults(self,groups,templates,rules=None):
+    def type_defaults(self,names,templates,rules=None):
         if rules is not None and (not isinstance(rules,dict) or len(rules)>500):self.fail('默认笔记类型设置无效。')
         valid={row['id'] for row in templates};normalized={}
         for name,kind in (rules or {}).items():
-            if not isinstance(name,str) or not isinstance(kind,str) or kind and kind not in valid:self.fail('请选择有效的笔记类型。')
+            if not isinstance(name,str) or not 1<=len(name.strip())<=LIMITS['class_type'] or not isinstance(kind,str) or kind and kind not in valid:self.fail('请选择有效的课程类型和笔记模板。')
             normalized[name.strip().casefold()]=kind
-        return {name:normalized.get(name.casefold(),DEFAULT_NOTE_TYPES.get(name.casefold(),'')) for name in groups['class_type']}
+        choices={}
+        for name in names:choices.setdefault(name.casefold(),name)
+        return {name:normalized.get(key,DEFAULT_NOTE_TYPES.get(key,'')) for key,name in choices.items()}
     def default_note_kind(self,class_type,fallback='concepts'):
         # Read only the rules: document() also collects resources and must not recurse.
         raw=self.path.read_text(encoding='utf-8') if self.path.exists() else ''
@@ -42,17 +45,21 @@ class Settings:
         except (ValueError,AttributeError):self.fail('学习设置文件无法读取，未改动原文件。',409)
         if not isinstance(rules,dict):self.fail('默认笔记类型设置无效。',409)
         name=str(class_type or '').strip().casefold()
-        kind=next((value for key,value in rules.items() if str(key).casefold()==name),DEFAULT_NOTE_TYPES.get(name,''))
+        kind=next((value for key,value in rules.items() if key.strip().casefold()==name),DEFAULT_NOTE_TYPES.get(name,''))
         return kind if kind and self.h['template_store']().has(kind) else fallback
+    def read(self):
+        raw=self.path.read_text(encoding='utf-8') if self.path.exists() else ''
+        if not raw:return raw,{},None
+        try:
+            stored=json.loads(raw)
+            return raw,stored,self.normalize(stored['groups'])
+        except (ValueError,KeyError,TypeError,self.h['Problem']):self.fail('学习设置文件无法读取，未改动原文件。',409)
     def document(self):
         base=self.h['unit_store']().base_catalog()['groups']
         defaults={key:copy.deepcopy(base[key]) for key in FIELDS}
         defaults['weeks']=sorted(set([str(i) for i in range(1,17)]+defaults['weeks']),key=int)
-        raw=self.path.read_text(encoding='utf-8') if self.path.exists() else ''
-        if raw:
-            try:stored=json.loads(raw);groups=self.normalize(stored['groups'])
-            except (ValueError,KeyError,TypeError,self.h['Problem']):self.fail('学习设置文件无法读取，未改动原文件。',409)
-        else:stored={};groups=self.normalize(defaults)
+        raw,stored,groups=self.read()
+        if groups is None:groups=self.normalize(defaults)
         # Confirmed course schedules also supply real choices for material details.
         academic=self.h['academic_store']().document()
         for name in academic['assignments']:
@@ -63,9 +70,16 @@ class Settings:
                 if row['class_type'] and row['class_type'] not in groups['class_type']:groups['class_type'].append(row['class_type'])
             for row in term.get('calendar',[]):
                 if row['week'] is not None and str(row['week']) not in groups['weeks']:groups['weeks'].append(str(row['week']))
+        try:
+            timetable=calendar_store.Calendar(self.h).document()['timetable']
+        except self.h['Problem']:
+            timetable=[]
         groups['weeks'].sort(key=int)
         templates=self.h['template_store']().document()
-        return {'groups':groups,'class_type_defaults':self.type_defaults(groups,templates['templates'],stored.get('class_type_defaults')),'labels':{**FIELDS,'note_kind':'笔记类型'},'note_types':[{k:row[k] for k in ('id','name')} for row in templates['templates']],'templates_etag':templates['etag'],'etag':self.h['digest'](raw or json.dumps(groups,sort_keys=True,ensure_ascii=False))}
+        rules=stored.get('class_type_defaults')
+        names=[*groups['class_type'],*base['class_type'],*(row['class_type'] for row in timetable if row['class_type']),
+               *(name.title() for name in DEFAULT_NOTE_TYPES),*(rules if isinstance(rules,dict) else ())]
+        return {'groups':groups,'class_type_defaults':self.type_defaults(names,templates['templates'],rules),'labels':{**FIELDS,'note_kind':'笔记类型'},'note_types':[{k:row[k] for k in ('id','name')} for row in templates['templates']],'templates_etag':templates['etag'],'etag':self.h['digest'](raw or json.dumps(groups,sort_keys=True,ensure_ascii=False))}
     def note_values(self,rows,current):
         if not isinstance(rows,list) or not 1<=len(rows)<=100:self.fail('笔记类型应为 1–100 项。')
         values={row['id']:copy.deepcopy(row) for row in current['templates']};seen=set()
@@ -86,13 +100,19 @@ class Settings:
         with self.h['LOCK']:
             current=self.document()
             if data.get('etag')!=current['etag']:self.fail('设置已被其他窗口修改，请重新打开后核对。',409)
-            groups=self.normalize(data.get('groups'))
+            _,stored,saved_groups=self.read()
+            groups=self.normalize(data['groups']) if 'groups' in data else saved_groups or current['groups']
             templates=self.h['template_store']().document()
-            rules=self.type_defaults(groups,templates['templates'],data.get('class_type_defaults',current['class_type_defaults']))
-            pending=[(self.path,{'version':2,'groups':groups,'class_type_defaults':rules})]
+            if ('templates_etag' in data or 'note_types' in data) and data.get('templates_etag')!=templates['etag']:
+                self.fail('笔记模板已被其他窗口修改，请重新打开后核对。',409)
+            names=[*groups['class_type'],*current['class_type_defaults']]
+            changes=data.get('class_type_defaults',current['class_type_defaults'])
+            if 'groups' not in data and isinstance(changes,dict):
+                changes={**(stored.get('class_type_defaults') or {}),**changes}
+            rules=self.type_defaults(names,templates['templates'],changes)
+            rules={name:kind for name,kind in rules.items() if kind!=DEFAULT_NOTE_TYPES.get(name.casefold(),'')}
+            pending=[(self.path,{**stored,'version':2,'groups':groups,'class_type_defaults':rules})]
             if 'note_types' in data:
-                templates=self.h['template_store']().document()
-                if data.get('templates_etag')!=templates['etag']:self.fail('笔记模板已被其他窗口修改，请重新打开后核对。',409)
                 values=self.note_values(data['note_types'],templates)
                 if list(values.values())!=templates['templates']:pending.append((self.h['template_store']().path,{'version':2,'templates':values}))
             snapshots={path:path.read_text(encoding='utf-8') if path.exists() else None for path,_ in pending};written=[]

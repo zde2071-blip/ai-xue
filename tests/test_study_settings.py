@@ -115,6 +115,40 @@ class SettingsTests(unittest.TestCase):
         with patch.object(app,'ask',return_value=outline):manual=app.import_course({**data,'learning_kind':'concepts'})
         self.assertEqual(manual['learning_kind'],'concepts')
 
+    def test_timetable_type_rule_drives_all_learning_stages(self):
+        calendar=app.calendar_store.Calendar(vars(app))
+        calendar.save({**calendar.document(),
+            'sources':[{'id':'course-source','name':'本学期课表','kind':'timetable','type':'import'}],
+            'timetable':[{'course':'TEST101','class_type':'Studio','weekday':1,
+                          'weeks':[1],'time':'09:00–10:00','source_id':'course-source'}]})
+        self.save()
+        template=app.template_store().document()
+        prompt='讲解按实验步骤展开，笔记按观察和结论整理。'
+        custom=app.template_store().save({'etag':template['etag'],'template':{'name':'实验记录','prompt':prompt}})['saved_id']
+        doc=app.settings_store().document()
+        self.assertIn('Studio',doc['class_type_defaults'])
+        self.assertNotIn('Studio',doc['groups']['class_type'])
+        payload={'etag':doc['etag'],'templates_etag':doc['templates_etag'],'class_type_defaults':{'Studio':custom}}
+        saved=app.route_post('/api/learning-settings',payload)
+        self.assertEqual(saved['groups'],doc['groups'])
+        self.assertEqual(app.settings_store().document()['class_type_defaults']['Studio'],custom)
+        with self.assertRaises(app.Problem):app.route_post('/api/learning-settings',payload)
+
+        data={'filename':'TEST101.md','text':'实验材料包括测量方法、记录步骤和数据比较，要求根据实验观察解释误差的来源。','tags':{'course':'TEST101','class_type':'Studio'},'learning_import':True}
+        outline={'title':'实验','overview':'总览','blocks':[{'title':'测量','description':'记录测量','points':['误差']}]}
+        with patch.object(app,'ask',return_value=outline) as model:
+            course=app.import_course(data)
+            self.assertIn(prompt,model.call_args.args[0][0]['content'])
+        self.assertEqual(course['learning_kind'],custom)
+        block=course['blocks'][0]['id']
+        with patch.object(app,'ask',return_value='实验讲解。') as model:
+            app.get_lesson(course,block)
+            self.assertIn(prompt,model.call_args.args[0][0]['content'])
+        result={'blocks':[{'id':block,'summary':'观察与结论。'}],'annotations':[]}
+        with patch.object(app,'ask',return_value=result) as model:
+            app.finish(course,{})
+            self.assertIn(prompt,model.call_args.args[0][0]['content'])
+
     def test_starting_existing_material_uses_rule_without_losing_explicit_override(self):
         self.configure_default('Studio','solutions')
         data={'kind':'originals','filename':'Studio.md','text':'课程材料包含集合、交集与并集的定义及完整例子，用来说明最基本的集合运算和它们的区别。','class_type':'Studio'}

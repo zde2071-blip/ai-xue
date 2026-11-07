@@ -16,20 +16,25 @@
  if(typeof module!=='undefined'&&module.exports){module.exports={draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,actionMenuMarkup,defaultTypeFor,suggestDefault};return;}
  let installed=false,recognizer=null;
  const V={templatesExpanded:true,mode:'calendar',owner:null,data:null,selected:'concepts',draft:null,saving:false,loading:false,error:'',notice:'',aiOpen:false,chats:{},undo:null};
+ const typeRules={active:false,settings:null,draft:null};
  const selected=()=>V.data?.templates.find(row=>row.id===V.selected);
  const dirty=()=>!!V.draft&&(!V.selected||changed(selected(),V.draft));
+ const rulesDirty=()=>!!typeRules.draft&&Object.entries(typeRules.draft).some(([name,kind])=>kind!==(typeRules.settings.class_type_defaults[name]||'concepts'));
  const chat=()=>V.chats[V.selected||'new']||(V.chats[V.selected||'new']={messages:[],message:'',files:[],proposal:null,busy:false,recording:false,error:''});
  const working=()=>V.saving||V.loading||chat().busy;
  function rememberChoices(doc){S.templates=doc.templates.map(({id,name})=>({id,name}));}
- async function prepare(){try{const [doc,settings]=await Promise.all([api('/api/templates'),api('/api/learning-settings')]);rememberChoices(doc);S.classTypeDefaults=settings.class_type_defaults||{};return doc;}catch{return null;}}
+ function rememberSettings(settings){S.classTypeDefaults=settings.class_type_defaults||{};}
+ async function prepare(){const owner=S.user?.id;try{const [doc,settings]=await Promise.all([api('/api/templates'),api('/api/learning-settings')]);if(S.user?.id!==owner)return null;rememberChoices(doc);rememberSettings(settings);return doc;}catch{return null;}}
  function suggestImport(form){suggestDefault(form,S.classTypeDefaults);}
+ function templateName(classType){const id=defaultTypeFor(classType,S.classTypeDefaults)||'concepts';return S.templates?.find(template=>template.id===id)?.name||'';}
  function options(id='',automatic=false){return choicesMarkup(S.templates?.length?S.templates:defaults,id,automatic);}
  function panelMarkup(){
   const state=chat(),speechSupported=!!(root.SpeechRecognition||root.webkitSpeechRecognition);
   return `<aside class="template-ai" aria-label="模板 AI 助手"><header><span>${icon('sparkles')}AI 整理</span><button type="button" class="icon-button" data-template-action="ai-toggle" aria-label="收起 AI 整理" title="收起">${icon('x')}</button></header><div class="template-ai-history" aria-live="polite">${state.messages.map(message=>`<div class="template-ai-message ${message.role}">${escape(message.content)}</div>`).join('')}${state.proposal?`<section class="template-proposal"><details><summary>查看整理结果</summary><pre>${escape(state.proposal.prompt)}</pre></details><button type="button" class="outline-button" data-template-action="apply">应用到 Prompt</button></section>`:''}${state.busy?'<p class="template-ai-working" role="status">正在整理…</p>':''}</div><div class="template-ai-composer"><div class="template-attachments">${state.files.map((file,i)=>`<span>${icon('file-text')}<span>${escape(file.filename)}</span><button type="button" class="icon-button" data-template-action="remove-file" data-index="${i}" aria-label="移除附件 ${escape(file.filename)}">${icon('x')}</button></span>`).join('')}</div><textarea data-template-field="message" aria-label="告诉 AI 你的模板要求" rows="3" maxlength="40000" placeholder="粘贴模板，或说说你想怎么学…" ${state.busy?'disabled':''}>${escape(state.message)}</textarea><div class="template-ai-tools"><button type="button" class="icon-button" data-template-action="attach" aria-label="导入到 AI 整理" title="添加文件" ${state.busy?'disabled':''}>${icon('paperclip')}</button><button type="button" class="icon-button ${state.recording?'recording':''}" data-template-action="voice" aria-label="${state.recording?'结束口述':'口述模板要求'}" title="${speechSupported?'口述，由浏览器转写':'当前浏览器不支持语音转写，可使用系统听写输入'}" ${!speechSupported||state.busy?'disabled':''}>${icon(state.recording?'square':'mic')}</button><span></span><button type="button" class="template-send" data-template-action="send" aria-label="发送给 AI 整理" title="发送" ${state.busy||state.recording?'disabled':''}>${icon('arrow-up')}</button></div><input type="file" id="template-attachments" aria-label="选择模板参考文件" accept=".md,.txt,.json,.yaml,.yml,.pdf,.docx,.pptx,.png,.jpg,.jpeg,.webp" multiple hidden><p class="template-ai-error" role="alert" ${state.error?'':'hidden'}>${escape(state.error)}</p></div></aside>`;
  }
  function navigationMarkup(mode,key,templates=[],selected,draftName='',glyph=()=> '',calendarTree='',calendarExpanded=true,templatesExpanded=true,addMenu=''){
-  const templateTree=`<div class="settings-template-tree" aria-label="笔记模板分类">${templates.map(row=>`<button type="button" data-template-action="select" data-id="${escape(row.id)}" class="${row.id===selected?'selected':''}" aria-pressed="${row.id===selected}">${glyph('file-text')}<span>${escape(row.name)}</span></button>`).join('')}${!selected&&draftName?`<span class="settings-template-pending">${escape(draftName)}</span>`:''}</div>`;
+  const rulesActive=key==='type-rules';
+  const templateTree=`<div class="settings-template-tree" aria-label="笔记模板分类"><button type="button" data-template-action="type-rules" class="${rulesActive?'selected':''}" aria-pressed="${rulesActive}">${glyph('sliders-horizontal')}<span>按课程类型</span></button>${templates.map(row=>`<button type="button" data-template-action="select" data-id="${escape(row.id)}" class="${!rulesActive&&row.id===selected?'selected':''}" aria-pressed="${!rulesActive&&row.id===selected}">${glyph('file-text')}<span>${escape(row.name)}</span></button>`).join('')}${!selected&&draftName?`<span class="settings-template-pending">${escape(draftName)}</span>`:''}</div>`;
   return `<aside class="study-settings-nav" aria-label="学习设置二级导航"><nav>${[['calendar','calendar-days','日历'],['prompts','text-cursor-input','笔记模板']].map(([id,name,label])=>{const expanded=id==='calendar'?calendarExpanded:templatesExpanded;return `<div class="settings-nav-branch"><button type="button" data-settings-action="mode" data-mode="${id}" class="settings-section ${mode===id?'selected':''}" aria-pressed="${mode===id}" ${mode===id?`aria-expanded="${expanded}"`:''}>${glyph(name)}<span>${label}</span>${mode===id?`<span class="settings-disclosure">${glyph(expanded?'chevron-down':'chevron-right')}</span>`:''}</button>${mode===id?(id==='calendar'?calendarTree:(expanded?templateTree:'')):''}${mode===id?`<div class="settings-branch-add">${id==='calendar'?addMenu:`<button type="button" class="outline-button" data-template-action="new" aria-label="新建笔记模板">${glyph('plus')}</button>`}</div>`:''}</div>`;}).join('')}</nav></aside>`;
  }
  function promptPage(){
@@ -37,9 +42,26 @@
   const isNew=!V.selected;
   return `<div class="template-tabs-row"><strong class="template-current-name">${escape(V.draft.name||'新模板')}</strong><div class="settings-operation-group">${actionMenuMarkup('编辑模板',{label:'手动编辑',icon:'square-pen',attributes:'data-template-action="manual-edit"'},{label:'用 AI 整理',icon:'sparkles',attributes:'data-template-action="edit-ai"'},{glyph:icon,className:'prompt-edit-menu',ariaLabel:'编辑当前笔记模板',triggerIcon:'square-pen'})}</div></div><div class="template-workspace ${V.aiOpen?'with-ai':''}"><form id="learning-template-form" aria-busy="${V.saving}">${V.undo?'<div class="template-editor-tools"><button type="button" class="outline-button" data-template-action="undo">撤销应用</button></div>':''}<fieldset ${V.saving?'disabled':''}>${promptMarkup(V.draft,isNew)}</fieldset><div class="template-save-area"><p id="template-error" class="template-error" role="alert" ${V.error?'':'hidden'}>${escape(V.error)}</p><p class="template-notice" role="status" ${V.notice?'':'hidden'}>${escape(V.notice)}</p><footer class="template-actions" ${dirty()?'':'hidden'}><button type="button" class="outline-button" data-template-action="cancel" ${V.saving?'disabled':''}>取消</button><button type="submit" class="primary" ${V.saving?'disabled':''}>${V.saving?'保存中…':'保存'}</button></footer></div></form>${V.aiOpen?panelMarkup():''}</div>`;
  }
+ function rulesPage(){
+  const rows=Object.entries(typeRules.draft).map(([name,kind])=>`<label class="field template-rule-row"><span>${escape(name)}</span><select class="learning-import-select" name="${escape(name)}">${choicesMarkup(V.data.templates,kind)}</select></label>`).join('');
+  return `<form id="template-type-rules" aria-busy="${V.saving}">
+   <header class="template-page-header"><h1>按课程类型选择模板</h1><p>导入课件时按确认的课程类型选用模板，用于 AI 讲解和笔记整理。</p></header>
+   <fieldset ${V.saving?'disabled':''}>${rows}</fieldset>
+   <p id="template-error" class="template-error" role="alert" ${V.error?'':'hidden'}>${escape(V.error)}</p>
+   <footer class="template-actions" ${rulesDirty()?'':'hidden'}>
+    <button type="button" class="outline-button" data-template-action="cancel-rules" ${V.saving?'disabled':''}>取消</button>
+    <button type="submit" class="primary" ${V.saving?'disabled':''}>${V.saving?'保存中…':'保存'}</button>
+   </footer>
+  </form>`;
+ }
+ function resetRules(settings){
+  typeRules.settings=settings;
+  typeRules.draft=Object.fromEntries(Object.entries(settings.class_type_defaults).map(([name,kind])=>[name,kind||'concepts']));
+  rememberSettings(settings);
+ }
  function page(){
   if(!V.data||!V.draft)return '';
-  return `<section class="study-settings-shell">${navigationMarkup(V.mode,'',V.data.templates,V.selected,V.draft.name,icon,V.mode==='calendar'?root.AcademicCalendar.sidebar():'',root.AcademicCalendar.sidebarExpanded(),V.templatesExpanded,root.AcademicReferences.addMenu())}<div class="template-page study-settings-content ${V.mode==='calendar'?'calendar-settings-content':''}">${V.mode==='calendar'?root.StudySchedule.markup():promptPage()}</div></section>`;
+  return `<section class="study-settings-shell">${navigationMarkup(V.mode,typeRules.active?'type-rules':'',V.data.templates,V.selected,V.draft.name,icon,V.mode==='calendar'?root.AcademicCalendar.sidebar():'',root.AcademicCalendar.sidebarExpanded(),V.templatesExpanded,root.AcademicReferences.addMenu())}<div class="template-page study-settings-content ${V.mode==='calendar'?'calendar-settings-content':''}">${V.mode==='calendar'?root.StudySchedule.markup():typeRules.active?rulesPage():promptPage()}</div></section>`;
  }
  function paint(){
   const input=document.activeElement?.closest('[data-template-field]');const field=input?.dataset.templateField,start=input?.selectionStart,end=input?.selectionEnd;
@@ -52,14 +74,15 @@
   const notice=document.querySelector('.template-notice');if(notice)notice.hidden=true;
  }
  function stopVoice(){if(recognizer){try{recognizer.stop();}catch{}}}
- async function open(mode='calendar'){
+ async function open(mode='calendar',showRules=false){
   if(S.busy||S.threadBusy||!canLeave())return;
   mode=mode==='prompts'?'prompts':'calendar';
   const owner=S.user?.id;
   try{
    const [doc,settings]=await Promise.all([api('/api/templates'),api('/api/learning-settings')]);if(S.user?.id!==owner)return;
    if(V.owner!==owner){V.owner=owner;V.selected='concepts';V.chats={};V.aiOpen=false;}
-   V.data=doc;rememberChoices(doc);V.mode=mode;S.classTypeDefaults=settings.class_type_defaults||{};
+   V.data=doc;rememberChoices(doc);V.mode=mode;resetRules(settings);
+   typeRules.active=showRules;
    if(!selected())V.selected=doc.templates[0].id;
    V.draft=draftOf(selected());V.error='';V.notice='';V.undo=null;
    if(mode==='calendar')await root.StudySchedule.prepare();if(S.user?.id!==owner)return;
@@ -103,6 +126,7 @@
    if(S.view==='templates'){
     if(V.mode==='calendar'&&!root.StudySchedule.canLeave())return false;
     if(working()||chat().recording){fail('请等待整理完成，或结束口述。');return false;}
+    if(rulesDirty()){fail('请先保存或取消课程类型设置。');return false;}
     if(dirty()){fail('请先保存或取消模板修改。');return false;}
    }
    return base.canLeave();
@@ -128,12 +152,18 @@
    try{
     if(action==='manual-edit'){document.querySelector('[data-template-field="prompt"]')?.focus();}
     else if(action==='edit-ai'){V.aiOpen=true;paint();document.querySelector('[data-template-field="message"]')?.focus();}
-    else if(action==='select'||action==='new'){
-     if(chat().recording){fail('请先结束口述。');return;}
-     if(dirty()){fail('请先保存或取消模板修改。');return;}
+    else if(action==='select'||action==='new'||action==='type-rules'){
+     if(!canLeave())return;
+     if(action==='type-rules'){
+      if(typeRules.active)return;
+      await open('prompts',true);return;
+     }
+     typeRules.active=false;
      V.selected=action==='new'?'':button.dataset.id;V.draft=action==='new'?{name:'',prompt:''}:draftOf(selected());V.error='';V.notice='';V.undo=null;
      if(action==='new'){V.chats.new=null;V.aiOpen=true;}
      paint();if(action==='new')document.querySelector('[data-template-field="name"]')?.focus();
+    }else if(action==='cancel-rules'){
+     resetRules(typeRules.settings);V.error='';paint();
     }else if(action==='cancel'){
      const doc=await api('/api/templates');V.data=doc;rememberChoices(doc);if(!selected())V.selected=doc.templates[0].id;
      V.draft=draftOf(selected());V.error='';V.notice='';V.undo=null;paint();
@@ -149,6 +179,12 @@
    }catch(error){fail(error.message);}
   },true);
   document.addEventListener('change',async event=>{
+   if(event.target.form?.id==='template-type-rules'){
+    typeRules.draft[event.target.name]=event.target.value;
+    document.querySelector('#template-type-rules .template-actions')?.toggleAttribute('hidden',!rulesDirty());
+    fail('');
+    return;
+   }
    if(event.target.id!=='template-attachments')return;
    const state=chat(),incoming=[...event.target.files];
    if(state.files.length+incoming.length>3){state.error='每次最多添加 3 份附件。';paint();return;}
@@ -162,6 +198,21 @@
    if(event.target.dataset?.templateField==='message'&&(event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();event.stopImmediatePropagation();send();}
   },true);
   document.addEventListener('submit',async event=>{
+   if(event.target.id==='template-type-rules'){
+    event.preventDefault();event.stopImmediatePropagation();
+    if(working()||!rulesDirty())return;
+    const {etag,templates_etag,class_type_defaults}=typeRules.settings;
+    const rules=Object.create(null);
+    for(const [name,kind] of Object.entries(typeRules.draft)){
+     if(kind!==(class_type_defaults[name]||'concepts'))rules[name]=kind;
+    }
+    V.saving=true;V.error='';paint();
+    try{resetRules(await api('/api/learning-settings',{etag,templates_etag,class_type_defaults:rules}));}
+    catch(error){V.error=error.message;}
+    finally{V.saving=false;paint();}
+    if(!V.error)toast('已保存');
+    return;
+   }
    if(event.target.id!=='learning-template-form')return;event.preventDefault();event.stopImmediatePropagation();if(working())return;
    if(!V.draft.name.trim()||!V.draft.prompt.trim()){fail('请填写模板名称和 Prompt。');return;}
    V.saving=true;V.error='';paint();
@@ -171,7 +222,7 @@
    }catch(error){V.error=error.message;}
    finally{V.saving=false;paint();}
   },true);
-  window.addEventListener('beforeunload',event=>{if(S.view==='templates'&&(working()||(V.mode==='calendar'&&(root.StudySchedule.dirty()||root.StudySchedule.busy()))||dirty()||chat().recording||chat().message.trim()||chat().files.length)){event.preventDefault();event.returnValue='';}});
+  window.addEventListener('beforeunload',event=>{if(S.view==='templates'&&(working()||(V.mode==='calendar'&&(root.StudySchedule.dirty()||root.StudySchedule.busy()))||dirty()||rulesDirty()||chat().recording||chat().message.trim()||chat().files.length)){event.preventDefault();event.returnValue='';}});
  }
- root.StudyTemplates={install,open,prepare,options,suggestImport,actionMenuMarkup};
+ root.StudyTemplates={install,open,prepare,options,suggestImport,templateName,actionMenuMarkup};
 })(typeof window==='undefined'?{}:window);

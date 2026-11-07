@@ -14,7 +14,7 @@ test('learning opens on import and conversation records, while review uses a nes
 test('confirmed blocks awaiting note finalization stay reachable with an accurate label',()=>{const row=records([{...courses[0],completed:['b1','b2']}],entries)[0];assert.equal(row.location,'待整理笔记');});
 
 test('scheduled imports wait for confirmation, and ordinary imports suggest editable course tags',async()=>{
- const listeners={};let shown='',sent=null,form=null;
+ const listeners={};let shown='',sent=null,form=null,templateHint=null;
  const picker={click(){}},region={querySelector:()=>null};
  const calendar={course_choices:['ADS102','CSI101'],timetable:[{course:'ADS102',weekday:2,time:'09:00–11:00',weeks:[8,9],class_type:'Lecture'}],calendar:[{kind:'teaching',week:8,start:'2026-11-02',end:'2026-11-08'},{kind:'teaching',week:9,start:'2026-11-09',end:'2026-11-15'}]};
  const helper=require('../web/academic-calendar.js');
@@ -22,6 +22,7 @@ test('scheduled imports wait for confirmation, and ordinary imports suggest edit
  const window={
   AcademicCalendar:{...helper,today:()=> '2026-11-07',teachingWeekLabel:weeks=>weeks.join(',')},
   AcademicReferences:require('../web/academic-references.js'),
+  StudyTemplates:{prepare:async()=>({}),templateName:type=>({Tutorial:'题目讲解',Lab:'实验记录'}[type]||'知识点总结')},
   StudyUnits:{importFile:async (file,context)=>{sent=context;}}
  };
  const document={querySelector:id=>id==='#learning-current-week'?region:id==='#learning-import-confirm'?form:picker,addEventListener:(name,fn)=>{listeners[name]=fn;}};
@@ -30,10 +31,11 @@ test('scheduled imports wait for confirmation, and ordinary imports suggest edit
  const modalContent=(title,body)=>{
   shown=title+body;
   if(!body.includes('id="learning-import-confirm"'))return;
-  const status={},submit={disabled:body.includes('disabled')},error={};
+  const status={},submit={disabled:body.includes('disabled')},error={};templateHint={};
   const elements=Object.fromEntries(['course','weeks','class_type_choice','class_type_custom'].map(name=>[name,{value:'',dataset:{}}]));
   elements.class_type_choice.options=['','Lecture','Tutorial','Lab','__custom__'].map(value=>({value}));
-  form={id:'learning-import-confirm',elements,querySelector:s=>s==='[data-import-status]'?status:s==='[data-import-error]'?error:submit};
+  form={id:'learning-import-confirm',elements,querySelector:s=>s==='[data-import-status]'?status:s==='[data-import-error]'?error:s==='[data-import-template]'?templateHint:submit};
+  for(const [name,field] of Object.entries(elements))Object.assign(field,{name,form});
  };
  const context=vm.createContext({window,document,modal,S:{user:{id:'a'},courses:[{id:'existing',title:'集合与关系',tags:{course:'ADS102 · 离散数学与统计',weeks:[8],class_type:'Lecture'}}]},api,readUpload:async()=> 'content',icons(){},esc:String,icon:()=>'',modalContent,toast:assert.fail});
  vm.runInContext(readFileSync(join(__dirname,'../web/learning-home.js'),'utf8'),context);
@@ -48,9 +50,12 @@ test('scheduled imports wait for confirmation, and ordinary imports suggest edit
  assert.match(shown,/继续学习 · 集合与关系/);
  await change('learning-lesson-file');
  assert.match(shown,/确认课件归属/);assert.doesNotMatch(shown,/datalist|离散数学与统计/);
- assert.equal(form.elements.course.value,'ADS102');assert.equal(form.elements.class_type_choice.value,'Tutorial');
+ assert.equal(form.elements.course.value,'ADS102');assert.equal(form.elements.class_type_choice.value,'Lecture');
+ assert.equal(templateHint.textContent,'学习模板 · 知识点总结');
  assert.equal(recognitionCalls,1);assert.equal(sent,null);
  form.elements.class_type_choice.value='Lab';
+ await listeners.change(event(form.elements.class_type_choice));
+ assert.equal(templateHint.textContent,'学习模板 · 实验记录');
  await submit();
  assert.equal(sent.scheduled_lesson.date,'2026-11-03');assert.equal(sent.tags.weeks[0],8);assert.equal(sent.tags.class_type,'Lab');
 
@@ -67,6 +72,7 @@ test('scheduled imports wait for confirmation, and ordinary imports suggest edit
  sent=null;
  await change('learning-home-file');
  assert.equal(form.elements.course.value,'CSI101');assert.equal(form.elements.weeks.value,'8');assert.equal(sent,null);
+ assert.equal(templateHint.textContent,'学习模板 · 题目讲解');
  form.elements.course.value='ADS102';
  await submit();
  assert.equal(sent.tags.course,'ADS102');assert.equal(sent.recognition.course_title,'CSI101');
