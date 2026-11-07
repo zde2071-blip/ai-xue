@@ -5,3 +5,15 @@
 .academic-reference-drop{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;cursor:pointer;min-height:100px;border:1px dashed #ccc;border-radius:6px;padding:14px;margin-bottom:16px;font-size:13px;color:#666}.academic-reference-drop>img{max-width:100%;max-height:130px;object-fit:contain}.academic-reference-drop>span{overflow-wrap:anywhere}
 .academic-reference-import>textarea{box-sizing:border-box;width:100%;min-height:90px;resize:vertical;border:1px solid #ddd;border-radius:6px;padding:10px 12px;font:13px/1.7 inherit;color:#444;outline:none;background:#fff}.academic-reference-import>textarea:focus{border-color:#999}.academic-reference-import>footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.academic-reference-import>footer button{height:34px;min-height:34px;padding:6px 16px;font-size:12px}.academic-reference-import>.error-message{margin:12px 0 0;font-size:12px}
 .academic-reference-message{font-size:12px;color:#888;line-height:1.6;margin:0 0 10px}.academic-reference-message[hidden]{display:none}
+.handbook-course{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;margin-bottom:16px;font-size:13px}
+.handbook-course select{border:1px solid #ddd;border-radius:6px;padding:7px 10px;color:inherit;font:inherit}
+.handbook-file{display:flex;align-items:center;gap:8px;color:#666;font-size:12px;overflow-wrap:anywhere}
+.handbook-details{margin:14px 0}
+.handbook-details ul{list-style:none;margin:10px 0 0;padding:0;border-top:1px solid #eee}
+.handbook-details li{padding:12px 0;border-bottom:1px solid #eee;overflow-wrap:anywhere;font-size:13px}
+.handbook-details li>span{margin-left:10px;color:#666}
+.handbook-details li p{margin:5px 0;color:#555}
+.handbook-details details{margin-top:6px;color:#666;font-size:12px;line-height:1.55}
+.handbook-details summary{cursor:pointer}
+.handbook-details blockquote{margin:6px 0 0;padding-left:9px;border-left:2px solid #ddd;white-space:pre-wrap}
+.handbook-hint{margin:10px 0;color:#666;font-size:12px;line-height:1.6}

@@ -40,6 +40,30 @@ class CalendarStoreTest(unittest.TestCase):
         saved=self.save(doc);read=self.store.document()
         self.assertEqual(saved,read);self.assertEqual(read['colors']['exam'],'#a07848');self.assertEqual(read['events'][0]['color'],'#abcdef');self.assertEqual(read['calendar'][0]['color'],'#527eac');self.assertEqual(read['timetable'][0]['color'],'#8070a0')
         del read['events'][0]['color'];self.assertNotIn('color',self.save(read)['events'][0])
+    def test_handbook_keeps_undated_assessments_and_only_adds_documented_dates(self):
+        doc=self.save(self.store.document(),
+            sources=[{'id':'schedule','name':'课表','kind':'timetable','type':'import'}],
+            timetable=[{'course':'ADS102 · 离散数学','weekday':1,'time':'09:00–10:00','source_id':'schedule'}])
+        midterm='Midterm Test 30% Teaching Week 8'
+        final='Final Examination 70% 16 December 2026 09:00–11:00'
+        original='Module Handbook ADS102\n'+midterm+'\n'+final
+        data={'kind':'exam','handbook_course':'ADS102 · 离散数学','attachments':[{'filename':'Handbook.txt','file':base64.b64encode(original.encode()).decode()}]}
+        entries=[{'name':'Midterm Test','weight':'30%','timing':'Teaching Week 8','date_text':'2026-11-02','evidence':midterm},
+                 {'name':'Final Examination','weight':'70%','timing':'16 December 2026 09:00–11:00','date_text':'16 December 2026','start':'09:00','end':'11:00','evidence':final},
+                 {'name':'Made up Test','weight':'20%','evidence':'Invented evidence'}]
+        with patch.object(app,'ask',return_value={'entries':entries}) as model:
+            for course in ('CSI101','ADS102'):
+                with self.assertRaises(app.Problem):app.route_post('/api/calendar/import',{**data,'handbook_course':course})
+            model.assert_not_called()
+            result=app.route_post('/api/calendar/import',data)
+        self.assertEqual(doc,self.store.document())
+        self.assertTrue(result['incomplete'])
+        self.assertEqual([row['timing'] for row in result['handbook']['entries']],['Teaching Week 8','16 December 2026 09:00–11:00'])
+        self.assertEqual([(row['date'],row['start'],row['end']) for row in result['rows']],[('2026-12-16','09:00','11:00')])
+        source={'id':'handbook','name':'ADS102','kind':'exam','type':'import','handbook':result['handbook']}
+        self.save(doc,sources=[*doc['sources'],source],events=[{**row,'source_id':'handbook'} for row in result['rows']])
+        self.assertEqual(self.store.document()['sources'][-1]['handbook'],result['handbook'])
+        self.assertFalse(app.academic_import.Importer(app.__dict__).directory.exists())
     def test_invalid_colors_do_not_write(self):
         doc=self.save(self.store.document());before=self.store.path.read_bytes()
         for colors in [{'exam':'red;position:fixed'},{'unknown':'#ffffff'},[]]:

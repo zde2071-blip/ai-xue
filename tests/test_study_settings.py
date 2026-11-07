@@ -45,13 +45,13 @@ class SettingsTests(unittest.TestCase):
 
     def test_note_type_names_share_the_real_prompt_and_new_types_get_stable_ids(self):
         doc=app.settings_store().document();types=copy.deepcopy(doc['note_types']);types[0]['name']='概念学习';types.append({'id':'','name':'错题复盘'})
-        original=app.template_store().get('concepts')['prompt']
+        original=app.template_store().get('concepts')['learning_prompt']
         result=app.settings_store().save({'etag':doc['etag'],'groups':doc['groups'],'templates_etag':doc['templates_etag'],'note_types':types})
-        self.assertEqual(app.template_store().get('concepts')['prompt'],original);self.assertEqual(app.template_store().get('concepts')['name'],'概念学习')
-        created=next(row for row in result['note_types'] if row['name']=='错题复盘');self.assertTrue(app.template_store().has(created['id']));self.assertTrue(app.template_store().get(created['id'])['prompt'])
+        self.assertEqual(app.template_store().get('concepts')['learning_prompt'],original);self.assertEqual(app.template_store().get('concepts')['name'],'概念学习')
+        created=next(row for row in result['note_types'] if row['name']=='错题复盘');self.assertTrue(app.template_store().has(created['id']));self.assertTrue(app.template_store().get(created['id'])['notes_prompt'])
     def test_external_prompt_update_blocks_stale_type_edits_without_touching_settings(self):
         doc=app.settings_store().document();templates=app.template_store().document()
-        app.template_store().save({'id':'concepts','etag':templates['etag'],'template':{**templates['templates'][0],'prompt':'外部工具刚刚修改的 Prompt。'}})
+        app.template_store().save({'id':'concepts','etag':templates['etag'],'template':{**templates['templates'][0],'learning_prompt':'外部工具刚刚修改的 Prompt。'}})
         before=(app.VAULT/'学习模板.json').read_bytes()
         with self.assertRaises(app.Problem) as error:app.settings_store().save({'etag':doc['etag'],'groups':doc['groups'],'templates_etag':doc['templates_etag'],'note_types':doc['note_types']})
         self.assertEqual(error.exception.status,409);self.assertEqual((app.VAULT/'学习模板.json').read_bytes(),before);self.assertFalse((app.VAULT/'学习设置.json').exists())

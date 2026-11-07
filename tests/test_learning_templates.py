@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 import server as app
-from learning_templates import DEFAULTS, legacy_prompt
+from learning_templates import DEFAULTS
 
 
 class LearningTemplateTests(unittest.TestCase):
@@ -18,25 +18,31 @@ class LearningTemplateTests(unittest.TestCase):
     def save(self,key='concepts',**changes):
         doc=app.template_store().document()
         value=copy.deepcopy(next((v for v in doc['templates'] if v['id']==key),{'name':'错题复盘','prompt':'自由组织错题复盘，不编号。'}));value.update(changes)
+        if 'prompt' in changes:
+            for field in ('learning_prompt','notes_prompt'):value.pop(field,None)
+        elif any(field in changes for field in ('learning_prompt','notes_prompt')):
+            value.pop('prompt',None)
         return app.route_post('/api/templates',{'id':key,'etag':doc['etag'],'template':value})
     def test_defaults_are_free_prompts_and_reading_does_not_write(self):
         doc=app.template_store().document();self.assertFalse(app.VAULT.exists());self.assertEqual(len(doc['templates']),2)
-        self.assertEqual(set(doc['templates'][0]),{'id','name','prompt'})
-        self.assertIn('保留原题号',doc['templates'][1]['prompt'])
+        self.assertEqual(set(doc['templates'][0]),{'id','name','learning_prompt','notes_prompt'})
+        self.assertIn('保留原题号',doc['templates'][1]['notes_prompt'])
     def test_legacy_templates_convert_without_rewriting_or_losing_custom_requirements(self):
         old={'id':'concepts','name':'知识点总结','numbering':'none','overview':'我的独特总览','lesson_sections':['自定义直觉','特殊推导'],'note_sections':['我的易错点']}
         app.VAULT.mkdir();path=app.VAULT/'学习模板.json';path.write_text(json.dumps({'version':1,'templates':{'concepts':old}},ensure_ascii=False));before=path.read_bytes()
         row=app.template_store().get('concepts');self.assertEqual(path.read_bytes(),before)
-        for value in ['我的独特总览','自定义直觉','特殊推导','我的易错点','标题不编号']:self.assertIn(value,row['prompt'])
-        self.save(prompt=row['prompt']+'\n再添一句。');self.assertEqual(json.loads(path.read_text())['version'],2)
+        for value in ['我的独特总览','自定义直觉','特殊推导','标题不编号']:self.assertIn(value,row['learning_prompt'])
+        self.assertIn('我的易错点',row['notes_prompt']);self.assertNotIn('我的易错点',row['learning_prompt'])
+        self.save(learning_prompt=row['learning_prompt']+'\n再添一句。');self.assertEqual(json.loads(path.read_text())['version'],3)
     def test_free_prompt_saves_without_splitting_or_forcing_numbering(self):
         prompt='自由 Prompt\n不先总览，不分栏目，标题不编号。\n# 任意格式\n保留我自己的表达。'
-        self.save(prompt=prompt);row=app.template_store().get('concepts');self.assertEqual(row['prompt'],prompt)
+        self.save(prompt=prompt);row=app.template_store().get('concepts')
+        self.assertEqual(row['learning_prompt'],prompt);self.assertEqual(row['notes_prompt'],prompt)
         rules=app.template_store().prompt('concepts','lesson');self.assertIn(prompt,rules);self.assertNotIn('标题不要自行编号',rules)
         self.assertEqual(app.template_store().lesson('concepts','## 我的标题\n内容。',1),'## 我的标题\n内容。')
     def test_custom_types_persist_with_stable_ids_and_account_isolation(self):
         doc=self.save('');key=doc['saved_id'];self.assertTrue(key.startswith('tpl_'));self.assertTrue(app.template_store().has(key));self.assertEqual(app.template_store().get(key)['name'],'错题复盘')
-        self.save(key,prompt='新的自由复盘要求。');self.assertEqual(app.template_store().get(key)['prompt'],'新的自由复盘要求。')
+        self.save(key,prompt='新的自由复盘要求。');self.assertEqual(app.template_store().get(key)['learning_prompt'],'新的自由复盘要求。')
         self.assertEqual(app.template_store().get('solutions'),DEFAULTS['solutions'])
         app.VAULT=Path(self.tmp.name)/'two';self.assertFalse(app.template_store().has(key));self.assertFalse(app.VAULT.exists())
         with self.assertRaises(app.Problem):self.save(key)
@@ -71,15 +77,19 @@ class LearningTemplateTests(unittest.TestCase):
         with patch.object(app,'ask',return_value={'prompt':''}),self.assertRaises(app.Problem):app.template_store().assist({'request':'生成模板'})
         self.assertFalse(app.VAULT.exists())
     def test_custom_prompt_reaches_outline_lesson_and_notes_and_keeps_existing_notes(self):
-        doc=self.save('',prompt='自定义要求：只使用我的反例结构，不要添加默认栏目。');key=doc['saved_id']
+        doc=self.save('',learning_prompt='学习时使用我的反例结构。',notes_prompt='整理时使用我的笔记表格。');key=doc['saved_id']
         outline={'title':'集合','overview':'总览','blocks':[{'title':'集合','description':'理解集合','points':['定义']}]}
         with patch.object(app,'ask',return_value=outline) as model:
             app.make_outline('集合','资料','自学',key);self.assertIn('我的反例结构',model.call_args.args[0][0]['content'])
+            self.assertNotIn('我的笔记表格',model.call_args.args[0][0]['content'])
         c=app.seed_demo();c.update(demo=False,learning_kind=key);app.save_course(c);bid=c['blocks'][0]['id']
         with patch.object(app,'ask',return_value='## 反例\n我的例子。') as model:
             lesson=app.get_lesson(c,bid);self.assertIn('我的反例结构',model.call_args.args[0][0]['content']);self.assertEqual(lesson['content'],'## 反例\n我的例子。')
         result={'blocks':[{'id':bid,'summary':'### 我的格式\n正文。'}],'annotations':[]}
-        with patch.object(app,'ask',return_value=result) as model:note=app.finish(c,{})['note'];self.assertIn('我的反例结构',model.call_args.args[0][0]['content'])
+        with patch.object(app,'ask',return_value=result) as model:
+            note=app.finish(c,{})['note']
+            self.assertIn('我的笔记表格',model.call_args.args[0][0]['content'])
+            self.assertNotIn('我的反例结构',model.call_args.args[0][0]['content'])
         self.assertIn('### 我的格式',note['content']);self.assertNotIn('## 1 总览',note['content']);self.assertEqual(note['note_kind'],key)
         before=Path(note['path']).read_bytes();self.save(key,prompt='改过的自由模板。');self.assertEqual(Path(note['path']).read_bytes(),before)
     def test_custom_type_is_selectable_in_details_and_used_when_starting_material(self):

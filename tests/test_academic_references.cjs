@@ -20,3 +20,19 @@ test('successful recognition creates an independent source without retaining upl
  const firstId=model.sources[0].id;model.importUI.files=[{filename:'calendar.txt',file:'dGVzdA=='}];await listeners.click[0]({target:{closest:()=>button},preventDefault(){},stopImmediatePropagation(){}});assert.equal(model.calendar.length,1);assert.equal(model.sources[0].id,firstId);
  model.importUI.files=[{filename:'second.txt',file:'dGVzdA=='}];await listeners.click[0]({target:{closest:()=>button},preventDefault(){},stopImmediatePropagation(){}});assert.equal(model.calendar.length,2);assert.notEqual(model.calendar[0].source_id,model.calendar[1].source_id);
 });
+
+test('handbook preview adds an undated course source only after confirmation',async()=>{
+ const vm=require('node:vm'),fs=require('node:fs');
+ const handbook={course:'ADS102',filename:'Handbook.pdf',entries:[{name:'Final exam',weight:'70%',timing:'Exam period',evidence:'Final exam 70% Exam period'}]};
+ const model={course_choices:['ADS102'],calendar:[],timetable:[],events:[],sources:[],importUI:{mode:'handbook',handbookCourse:'ADS102',files:[{filename:'Handbook.pdf',file:'dGVzdA=='}],open:true}};
+ const listeners={};const root={StudySchedule:{manager:()=>model,paint(){}},AcademicCalendar:{markup:(_m,_t,_kind,options)=>options.importPanel}};
+ let request;
+ vm.runInNewContext(fs.readFileSync(require.resolve('../web/academic-references.js'),'utf8'),{crypto:require('node:crypto').webcrypto,window:root,document:{addEventListener:(name,fn)=>listeners[name]=fn},S:{user:{id:'demo'}},icon:()=>'',toast(){},api:async(_path,data)=>{request=data;return {handbook,rows:[]};}});
+ const click=action=>listeners.click({target:{closest:()=>({dataset:{referenceAction:action},closest:()=>null})},preventDefault(){},stopImmediatePropagation(){}});
+ await click('recognize');
+ assert.equal(request.handbook_course,'ADS102');assert.equal(model.sources.length,0);
+ assert.match(root.AcademicReferences.markup(model),/核对手册原文/);
+ await click('apply-handbook');
+ assert.equal(model.sources[0].handbook,handbook);assert.equal(model.events.length,0);
+ assert.equal(model.importUI.open,false);
+});

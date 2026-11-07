@@ -51,6 +51,9 @@ class Calendar:
             try:
                 item.update(academic_import.row_color({'color':row.get('color','')}))
                 if source_type=='subscription':item['url']=calendar_subscription.subscription_url(row.get('url'))
+                if 'handbook' in row:
+                    if kind!='exam' or source_type!='import':raise ValueError('Module Handbook 只能放在考试信息中。')
+                    item['handbook']=academic_import.handbook_record(row['handbook'])
             except ValueError as error:self.fail(str(error))
             if isinstance(row.get('updated_at'),str):item['updated_at']=row['updated_at'][:40]
             clean['sources'].append(item);ids.add(key)
@@ -72,6 +75,12 @@ class Calendar:
         with self.h['LOCK']:
             latest=self.document()
             if data.get('etag')!=latest['etag']:self.fail('日历已在其他位置修改。当前修改已保留，请重新打开后再保存。',409)
+            previous_handbooks={row['id']:row['handbook'] for row in latest['sources'] if 'handbook' in row}
+            courses=set(imported_courses(normalized))
+            for row in normalized['sources']:
+                handbook=row.get('handbook')
+                if handbook and handbook!=previous_handbooks.get(row['id']) and handbook['course'] not in courses:
+                    self.fail('请选择仍在课表中的课程，再保存考试信息。')
             known=latest['references']+[r['reference'] for r in prepared]
             if any(ref not in known for ref in normalized['references']):self.fail('原始材料缺失，请重新导入。')
             for row in prepared:

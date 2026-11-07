@@ -92,7 +92,9 @@ class Settings:
                 seen.add(key);values[key]['name']=name.strip()
             else:
                 key='tpl_'+self.h['uid']()
-                values[key]={'id':key,'name':name.strip(),'prompt':'请按照「'+name.strip()+'」的目的辅导我学习。先说明整体思路，再逐步解释当前内容；保留必要的定义、条件和来源，补充例子需注明。整理笔记时保留关键结论与方法，追问单独保存，不替我确认学会。'}
+                values[key]={'id':key,'name':name.strip(),
+                             'learning_prompt':'请按照「'+name.strip()+'」的目的辅导我学习。先说明整体思路，再逐步解释当前内容，保留必要的定义、条件和来源。补充例子需注明。',
+                             'notes_prompt':'整理笔记时保留关键结论与方法，追问单独保存，不替我确认学会。'}
         names=[row['name'].casefold() for row in values.values()]
         if len(values)>100 or len(names)!=len(set(names)):self.fail('笔记类型名称不能重复，最多 100 项。')
         return values
@@ -114,7 +116,7 @@ class Settings:
             pending=[(self.path,{**stored,'version':2,'groups':groups,'class_type_defaults':rules})]
             if 'note_types' in data:
                 values=self.note_values(data['note_types'],templates)
-                if list(values.values())!=templates['templates']:pending.append((self.h['template_store']().path,{'version':2,'templates':values}))
+                if list(values.values())!=templates['templates']:pending.append((self.h['template_store']().path,{'version':3,'templates':values}))
             snapshots={path:path.read_text(encoding='utf-8') if path.exists() else None for path,_ in pending};written=[]
             try:
                 for path,value in pending:self.h['write_json'](path,value);written.append(path)
