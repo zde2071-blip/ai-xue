@@ -3,12 +3,13 @@ import json
 import os
 import re
 import tempfile
+from functools import partial
 from pathlib import Path
 import academic_import
 import calendar_subscription
 
 MAX_REFERENCES=2000
-FIELDS={'calendar':academic_import.calendar_rows,'timetable':academic_import.timetable_rows,'events':academic_import.event_rows}
+FIELDS={'calendar':academic_import.calendar_rows,'timetable':partial(academic_import.timetable_rows,keep_location=False),'events':academic_import.event_rows}
 
 def imported_courses(document):
     sources = {source['id'] for source in document.get('sources', []) if source['kind'] == 'timetable'}
@@ -85,6 +86,9 @@ class Calendar:
             if isinstance(row.get('updated_at'),str):item['updated_at']=row['updated_at'][:40]
             clean['sources'].append(item);ids.add(key)
         if any(row.get('source_id') and row['source_id'] not in ids for key in ('calendar','timetable','events') for row in clean[key]):self.fail('安排对应的日历来源缺失。')
+        timetable_sources={row['id'] for row in clean['sources'] if row['kind']=='timetable'}
+        for row in clean['events']:
+            if row.get('source_id') in timetable_sources:row.pop('location',None)
         return clean
     def document(self):
         if self.path.exists():

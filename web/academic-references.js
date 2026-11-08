@@ -109,6 +109,19 @@
   }
   return {filename:name,file:await toBase64(file),mime:file.type};
  }
+ async function rereadTimetable(M,source){
+  const originals=(M.references||[]).filter(ref=>ref.kind==='timetable'&&source.reference_ids?.includes(ref.id));
+  const unique=[...new Map(originals.map(ref=>[ref.id,ref])).values()];
+  if(!unique.length||unique.length>3)throw new Error('请重新导入需要核对的课表原件。');
+  const attachments=await Promise.all(unique.map(async ref=>{
+   const response=await fetch('/api/academic-references/'+encodeURIComponent(ref.id));
+   if(!response.ok)throw new Error('无法打开已保存的课表原件。');
+   return {filename:ref.filename,file:await toBase64(await response.blob())};
+  }));
+  const result=await api('/api/calendar/import',{kind:'timetable',attachments});
+  if(result.incomplete||!result.rows.length)throw new Error(result.reply||'原件暂时无法完整识别，请核对后重新导入。');
+  return result;
+ }
  async function choose(files){
   const M=model(),s=state();if(!files.length||busy(M)||M.saving)return;
   const mode=s.mode;
@@ -195,7 +208,7 @@
   document.querySelector(mode==='choose'?'[data-reference-action="choose-method"]':'.academic-reference-import button')?.focus();
  }
  function cancel(s){Object.assign(s,{open:false,files:[],text:'',url:'',error:'',handbookResult:null});redraw();document.querySelector('[data-reference-action="add"]')?.focus();}
- root.AcademicReferences={markup,addButton,pending,busy,validate,parseWeeks,formatWeeks,readSubscription,handbookDetails,originalLinks,attachment,matchingSource,stageImport,stageSubscription};
+ root.AcademicReferences={markup,addButton,pending,busy,validate,parseWeeks,formatWeeks,readSubscription,handbookDetails,originalLinks,attachment,rereadTimetable,matchingSource,stageImport,stageSubscription};
  document.addEventListener('click',async event=>{
   const button=event.target.closest('[data-reference-action]');if(!button||!model())return;
   event.preventDefault();event.stopImmediatePropagation();

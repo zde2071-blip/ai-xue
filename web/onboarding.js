@@ -62,7 +62,7 @@
   </form>`;
  }
  function rowText(row){
-  if(row.course)return [row.course,row.class_type,['','周一','周二','周三','周四','周五','周六','周日'][row.weekday],row.time,row.weeks?.length?'Week '+refs().formatWeeks(row.weeks):'',row.location].filter(Boolean).join(' · ');
+  if(row.course)return [row.course,row.class_type,['','周一','周二','周三','周四','周五','周六','周日'][row.weekday],row.time,row.weeks?.length?'Week '+refs().formatWeeks(row.weeks):''].filter(Boolean).join(' · ');
   if(row.title)return [row.title,row.date,row.end?row.start+'–'+row.end:row.start,row.location].filter(Boolean).join(' · ');
   return [row.label||(row.week!=null?'Week '+row.week:({break:'假期',exam:'考试期',nonteaching:'非教学安排'}[row.kind]||'日期安排')),row.start+' 至 '+row.end].join(' · ');
  }

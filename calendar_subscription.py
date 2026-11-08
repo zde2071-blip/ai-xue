@@ -116,6 +116,8 @@ def subscribe(host, data):
         if not isinstance(source_id,str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}',source_id):
             raise ValueError('日历来源无效。')
         result = parse_calendar(fetch_calendar(url),source_id)
+        if kind=='timetable':
+            for row in result['events']:row.pop('location',None)
         name = data.get('name') or result.pop('name')
         if not isinstance(name,str) or len(name)>150:raise ValueError('日历名称过长。')
         return {**result,'source':{'id':source_id,'name':name,'kind':kind,'type':'subscription','url':url,'visible':True,'updated_at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='seconds')}}

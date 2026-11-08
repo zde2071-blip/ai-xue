@@ -160,9 +160,27 @@ class AcademicImportTest(unittest.TestCase):
         parts=ask.call_args.args[0][-1]['content']
         image=next(p for p in parts if p['type']=='image_url')
         self.assertEqual(base64.b64decode(image['image_url']['url'].split(',')[1]),raw)
-        self.assertEqual(result['rows'],self.timetable())
+        expected={key:value for key,value in self.timetable()[0].items() if key!='location'}
+        self.assertEqual(result['rows'],[{**expected,'course':'ADS102'}])
         self.assertEqual(result['recognition_mode'],'vision')
         self.assertFalse((app.VAULT/'学期参考').exists())
+
+    def test_spatial_timetable_preserves_even_and_odd_week_cells_without_calling_model(self):
+        from timetable_image import class_from_card
+        def read(kind, weeks):
+            values=['CCТ009-',kind+'-D1/1','Room A','Week: '+weeks,'11:00 - 12:50']
+            return class_from_card([{'text':value,'x':0,'y':i} for i,value in enumerate(values)],4)
+        expected=[read('Comp.Lab','2, 4, 6, 8, 10, 12'),read('Tutorial','1, 3, 5, 7, 9, 11, 13')]
+        self.assertEqual(expected,[
+            {'course':'CCT009','class_type':'Comp.Lab','weekday':4,'time':'11:00–12:50','weeks':[2,4,6,8,10,12]},
+            {'course':'CCT009','class_type':'Tutorial','weekday':4,'time':'11:00–12:50','weeks':[1,3,5,7,9,11,13]},
+        ])
+        file={'filename':'课表.png','file':base64.b64encode(b'\x89PNG\r\n\x1a\nimage').decode()}
+        with patch('timetable_image.recognize',return_value=expected),patch.object(app,'ask',side_effect=AssertionError):
+            result=app.route_post('/api/calendar/import',{'kind':'timetable','attachments':[file]})
+        self.assertEqual(result['rows'],expected)
+        self.assertEqual(result['recognition_mode'],'local-timetable')
+        self.assertFalse((app.VAULT/'学习日历.json').exists())
 
     def test_picture_requires_transcription_and_rejects_unsupported_model_clearly(self):
         raw=b'\x89PNG\r\n\x1a\nimage';file={'filename':'微信图片.png','file':base64.b64encode(raw).decode()}
@@ -209,13 +227,14 @@ class AcademicImportTest(unittest.TestCase):
         self.assertIn('2026-09-13 至 2026-12-07',result['reply'])
         self.assertFalse((app.VAULT/'学习日历.json').exists())
 
-    def test_schedule_matches_existing_course_code_without_creating_punctuation_duplicates(self):
+    def test_timetable_import_stores_the_course_code_without_the_title(self):
         self.doc=self.store.save({**self.doc,'assignments':{'ADS102 · 离散数学':self.key}})
         original='ADS102 离散数学 周一 09:00–10:00 Lecture 第1、3、5周 A101'
         answer={'rows':[{**self.timetable()[0],'course':'ADS102 离散数学','source':'输入','evidence':original}]}
         with patch.object(app,'ask',return_value=answer):
             result=app.route_post('/api/calendar/import',{'kind':'timetable','term_key':self.key,'text':original})
-        self.assertEqual(result['rows'][0]['course'],'ADS102 · 离散数学')
+        self.assertEqual(result['rows'][0]['course'],'ADS102')
+        self.assertNotIn('location',result['rows'][0])
 
     def test_dated_exams_coexist_with_teaching_weeks_and_persist_independently(self):
         event={'id':'exam-1','title':'期中考试','kind':'exam','date':'2026-09-08','start':'09:00','end':'11:00','location':'A101'}

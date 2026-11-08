@@ -73,6 +73,17 @@ class CalendarStoreTest(unittest.TestCase):
         self.assertEqual(name,'Handbook.txt')
         self.save(saved,sources=doc['sources'],events=[],references=[])
         self.assertEqual(importer.file(ref['id'])[0].read_bytes(),original.encode())
+    def test_only_timetable_locations_are_omitted_from_the_saved_calendar(self):
+        doc=self.store.document()
+        source={'id':'timetable','name':'课表','kind':'timetable','type':'import'}
+        dated={'id':'lesson','title':'ADS102','kind':'event','date':'2026-11-06','start':'09:00','end':'10:50','location':'A101'}
+        saved=self.save(doc,sources=[source],events=[{**dated,'source_id':'timetable'},{**dated,'id':'regular'}],
+                        timetable=[{'course':'ADS102','class_type':'Lecture','weekday':5,
+                                    'time':'09:00–10:50','weeks':[1,3],'location':'A101'}])
+        self.assertNotIn('location',saved['timetable'][0])
+        self.assertNotIn('location',saved['events'][0])
+        self.assertEqual(saved['events'][1]['location'],'A101')
+
     def test_invalid_colors_do_not_write(self):
         doc=self.save(self.store.document());before=self.store.path.read_bytes()
         for colors in [{'exam':'red;position:fixed'},{'unknown':'#ffffff'},[]]:

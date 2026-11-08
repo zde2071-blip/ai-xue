@@ -117,7 +117,9 @@
 .settings-timetable-grid .week-day-headings > .is-today { background: #e7e7e7; }
 .settings-timetable-grid .week-time-day > .calendar-entry { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 1px; padding: 2px 5px; max-height: calc(100% - 1px); }
 .settings-timetable-grid .calendar-entry > strong { line-height: 12px; }
-.settings-timetable-grid .calendar-entry > small { display: block; line-height: 11px; }
+.settings-timetable-grid .calendar-entry > small { display: block; line-height: 9px; font-size: 10px; }
+.settings-timetable-grid .calendar-entry > .timetable-card-weeks { white-space: normal; overflow-wrap: anywhere; flex-shrink: 0; }
+.calendar-period > [data-school-year] { font-size: 20px; padding: 0 12px; height: 40px; }
 .settings-timetable-grid :is(.week-day-headings,.week-all-day,.week-time-scroll) { scrollbar-width: thin; scrollbar-gutter: stable; }
 @media (max-width: 850px) {
  .calendar-navigation-row .calendar-period { flex-basis: 100%; }
