@@ -1,6 +1,6 @@
 /* Shared boundaries for learning, review and settings; no document data is changed. */
 (()=>{
- const specs=[['.study-settings-nav','settings',220,480,1,721],['.review-file-tree','directory',200,500,1],['.learning-source','source',240,800,1],['.workspace:is(.view-learn,.view-overview) .status-panel','progress',180,480,-1],['.template-ai','template-ai',240,600,-1]];
+ const specs=[['.study-settings-nav','settings-nav',112,208,1,721],['.study-settings-subnav','settings-subnav',138,300,1,721],['.review-file-tree','directory',200,500,1],['.learning-source','source',240,800,1],['.workspace:is(.view-learn,.view-overview) .status-panel','progress',180,480,-1],['.template-ai','template-ai',240,600,-1]];
  let widths={};try{widths=JSON.parse(localStorage.getItem('study-pane-widths')||'{}')}catch{}let drag=null,scheduled=false;const handles=new Map();
  const persist=()=>{try{localStorage.setItem('study-pane-widths',JSON.stringify(widths))}catch{}};
  function size(el,spec,value){const max=Math.max(spec[2],Math.min(spec[3],el.parentElement.clientWidth-320));const n=Math.round(Math.max(spec[2],Math.min(max,value)));el.style.width=n+'px';el.style.flexBasis=n+'px';el.style.flexShrink='0';widths[spec[1]]=n;return n}

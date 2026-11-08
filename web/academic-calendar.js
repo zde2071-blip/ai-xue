@@ -189,7 +189,7 @@
   return `<button type="button" class="${classes.join(' ')}" ${attributes} ${entry.completed||!showTime?`aria-label="${esc(title)}"`:''} title="${esc(title)}" style="${colorStyle(entry.color)}${layout}"><strong>${esc(label)}</strong>${showTime&&entry.time?`<span>${esc(entry.time)}</span>`:''}${entry.subtitle?`<small>${esc(entry.subtitle)}</small>`:''}${completion}</button>`;
  }
 
- function weekGrid(dates,entries,{currentDate,renderDay,dayAttributes=()=>'',renderEntry,hourHeight=HOUR,fitHours=false,tickMinutes=60}){
+ function weekGrid(dates,entries,{currentDate,renderDay,dayAttributes=()=>'',renderEntry,hourHeight=HOUR,fitHours=false,tickMinutes=60,entryGap=0}){
   const all=entries.flat(),timed=all.filter(entry=>entry.range);
   const headings=dates.map(day=>`<div class="${day===currentDate?'is-today':''}"><span>${dayNames[weekday(day)]}</span>${renderDay(day)}</div>`).join('');
   const allDay=all.some(entry=>!entry.range)
@@ -209,7 +209,7 @@
    const events=timedLayout(entries[index],minimumMinutes).map(entry=>{
     const top=(entry.range.start-first*60)/60*hourHeight;
     const height=Math.max(24,(entry.range.end-entry.range.start)/60*hourHeight);
-    const style=`top:${top}px;height:${height}px;left:calc(${entry.column/entry.columns*100}% + 3px);width:calc(${100/entry.columns}% - 6px)`;
+    const style=`top:${top+entryGap/2}px;height:${height-entryGap}px;left:calc(${entry.column/entry.columns*100}% + 3px);width:calc(${100/entry.columns}% - 6px)`;
     return renderEntry(entry,style);
    }).join('');
    return `<div class="week-time-day" ${dayAttributes(day,first)}>${hourLines}${events}</div>`;
@@ -263,8 +263,11 @@
  function timetableMarkup(t,s,week){
   const start=monday(s.cursor),dates=Array.from({length:7},(_,i)=>addDays(start,i));
   const entries=dates.map(day=>timetableEntries(t,day,week));
+  const lanes=entries.map(rows=>Math.max(1,...timedLayout(rows,24*60/HOUR).map(row=>row.columns)));
+  const columns=lanes.map(count=>`minmax(${count*86}px,${count}fr)`).join(' ');
+  const width=62+lanes.reduce((total,count)=>total+count*86,0);
   const grid=weekGrid(dates,entries,{
-   currentDate:week===null?today():null,tickMinutes:30,
+   currentDate:week===null?today():null,tickMinutes:30,entryGap:4,
    renderDay:day=>week===null?`<time datetime="${day}">${Number(day.slice(5,7))}/${Number(day.slice(8))}</time>`:'',
    dayAttributes:(day,first)=>`data-calendar-slot="${day}" data-grid-start="${first}" tabindex="0" aria-label="${dayNames[weekday(day)]}，添加课程"`,
    renderEntry:(entry,layout)=>{
@@ -273,7 +276,7 @@
      `data-calendar-action="edit" data-entry="${entry.key}"`,{showTime:false});
    }
   });
-  return `<div class="semester-week settings-timetable-grid" aria-label="课表时间网格">${grid}</div>`;
+  return `<div class="semester-week settings-timetable-grid" style="min-width:${width}px;--timetable-columns:${columns}" aria-label="课表时间网格">${grid}</div>`;
  }
  function field(name,label,value,type='text',extra=''){return `<label><span>${label}</span><input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
  function editorMarkup(t,s){
@@ -327,17 +330,15 @@
   s.sourceEditor=null;
   if(!await root.StudySchedule.save({quiet:true})){Object.assign(t,before);e.error=t.error||'保存失败，请重试。';t.error='';s.sourceEditor=e;redraw();return;}redraw();toast('已保存');
  }
- function sidebarMarkup(t,mode){
-  const collapsed=view(t).collapsedCategories||{},active=mode==='calendar'?'calendar':'timetable';
-  return `<div class="calendar-sidebar" id="calendar-source-tree" aria-label="日历三级导航">${[['calendar','校历'],['timetable','课表']].map(([key,name])=>{
-   const sources=(t.sources||[]).filter(source=>source.kind===key),existing=localSource(t,key);
-   const expanded=mode===key&&!collapsed[key],selected=active===key;
-   const rows=sources.map(row=>sourceRow(t,row.id,row.name,row.color||t.colors?.[key]||defaultColors[key],row.visible!==false,true)).join('');
-   return `<div class="calendar-category"><div class="calendar-category-heading">
-    <button type="button" class="calendar-category-arrow" data-settings-action="calendar-source" data-category="${key}" aria-label="${expanded?'收起':'展开'}${name}来源" aria-controls="calendar-sources-${key}" aria-expanded="${expanded}">${icon(expanded?'chevron-down':'chevron-right')}</button>
-    <button type="button" class="calendar-category-label ${selected?'selected':''}" data-settings-action="mode" data-mode="${key}" ${selected?'aria-current="page"':''}>${name}</button>
-   </div><div class="calendar-category-sources" id="calendar-sources-${key}" ${expanded?'':'hidden'}>${existing?sourceRow(t,key,existing.name,colorFor(t,key,{}),t.visible?.[key]!==false):''}${rows}</div></div>`;
-  }).join('')}</div>`;
+ function sourceList(t,kind,editable){
+  const color=t.colors?.[kind]||defaultColors[kind];
+  const rows=(t.sources||[]).filter(source=>source.kind===kind).map(source=>({...source,isSource:true}));
+  const local=localSource(t,kind);
+  if(local)rows.unshift({id:kind,name:local.name,visible:t.visible?.[kind],isSource:false});
+  return rows.map(row=>editable?sourceRow(t,row.id,row.name,row.color||color,row.visible!==false,row.isSource):
+   `<button type="button" class="calendar-source-link" data-settings-action="open-source" data-source-id="${esc(row.id)}" data-is-source="${row.isSource}" title="${esc(row.name)}">
+    <span>${esc(row.name)}</span>${icon('chevron-right')}
+   </button>`).join('');
  }
  const shortDate=day=>Number(day.slice(5,7))+'月'+Number(day.slice(8))+'日';
  function markup(M,t,kind,{importPanel='',message=''}={}){
@@ -354,7 +355,8 @@
   const hasDated=(t.events||[]).some(row=>row.kind!=='exam'&&belongsTo(t,row,'events','timetable'))||
    (t.calendar||[]).some(row=>belongsTo(t,row,'calendar','timetable'));
   const recurring=!!courses.length;
-  const week=!recurring||s.week==='dated'?null:s.week??(hasDated?null:'all');
+  const mappedWeek=weekAt(t,s.cursor);
+  const week=!recurring||s.week==='dated'?null:s.week??(hasDated||mappedWeek!==null?null:'all');
   const mode=school?s.mode:'week',{start,end}=schoolBounds(s.cursor,mode);
   const title=mode==='year'?`${start.slice(0,4)}–${end.slice(0,4)} 学年`:mode==='month'?`${start.slice(0,4)}年${Number(start.slice(5,7))}月`:`${shortDate(start)}–${shortDate(end)}`;
   const teaching=teachingWeekLabel(currentTeachingWeeks(t,s.cursor));
@@ -364,7 +366,7 @@
   const dateNav=`<div class="calendar-date-nav"><button type="button" class="icon-button" data-calendar-action="previous" aria-label="上一${unit}">${icon('chevron-left')}</button><button type="button" data-calendar-action="today">今天</button><button type="button" class="icon-button" data-calendar-action="next" aria-label="下一${unit}">${icon('chevron-right')}</button></div>`;
   return `<section class="academic-calendar" aria-label="${school?'校历':'课表'}"><div class="calendar-body"><div class="calendar-main">
    <div class="calendar-navigation-row"><div class="calendar-period"><h1>${school||week===null?title:week==='all'?'每周课表':'第 '+week+' 周'}</h1>${(school||week===null)&&teaching?`<small class="calendar-current-week">${teaching}</small>`:''}</div>
-   ${school?schoolViews:weekPicker}<div class="calendar-view-actions">${school||week===null?dateNav:''}${root.AcademicReferences.addButton(kind)}</div></div>
+   ${school?schoolViews:''}<div class="calendar-view-actions">${school?'':weekPicker}${school||week===null?dateNav:''}${root.AcademicReferences.addButton(kind)}</div></div>
    ${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${school?schoolMarkup(t,s):timetableMarkup(t,s,week)}</div>${editorMarkup(t,s)}</div></div></div>
    ${importPanel}${sourceSettingsMarkup(t,s)}</section>`;
  }
@@ -407,11 +409,8 @@
    }
    s.cursor=importedDate('calendar',rows,today());
   },markup,
-  sidebar:mode=>manager()?sidebarMarkup(manager(),mode):'',
-  setCategoryExpanded(kind,expanded){
-   const s=view();s.collapsedCategories||={};
-   s.collapsedCategories[kind]=expanded===undefined?!s.collapsedCategories[kind]:!expanded;
-  },
+  sourceList:(kind,editable)=>manager()?sourceList(manager(),kind,editable):'',
+  openSourceSettings,
   pending:M=>!!(M?.calendarView?.editor||M?.calendarView?.sourceEditor)
  };
  function setColor(node,value){if(!manager()||manager().saving||root.AcademicReferences.busy(manager())||value&&!validColor(value))return;if(node.hasAttribute('data-source-settings-color')&&view().sourceEditor){view().sourceEditor.draft.color=value;redraw();}else if(node.hasAttribute('data-calendar-source-color')){const source=sourceOf(manager(),{source_id:node.dataset.calendarSourceColor});if(source)source.color=value;redraw();}else if(node.hasAttribute('data-calendar-category-color')){manager().colors||={};manager().colors[node.dataset.calendarCategoryColor]=value;redraw();}else if(node.hasAttribute('data-calendar-editor-color')&&view().editor){view().editor.draft.color=value;view().editor.dirty=true;redraw();}}

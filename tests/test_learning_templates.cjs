@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,timetableTabs,coursesFromTimetable,actionMenuMarkup,defaultTypeFor,suggestDefault}=require('../web/learning-templates.js');
+const {draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,submenuMarkup,coursesFromTimetable,actionMenuMarkup,defaultTypeFor,suggestDefault}=require('../web/learning-templates.js');
 const sample={id:'concepts',name:'知识点总结',prompt:'自由写下我的要求\n不要分字段。'};
 test('old prompts open in two independent drafts and only the active prompt is shown',()=>{
  const draft=draftOf(sample);
@@ -19,17 +19,19 @@ test('third sidebar destination and runtime styles remain wired',()=>{const root
 test('addition method menus name the target and separate manual entry from AI recognition',()=>{const html=actionMenuMarkup('添加',{label:'手动添加',icon:'plus',attributes:'data-settings-action="add"'},{label:'用 AI 识别',icon:'sparkles',attributes:'data-settings-action="add-ai"'},{ariaLabel:'添加课程类型'});assert.match(html,/aria-label="添加课程类型"/);assert.match(html,/<summary/);assert.match(html,/手动添加/);assert.match(html,/用 AI 识别/);assert.equal((html.match(/<button/g)||[]).length,2);});
 test('import selects the configured template and preserves an explicit manual choice',()=>{const form={elements:{class_type:{value:' Tutorial '},learning_kind:{value:'',dataset:{}}}};suggestDefault(form,{Tutorial:'solutions',Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'solutions');form.elements.class_type.value='Studio';suggestDefault(form,{Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'tpl_custom');form.elements.learning_kind.value='concepts';form.elements.learning_kind.dataset.userEdited='true';suggestDefault(form,{Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'concepts');});
 
-test('calendar is the expandable second-level entry for the category tree',()=>{
- const categories='<nav>校历 课表</nav>';
- const calendar=navigationMarkup('calendar',()=>'',categories,true);
- assert.equal((calendar.match(/data-settings-action="mode"/g)||[]).length,1);
- assert.match(calendar,/aria-expanded="true"/);
- assert.match(calendar,/校历 课表/);
- assert.doesNotMatch(calendar,/考试信息/);
- assert.match(timetableTabs('timetable'),/data-mode="timetable" aria-current="page">周课表/);
- assert.doesNotMatch(calendar,/课表设置/);
- assert.match(navigationMarkup('calendar',()=>'',categories,false),/id="calendar-submenus" hidden/);
- assert.match(timetableTabs('rules'),/data-mode="rules" aria-current="page">课堂分类/);
+test('calendar categories control a separate sidebar containing timetable pages and sources',()=>{
+ const categories=navigationMarkup('rules',()=>'',true);
+ assert.match(categories,/aria-label="日历二级菜单"/);
+ assert.match(categories,/data-category="timetable"\s+aria-expanded="true"/);
+ assert.match(categories,/data-category="calendar"\s+aria-expanded="false"/);
+ assert.doesNotMatch(categories,/课堂分类|来源/);
+ assert.doesNotMatch(navigationMarkup('rules',()=>'',false),/aria-expanded="true"|aria-controls=/);
+ const timetable=submenuMarkup('rules','<button>第一份课表</button><button>第二份课表</button>');
+ assert.match(timetable,/study-settings-subnav.*id="calendar-submenu"/);
+ assert.match(timetable,/data-mode="rules" aria-current="page">课堂分类/);
+ assert.match(timetable,/周课表.*课程.*课堂分类.*讲解与笔记/);
+ assert.match(timetable,/来源.*第一份课表.*第二份课表/);
+ assert.doesNotMatch(submenuMarkup('calendar',''),/周课表|课堂分类|考试信息/);
 });
 test('course types retain their own weeks from saved timetable rows',()=>{
  const row={course:'ABC101',source_id:'class',class_type:'Lecture',weeks:[1,2,3]};
