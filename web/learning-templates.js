@@ -18,9 +18,9 @@
  function actionMenuMarkup(label,manual,ai,{glyph=()=>'',className='',ariaLabel=label,triggerIcon='plus'}={}){
   return `<details class="settings-action-menu ${className}"><summary class="outline-button" aria-label="${escape(ariaLabel)}">${glyph(triggerIcon)}<span>${escape(label)}</span>${glyph('chevron-down')}</summary><div class="settings-action-options">${[manual,ai].map(item=>`<button type="button" aria-label="${escape(item.label)}" ${item.attributes}>${glyph(item.icon)}<span>${escape(item.label)}</span></button>`).join('')}</div></details>`;
  }
- if(typeof module!=='undefined'&&module.exports){module.exports={draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,actionMenuMarkup,defaultTypeFor,suggestDefault};return;}
+ if(typeof module!=='undefined'&&module.exports){module.exports={draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,timetableNavigation,actionMenuMarkup,defaultTypeFor,suggestDefault};return;}
  let installed=false,recognizer=null;
- const V={templatesExpanded:true,mode:'calendar',stage:'learning_prompt',owner:null,data:null,selected:'concepts',draft:null,saving:false,loading:false,error:'',notice:'',aiOpen:false,chats:{},undo:null};
+ const V={templatesExpanded:true,mode:'calendar',stage:'learning_prompt',owner:null,data:null,courses:[],selected:'concepts',draft:null,saving:false,loading:false,error:'',notice:'',aiOpen:false,chats:{},undo:null};
  const typeRules={settings:null,draft:null};
  const selected=()=>V.data?.templates.find(row=>row.id===V.selected);
  const dirty=()=>!!V.draft&&(!V.selected||changed(selected(),V.draft));
@@ -38,14 +38,32 @@
   const state=chat(),speechSupported=!!(root.SpeechRecognition||root.webkitSpeechRecognition);
   return `<aside class="template-ai" aria-label="模板 AI 助手"><header><span>${icon('sparkles')}AI 整理</span><button type="button" class="icon-button" data-template-action="ai-toggle" aria-label="收起 AI 整理" title="收起">${icon('x')}</button></header><div class="template-ai-history" aria-live="polite">${state.messages.map(message=>`<div class="template-ai-message ${message.role}">${escape(message.content)}</div>`).join('')}${state.proposal?`<section class="template-proposal"><details><summary>查看整理结果</summary><pre>${escape(state.proposal.prompt)}</pre></details><button type="button" class="outline-button" data-template-action="apply">应用到 Prompt</button></section>`:''}${state.busy?'<p class="template-ai-working" role="status">正在整理…</p>':''}</div><div class="template-ai-composer"><div class="template-attachments">${state.files.map((file,i)=>`<span>${icon('file-text')}<span>${escape(file.filename)}</span><button type="button" class="icon-button" data-template-action="remove-file" data-index="${i}" aria-label="移除附件 ${escape(file.filename)}">${icon('x')}</button></span>`).join('')}</div><textarea data-template-field="message" aria-label="告诉 AI 你的模板要求" rows="3" maxlength="40000" placeholder="粘贴模板，或说说你想怎么学…" ${state.busy?'disabled':''}>${escape(state.message)}</textarea><div class="template-ai-tools"><button type="button" class="icon-button" data-template-action="attach" aria-label="导入到 AI 整理" title="添加文件" ${state.busy?'disabled':''}>${icon('paperclip')}</button><button type="button" class="icon-button ${state.recording?'recording':''}" data-template-action="voice" aria-label="${state.recording?'结束口述':'口述模板要求'}" title="${speechSupported?'口述，由浏览器转写':'当前浏览器不支持语音转写，可使用系统听写输入'}" ${!speechSupported||state.busy?'disabled':''}>${icon(state.recording?'square':'mic')}</button><span></span><button type="button" class="template-send" data-template-action="send" aria-label="发送给 AI 整理" title="发送" ${state.busy||state.recording?'disabled':''}>${icon('arrow-up')}</button></div><input type="file" id="template-attachments" aria-label="选择模板参考文件" accept=".md,.txt,.json,.yaml,.yml,.pdf,.docx,.pptx,.png,.jpg,.jpeg,.webp" multiple hidden><p class="template-ai-error" role="alert" ${state.error?'':'hidden'}>${escape(state.error)}</p></div></aside>`;
  }
- function navigationMarkup(mode,templates=[],selected,draftName='',glyph=()=> '',calendarTree='',calendarExpanded=true,templatesExpanded=true,addCalendar=''){
-  const templateTree=`<div class="settings-template-tree" aria-label="讲解与笔记方案">${templates.map(row=>`<button type="button" data-template-action="select" data-id="${escape(row.id)}" class="${row.id===selected?'selected':''}" aria-pressed="${row.id===selected}">${glyph('file-text')}<span>${escape(row.name)}</span></button>`).join('')}${!selected?`<span class="settings-template-pending">${escape(draftName||'新模板')}</span>`:''}</div>`;
-  const sections=[['calendar','calendar-days','日历'],['rules','list-tree','课堂分类'],['prompts','text-cursor-input','讲解与笔记']];
-  const addTemplate=`<button type="button" class="outline-button" data-template-action="new" aria-label="新建模板" title="新建模板">${glyph('plus')}</button>`;
-  return `<aside class="study-settings-nav" aria-label="学习设置二级导航"><nav>${sections.map(([id,name,label])=>{
-   const active=mode===id,expandable=active&&id!=='rules',expanded=id==='calendar'?calendarExpanded:templatesExpanded;
-   return `<div class="settings-nav-branch"><div class="settings-branch-heading ${expandable?'with-action':''}"><button type="button" data-settings-action="mode" data-mode="${id}" class="settings-section ${active?'selected':''}" aria-pressed="${active}" ${expandable?`aria-expanded="${expanded}"`:''}>${glyph(name)}<span>${label}</span>${expandable?`<span class="settings-disclosure">${glyph(expanded?'chevron-down':'chevron-right')}</span>`:''}</button>${expandable?`<div class="settings-branch-add">${id==='calendar'?addCalendar:addTemplate}</div>`:''}</div>${expandable?(id==='calendar'?calendarTree:expanded?templateTree:''):''}</div>`;
-  }).join('')}</nav></aside>`;
+ function navSection(id,label,glyph,{active=false,expanded,add='',children=''}={}){
+  return `<div class="settings-nav-branch"><div class="settings-branch-heading ${add?'with-action':''}">
+   <button type="button" data-settings-action="mode" data-mode="${id}" class="settings-section ${active?'selected':''}" aria-pressed="${active}" ${expanded===undefined?'':`aria-expanded="${expanded}"`}>${glyph}<span>${label}</span>${expanded===undefined?'':`<span class="settings-disclosure"><i data-lucide="${expanded?'chevron-down':'chevron-right'}"></i></span>`}</button>
+   ${add?`<div class="settings-branch-add">${add}</div>`:''}</div>${children}</div>`;
+ }
+ function navigationMarkup(mode,glyph=()=>'',calendarTree='',calendarExpanded=true,addCalendar=''){
+  const calendar=mode==='calendar';
+  return `<aside class="study-settings-nav" aria-label="学习设置二级导航"><nav>
+   ${navSection('calendar','日历',glyph('calendar-days'),calendar?{active:true,expanded:calendarExpanded,add:addCalendar,children:calendarTree}:{})}
+   ${navSection('courses','课表设置',glyph('table-2'),{active:!calendar})}
+  </nav></aside>`;
+ }
+ function timetableNavigation(mode,templates=[],selected,draftName='',glyph=()=>'',expanded=true){
+  const tree=`<div class="settings-template-tree" aria-label="讲解与笔记方案">${templates.map(row=>`<button type="button" data-template-action="select" data-id="${escape(row.id)}" class="${row.id===selected?'selected':''}" aria-pressed="${row.id===selected}">${glyph('file-text')}<span>${escape(row.name)}</span></button>`).join('')}${!selected?`<span class="settings-template-pending">${escape(draftName||'新模板')}</span>`:''}</div>`;
+  const add=`<button type="button" class="outline-button" data-template-action="new" aria-label="新建模板" title="新建模板">${glyph('plus')}</button>`;
+  return `<aside class="study-timetable-nav" aria-label="课表设置三级导航"><nav>
+   ${navSection('courses','课程',glyph('book-open'),{active:mode==='courses'})}
+   ${navSection('rules','课堂分类',glyph('list-tree'),{active:mode==='rules'})}
+   ${navSection('prompts','讲解与笔记',glyph('text-cursor-input'),mode==='prompts'?{active:true,expanded,add,children:expanded?tree:''}:{})}
+  </nav></aside>`;
+ }
+ function coursesPage(){
+  return `<section class="settings-courses" aria-labelledby="settings-courses-title">
+   <header class="template-page-header"><h1 id="settings-courses-title">课程</h1></header>
+   ${V.courses.length?`<ul aria-label="已保存课表中的课程">${V.courses.map(name=>`<li>${escape(name)}</li>`).join('')}</ul>`:'<p class="template-rules-empty">课表里还没有课程。可在日历中添加或导入课表。</p>'}
+  </section>`;
  }
  function promptPage(){
   if(!V.data||!V.draft)return '';
@@ -75,7 +93,12 @@
  }
  function page(){
   if(!V.data||!V.draft)return '';
-  return `<section class="study-settings-shell">${navigationMarkup(V.mode,V.data.templates,V.selected,V.draft.name,icon,V.mode==='calendar'?root.AcademicCalendar.sidebar():'',root.AcademicCalendar.sidebarExpanded(),V.templatesExpanded,root.AcademicReferences.addButton())}<div class="template-page study-settings-content ${V.mode==='calendar'?'calendar-settings-content':''}">${V.mode==='calendar'?root.StudySchedule.markup():V.mode==='rules'?rulesPage():promptPage()}</div></section>`;
+  const calendar=V.mode==='calendar';
+  const navigation=navigationMarkup(V.mode,icon,calendar?root.AcademicCalendar.sidebar():'',root.AcademicCalendar.sidebarExpanded(),root.AcademicReferences.addButton());
+  if(calendar)return `<section class="study-settings-shell">${navigation}<div class="template-page study-settings-content calendar-settings-content">${root.StudySchedule.markup()}</div></section>`;
+  return `<section class="study-settings-shell">${navigation}<div class="settings-timetable-workspace">${timetableNavigation(V.mode,V.data.templates,V.selected,V.draft.name,icon,V.templatesExpanded)}
+   <div class="template-page study-settings-content">${V.mode==='courses'?coursesPage():V.mode==='rules'?rulesPage():promptPage()}</div>
+  </div></section>`;
  }
  function paint(){
   const input=document.activeElement?.closest('[data-template-field]');const field=input?.dataset.templateField,start=input?.selectionStart,end=input?.selectionEnd;
@@ -89,18 +112,26 @@
  }
  function stopVoice(){if(recognizer){try{recognizer.stop();}catch{}}}
  async function open(mode='calendar'){
-  if(S.busy||S.threadBusy||!canLeave())return;
-  mode=['prompts','rules'].includes(mode)?mode:'calendar';
+  if(working()||S.busy||S.threadBusy||!canLeave())return;
   const owner=S.user?.id;
+  V.loading=true;
   try{
-   const [doc,settings]=await Promise.all([api('/api/templates'),api('/api/learning-settings')]);if(S.user?.id!==owner)return;
+   const [doc,settings,timetable]=await Promise.all([
+    api('/api/templates'),api('/api/learning-settings'),mode==='courses'?api('/api/calendar'):null
+   ]);
+   if(mode==='calendar')await root.StudySchedule.prepare();
+   if(S.user?.id!==owner)return;
+   if(timetable){
+    const manual=timetable.timetable.filter(row=>!row.source_id&&!row.calendar_group).map(row=>row.course);
+    V.courses=[...new Set([...timetable.course_choices,...manual])].sort((a,b)=>a.localeCompare(b,'zh-CN',{numeric:true}));
+   }
    if(V.owner!==owner){V.owner=owner;V.selected='concepts';V.chats={};V.aiOpen=false;}
    V.data=doc;rememberChoices(doc);V.mode=mode;resetRules(settings);
    if(!selected())V.selected=doc.templates[0].id;
    V.draft=draftOf(selected());V.error='';V.notice='';V.undo=null;
-   if(mode==='calendar')await root.StudySchedule.prepare();if(S.user?.id!==owner)return;
-   S.view='templates';S.note=null;S.editing=false;closeDrawer();render();resetScroll();
-  }catch(error){toast(error.message);}
+  }catch(error){toast(error.message);return;}
+  finally{V.loading=false;}
+  S.view='templates';S.note=null;S.editing=false;closeDrawer();render();resetScroll();
  }
  async function send(){
   const state=chat();if(working()||state.recording)return;
@@ -148,8 +179,7 @@
   document.addEventListener('click',async event=>{
    const node=event.target.closest('[data-settings-action="mode"]');if(!node||working())return;
    event.preventDefault();event.stopImmediatePropagation();const mode=node.dataset.mode;if(mode===V.mode){if(mode==='calendar')root.AcademicCalendar.toggleSidebar();else if(mode==='prompts'){V.templatesExpanded=!V.templatesExpanded;paint();}return;}
-   if(mode==='rules'){await open(mode);return;}
-   if(!canLeave())return;if(mode==='calendar')await root.StudySchedule.prepare();V.mode=mode;paint();
+   await open(mode);
   },true);
   document.addEventListener('pointerdown',event=>{document.querySelectorAll('.settings-action-menu[open]').forEach(menu=>{if(!menu.contains(event.target))menu.removeAttribute('open');});},true);
   document.addEventListener('keydown',event=>{if(event.key==='Escape')document.querySelectorAll('.settings-action-menu[open]').forEach(menu=>menu.removeAttribute('open'));});
