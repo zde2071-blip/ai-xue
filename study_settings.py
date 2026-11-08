@@ -71,15 +71,18 @@ class Settings:
             for row in term.get('calendar',[]):
                 if row['week'] is not None and str(row['week']) not in groups['weeks']:groups['weeks'].append(str(row['week']))
         try:
-            timetable=calendar_store.Calendar(self.h).document()['timetable']
+            timetable=calendar_store.Calendar(self.h).document()
+            timetable_types=calendar_store.timetable_class_types(timetable)
+            timetable_etag=self.h['digest'](json.dumps(timetable_types,ensure_ascii=False))
         except self.h['Problem']:
-            timetable=[]
+            timetable_types=[];timetable_etag=None
         groups['weeks'].sort(key=int)
         templates=self.h['template_store']().document()
         rules=stored.get('class_type_defaults')
-        names=[*groups['class_type'],*base['class_type'],*(row['class_type'] for row in timetable if row['class_type']),
+        names=[*timetable_types,*groups['class_type'],*base['class_type'],
                *(name.title() for name in DEFAULT_NOTE_TYPES),*(rules if isinstance(rules,dict) else ())]
-        return {'groups':groups,'class_type_defaults':self.type_defaults(names,templates['templates'],rules),'labels':{**FIELDS,'note_kind':'笔记类型'},'note_types':[{k:row[k] for k in ('id','name')} for row in templates['templates']],'templates_etag':templates['etag'],'etag':self.h['digest'](raw or json.dumps(groups,sort_keys=True,ensure_ascii=False))}
+        return {'groups':groups,'class_type_defaults':self.type_defaults(names,templates['templates'],rules),
+                'timetable_class_types':timetable_types,'timetable_etag':timetable_etag,'labels':{**FIELDS,'note_kind':'笔记类型'},'note_types':[{k:row[k] for k in ('id','name')} for row in templates['templates']],'templates_etag':templates['etag'],'etag':self.h['digest'](raw or json.dumps(groups,sort_keys=True,ensure_ascii=False))}
     def note_values(self,rows,current):
         if not isinstance(rows,list) or not 1<=len(rows)<=100:self.fail('笔记类型应为 1–100 项。')
         values={row['id']:copy.deepcopy(row) for row in current['templates']};seen=set()
@@ -108,10 +111,16 @@ class Settings:
             if ('templates_etag' in data or 'note_types' in data) and data.get('templates_etag')!=templates['etag']:
                 self.fail('笔记模板已被其他窗口修改，请重新打开后核对。',409)
             names=[*groups['class_type'],*current['class_type_defaults']]
-            changes=data.get('class_type_defaults',current['class_type_defaults'])
-            if 'groups' not in data and isinstance(changes,dict):
-                changes={**(stored.get('class_type_defaults') or {}),**changes}
-            rules=self.type_defaults(names,templates['templates'],changes)
+            changes=data.get('class_type_defaults',{})
+            if 'class_type_defaults' in data:
+                if 'timetable_etag' in data and data['timetable_etag']!=current['timetable_etag']:
+                    self.fail('课表已更新，请重新打开课堂分类后核对。',409)
+                allowed={name.casefold() for name in current['timetable_class_types']}
+                if not isinstance(changes,dict) or any(not isinstance(name,str) or name.strip().casefold() not in allowed for name in changes):
+                    self.fail('只能为已保存课表中的课堂类型选择方案。')
+                if any(not isinstance(kind,str) or not kind for kind in changes.values()):
+                    self.fail('请选择「讲解与笔记」中的方案。')
+            rules=self.type_defaults(names,templates['templates'],{**(stored.get('class_type_defaults') or {}),**changes})
             rules={name:kind for name,kind in rules.items() if kind!=DEFAULT_NOTE_TYPES.get(name.casefold(),'')}
             pending=[(self.path,{**stored,'version':2,'groups':groups,'class_type_defaults':rules})]
             if 'note_types' in data:

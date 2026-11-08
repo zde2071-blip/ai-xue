@@ -17,6 +17,21 @@ def imported_courses(document):
     return sorted(recurring | dated, key=str.casefold)
 
 
+
+def timetable_class_types(document):
+    """Read explicit types from saved timetable rows, including manually entered classes."""
+    sources = {source['id'] for source in document['sources'] if source['kind'] == 'timetable'}
+    names = {}
+    for row in document['timetable']:
+        source = row.get('source_id')
+        if source not in sources and (source or row.get('calendar_group')):
+            continue
+        name = row['class_type']
+        if name:
+            names.setdefault(name.casefold(), name)
+    return sorted(names.values(), key=str.casefold)
+
+
 class Calendar:
     def __init__(self,host):self.h=host
     @property

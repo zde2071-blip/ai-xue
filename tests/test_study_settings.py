@@ -87,10 +87,40 @@ class SettingsTests(unittest.TestCase):
 
 
     def configure_default(self,name,kind):
-        doc=app.settings_store().document();groups=copy.deepcopy(doc['groups'])
-        if name not in groups['class_type']:groups['class_type'].append(name)
-        rules={**doc['class_type_defaults'],name:kind}
-        return app.settings_store().save({'etag':doc['etag'],'groups':groups,'class_type_defaults':rules})
+        calendar=app.calendar_store.Calendar(vars(app))
+        timetable=calendar.document()
+        if not any(row['class_type']==name for row in timetable['timetable']):
+            row={'course':'TEST101','class_type':name,'weekday':1,'weeks':[1],'time':'09:00–10:00'}
+            calendar.save({**timetable,'timetable':[*timetable['timetable'],row]})
+        doc=app.settings_store().document()
+        return app.settings_store().save({
+            'etag':doc['etag'],'templates_etag':doc['templates_etag'],
+            'timetable_etag':doc['timetable_etag'],'class_type_defaults':{name:kind}
+        })
+
+    def test_mapping_sources_are_limited_to_the_saved_timetable_and_templates(self):
+        self.assertEqual(app.settings_store().document()['timetable_class_types'],[])
+        calendar=app.calendar_store.Calendar(vars(app))
+        row={'course':'TEST101','class_type':'Studio','weekday':1,'weeks':[1],'time':'09:00–10:00'}
+        sources=[{'id':'class','name':'课表','kind':'timetable','type':'import','visible':False},
+                 {'id':'exam','name':'考试','kind':'exam','type':'import'}]
+        calendar.save({**calendar.document(),'sources':sources,'timetable':[
+            {**row,'source_id':'class'}, {**row,'class_type':'studio','weekday':2},
+            {**row,'class_type':'ExamOnly','source_id':'exam'},
+            {**row,'class_type':'OldType','calendar_group':'old'}
+        ]})
+        doc=app.settings_store().document()
+        self.assertEqual(doc['timetable_class_types'],['Studio'])
+        self.assertEqual(doc['note_types'],[{k:t[k] for k in ('id','name')} for t in app.template_store().document()['templates']])
+        payload={k:doc[k] for k in ('etag','templates_etag','timetable_etag')}
+        for choices in ({'Tutorial':'solutions'},{'Studio':'missing-template'},{'Studio':''}):
+            with self.assertRaises(app.Problem):
+                app.settings_store().save({**payload,'groups':doc['groups'],'class_type_defaults':choices})
+        calendar.save({**calendar.document(),'timetable':[]})
+        with self.assertRaises(app.Problem) as error:
+            app.settings_store().save({**payload,'class_type_defaults':{'Studio':'solutions'}})
+        self.assertEqual(error.exception.status,409)
+        self.assertFalse(app.settings_store().path.exists())
 
     def test_course_type_defaults_are_readonly_validated_and_account_scoped(self):
         doc=app.settings_store().document();self.assertEqual(doc['class_type_defaults']['Tutorial'],'solutions');self.assertFalse(app.VAULT.exists())

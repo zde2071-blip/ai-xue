@@ -64,7 +64,6 @@
 .calendar-year{gap:18px 36px}.year-month-grid{gap:1px}.year-month-grid>button{width:20px;height:20px}.year-month-grid>.has-events:after{left:9px}.year-month-title{margin-bottom:8px}
 
 /* Categories and their sources are children of Calendar, not peer destinations. */
-.settings-nav-branch{min-width:0}.study-settings-nav .settings-section .settings-disclosure{margin-left:auto;display:flex}.study-settings-nav .settings-disclosure svg{width:12px;height:12px}
 .calendar-category>summary{display:flex;align-items:center;gap:7px;list-style:none;cursor:pointer;padding:9px 6px;font-size:12px;color:#666;min-height:34px}.calendar-category>summary::-webkit-details-marker{display:none}.calendar-category>summary>svg{width:11px;height:11px;transition:transform .12s}.calendar-category[open]>summary>svg{transform:rotate(90deg)}.calendar-category-sources{padding-left:13px}.calendar-category .calendar-source-row{padding:7px 4px;min-height:32px}.calendar-category .calendar-source-row>label{font-size:12px;gap:7px}.calendar-category .calendar-source-row input[type=checkbox]{width:13px;height:13px}
 
 /* Source settings use the same floating form surface as calendar imports. */
@@ -79,12 +78,11 @@
 
 .calendar-event-editor footer>.calendar-delete{display:inline-flex;align-items:center;gap:6px;border:1px solid #d9baba;color:#a34e4e}.calendar-delete svg{width:16px;height:16px}
 
-.calendar-toolbar{display:flex;justify-content:center}.semester-week>.week-period-row{border-bottom:0;padding-top:10px;padding-bottom:10px}.settings-branch-add{padding:10px 12px 18px 26px}
+.calendar-toolbar{display:flex;justify-content:center}.semester-week>.week-period-row{border-bottom:0;padding-top:10px;padding-bottom:10px}
 
-.calendar-navigation-row{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 28px;min-height:86px}.calendar-period{flex:1}.calendar-period>strong{font-size:26px}.calendar-date-nav{flex:1;justify-content:flex-end}.week-time-grid{margin-top:0}.week-time-scroll{scrollbar-gutter:auto}.week-day-headings{padding-right:0}.week-hours>span:first-child{transform:translateY(2px)}.settings-nav-branch{position:relative}.settings-nav-branch>.settings-section{padding-right:66px}.settings-branch-add{position:absolute;right:8px;top:10px;padding:0}.settings-branch-add>button{width:30px;height:30px;min-height:30px;padding:6px;display:grid;place-items:center;border:1px solid #ddd;border-radius:6px}.settings-disclosure{margin-right:24px}@media(max-width:850px){.calendar-navigation-row{flex-wrap:wrap;gap:10px;padding:16px}.calendar-date-nav{flex:initial}}
+.calendar-navigation-row{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 28px;min-height:86px}.calendar-period{flex:1}.calendar-period>strong{font-size:26px}.calendar-date-nav{flex:1;justify-content:flex-end}.week-time-grid{margin-top:0}.week-time-scroll{scrollbar-gutter:auto}.week-day-headings{padding-right:0}.week-hours>span:first-child{transform:translateY(2px)}@media(max-width:850px){.calendar-navigation-row{flex-wrap:wrap;gap:10px;padding:16px}.calendar-date-nav{flex:initial}}
 
-/* Keep branch actions outside the label's available width. */
-.study-settings-nav{min-width:220px;box-sizing:border-box}.study-settings-nav .settings-section{padding:10px 46px 10px 12px;white-space:nowrap;min-height:42px}.study-settings-nav .settings-section>span:not(.settings-disclosure){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}.study-settings-nav .settings-section .settings-disclosure{margin:0;flex:0 0 12px}.settings-branch-add{top:6px;right:6px}.study-settings-nav .settings-branch-add>button,.calendar-date-nav>button,.calendar-date-nav>button.icon-button{box-sizing:border-box;height:34px;min-height:34px;width:48px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:7px;font-size:12px}
+.calendar-date-nav>button,.calendar-date-nav>button.icon-button{box-sizing:border-box;height:34px;min-height:34px;width:48px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:7px;font-size:12px}
 
 .calendar-period{flex-wrap:wrap;column-gap:12px;row-gap:3px}.calendar-current-week{font-size:12px;letter-spacing:0;color:#62676b;font-weight:450}
 .calendar-category .calendar-handbook-row{min-height:31px;padding:5px 4px;gap:7px;font-size:12px}

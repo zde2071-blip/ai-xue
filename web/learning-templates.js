@@ -24,7 +24,7 @@
  const typeRules={settings:null,draft:null};
  const selected=()=>V.data?.templates.find(row=>row.id===V.selected);
  const dirty=()=>!!V.draft&&(!V.selected||changed(selected(),V.draft));
- const rulesDirty=()=>!!typeRules.draft&&Object.entries(typeRules.draft).some(([name,kind])=>kind!==(typeRules.settings.class_type_defaults[name]||'concepts'));
+ const rulesDirty=()=>!!typeRules.draft&&Object.entries(typeRules.draft).some(([name,kind])=>kind!==(defaultTypeFor(name,typeRules.settings.class_type_defaults)||'concepts'));
  const chatKey=(id,stage)=>`${id||'new'}:${stage}`;
  const chat=()=>V.chats[chatKey(V.selected,V.stage)]||={messages:[],message:'',files:[],proposal:null,busy:false,recording:false,error:''};
  const working=()=>V.saving||V.loading||chat().busy;
@@ -44,7 +44,7 @@
   const addTemplate=`<button type="button" class="outline-button" data-template-action="new" aria-label="新建模板" title="新建模板">${glyph('plus')}</button>`;
   return `<aside class="study-settings-nav" aria-label="学习设置二级导航"><nav>${sections.map(([id,name,label])=>{
    const active=mode===id,expandable=active&&id!=='rules',expanded=id==='calendar'?calendarExpanded:templatesExpanded;
-   return `<div class="settings-nav-branch"><button type="button" data-settings-action="mode" data-mode="${id}" class="settings-section ${active?'selected':''}" aria-pressed="${active}" ${expandable?`aria-expanded="${expanded}"`:''}>${glyph(name)}<span>${label}</span>${expandable?`<span class="settings-disclosure">${glyph(expanded?'chevron-down':'chevron-right')}</span>`:''}</button>${expandable?(id==='calendar'?calendarTree:expanded?templateTree:''):''}${expandable?`<div class="settings-branch-add">${id==='calendar'?addCalendar:addTemplate}</div>`:''}</div>`;
+   return `<div class="settings-nav-branch"><div class="settings-branch-heading ${expandable?'with-action':''}"><button type="button" data-settings-action="mode" data-mode="${id}" class="settings-section ${active?'selected':''}" aria-pressed="${active}" ${expandable?`aria-expanded="${expanded}"`:''}>${glyph(name)}<span>${label}</span>${expandable?`<span class="settings-disclosure">${glyph(expanded?'chevron-down':'chevron-right')}</span>`:''}</button>${expandable?`<div class="settings-branch-add">${id==='calendar'?addCalendar:addTemplate}</div>`:''}</div>${expandable?(id==='calendar'?calendarTree:expanded?templateTree:''):''}</div>`;
   }).join('')}</nav></aside>`;
  }
  function promptPage(){
@@ -54,10 +54,11 @@
   return `<div class="template-tabs-row"><strong class="template-current-name">${escape(isNew?'新建模板':V.draft.name)}</strong><div class="settings-operation-group">${actionMenuMarkup('编辑',{label:'手动编辑',icon:'square-pen',attributes:'data-template-action="manual-edit"'},{label:'用 AI 整理',icon:'sparkles',attributes:'data-template-action="edit-ai"'},{glyph:icon,className:'prompt-edit-menu',triggerIcon:'square-pen'})}</div></div>${stageSwitch}<div class="template-workspace ${V.aiOpen?'with-ai':''}"><form id="learning-template-form" aria-busy="${V.saving}">${V.undo?'<div class="template-editor-tools"><button type="button" class="outline-button" data-template-action="undo">撤销应用</button></div>':''}<fieldset ${V.saving?'disabled':''}>${promptMarkup(V.draft,isNew,V.stage)}</fieldset><div class="template-save-area"><p id="template-error" class="template-error" role="alert" ${V.error?'':'hidden'}>${escape(V.error)}</p><p class="template-notice" role="status" ${V.notice?'':'hidden'}>${escape(V.notice)}</p><footer class="template-actions" ${dirty()?'':'hidden'}><button type="button" class="outline-button" data-template-action="cancel" ${V.saving?'disabled':''}>取消</button><button type="submit" class="primary" ${V.saving?'disabled':''}>${V.saving?'保存中…':'保存'}</button></footer></div></form>${V.aiOpen?panelMarkup():''}</div>`;
  }
  function rulesPage(){
-  const rows=Object.entries(typeRules.draft).map(([name,kind])=>`<label class="field template-rule-row"><span>${escape(name)}</span><select class="learning-import-select" name="${escape(name)}">${choicesMarkup(V.data.templates,kind)}</select></label>`).join('');
+  const rows=Object.entries(typeRules.draft).map(([name,kind],i)=>`<div class="template-rule-row"><label for="classroom-template-${i}">${escape(name)}</label><select id="classroom-template-${i}" class="learning-import-select" name="${escape(name)}">${choicesMarkup(typeRules.settings.note_types,kind)}</select></div>`).join('');
   return `<form id="template-type-rules" aria-busy="${V.saving}">
-   <header class="template-page-header"><h1>课堂分类</h1><p>导入课件时，按所选课堂类型使用对应的讲解和笔记要求。</p></header>
-   <fieldset ${V.saving?'disabled':''}>${rows}</fieldset>
+   <header class="template-page-header"><h1>课堂分类</h1></header>
+   <div class="template-rule-head" aria-hidden="true"><span>课堂类型 · 课表</span><span>方案 · 讲解与笔记</span></div>
+   ${rows?`<fieldset aria-label="课堂类型与讲解和笔记方案" ${V.saving?'disabled':''}>${rows}</fieldset>`:'<p class="template-rules-empty">已保存的课表没有明确的课堂类型。可导入标有课堂类型的课表，或手动添加课程安排。</p>'}
    <p id="template-error" class="template-error" role="alert" ${V.error?'':'hidden'}>${escape(V.error)}</p>
    <footer class="template-actions" ${rulesDirty()?'':'hidden'}>
     <button type="button" class="outline-button" data-template-action="cancel-rules" ${V.saving?'disabled':''}>取消</button>
@@ -67,7 +68,9 @@
  }
  function resetRules(settings){
   typeRules.settings=settings;
-  typeRules.draft=Object.fromEntries(Object.entries(settings.class_type_defaults).map(([name,kind])=>[name,kind||'concepts']));
+  typeRules.draft=Object.fromEntries(settings.timetable_class_types.map(name=>[
+   name,defaultTypeFor(name,settings.class_type_defaults)||'concepts'
+  ]));
   rememberSettings(settings);
  }
  function page(){
@@ -217,13 +220,13 @@
    if(event.target.id==='template-type-rules'){
     event.preventDefault();event.stopImmediatePropagation();
     if(working()||!rulesDirty())return;
-    const {etag,templates_etag,class_type_defaults}=typeRules.settings;
+    const {etag,templates_etag,timetable_etag,class_type_defaults}=typeRules.settings;
     const rules=Object.create(null);
     for(const [name,kind] of Object.entries(typeRules.draft)){
-     if(kind!==(class_type_defaults[name]||'concepts'))rules[name]=kind;
+     if(kind!==(defaultTypeFor(name,class_type_defaults)||'concepts'))rules[name]=kind;
     }
     V.saving=true;V.error='';paint();
-    try{resetRules(await api('/api/learning-settings',{etag,templates_etag,class_type_defaults:rules}));}
+    try{resetRules(await api('/api/learning-settings',{etag,templates_etag,timetable_etag,class_type_defaults:rules}));}
     catch(error){V.error=error.message;}
     finally{V.saving=false;paint();}
     if(!V.error)toast('已保存');
