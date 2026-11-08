@@ -83,35 +83,49 @@
   return `<section class="academic-references" data-reference-drop aria-label="日历">${root.AcademicCalendar.markup(M,M,'unified',{importPanel:s.open&&s.mode==='handbook'?handbookImport(M,s):panel,message})}</section>`;
  }
  const toBase64=raw=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(new Error('文件读取失败。'));reader.readAsDataURL(raw);});
+ async function attachment(file,handbook=false){
+  if(!file?.size||file.size>5*1024*1024)throw new Error('请选择 5 MB 内的非空文件。');
+  let name=file.name;
+  if(handbook&&!/\.(pdf|docx|md|txt)$/i.test(name))throw new Error('请选择 PDF、DOCX 或文字版 Module Handbook。');
+  if(!/\.(pdf|png|jpg|jpeg|webp|gif|docx|pptx|md|txt)$/i.test(name)){
+   const extension={'image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/gif':'gif'}[file.type];
+   if(!extension)throw new Error('请选择图片、PDF 或文档。');
+   name='图片.'+extension;
+  }
+  return {filename:name,file:await toBase64(file),mime:file.type};
+ }
  async function choose(files){
   const M=model(),s=state();if(!files.length||busy(M)||M.saving)return;
   const mode=s.open?s.mode:'ai';
   if(mode==='subscription'||s.handbookResult)return;
   try{
    if(files.length>1)throw new Error('请一次导入一份文件。');
-   const f=files[0];if(!f.size||f.size>5*1024*1024)throw new Error('请选择 5 MB 内的非空文件。');
-   let name=f.name;
-   if(mode==='handbook'&&!/\.(pdf|docx|md|txt)$/i.test(name))throw new Error('请选择 PDF、DOCX 或文字版 Module Handbook。');
-   if(!/\.(pdf|png|jpg|jpeg|webp|gif|docx|pptx|md|txt)$/i.test(name)){
-    if(!f.type.startsWith('image/'))throw new Error('请选择图片、PDF 或文档。');
-    name='微信图片.'+({'image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/gif':'gif'}[f.type]||'png');
-   }
-   const payload=await toBase64(f);
+   const payload=await attachment(files[0],mode==='handbook');
    if(model()!==M||mode==='handbook'&&(!s.open||s.mode!==mode))return;
-   Object.assign(s,{files:[{filename:name,file:payload,mime:f.type}],open:true,mode,error:''});
+   Object.assign(s,{files:[payload],open:true,mode,error:''});
    redraw();
   }catch(e){s.open=true;s.mode=mode;s.error=e.message;redraw();}
  }
+ function matchingSource(M,kind,filename,course=''){
+  if(course)return (M.sources||[]).find(source=>source.handbook?.course===course);
+  const matches=filename?(M.sources||[]).filter(row=>row.type==='import'&&!row.handbook&&row.kind===kind&&row.name===filename.replace(/\.[^.]+$/,'')):[];
+  return matches.length===1?matches[0]:null;
+ }
+ function stageImport(M,kind,result,files,filename){
+  const handbook=result.handbook;
+  const existing=matchingSource(M,kind,filename,handbook?.course);
+  const id=existing?.id||crypto.randomUUID();
+  const source={...existing,id,name:handbook?.course||filename?.replace(/\.[^.]+$/,'')||names[kind],kind,type:'import',visible:handbook?existing?.visible!==false:true};
+  if(handbook)source.handbook=handbook;
+  stageOriginals(M,files,result.references,source);
+  M.sources=(M.sources||[]).filter(row=>row.id!==id).concat(source);
+  if(existing)for(const field of handbook?['events']:['calendar','timetable','events'])M[field]=M[field].filter(row=>row.source_id!==id);
+  M[kind==='exam'?'events':kind].push(...result.rows.map(row=>({...row,source_id:id})));
+ }
  function applyHandbook(M,s){
   const result=s.handbookResult;if(!result)return;
-  const handbook=result.handbook;
-  const existing=(M.sources||[]).find(source=>source.handbook?.course===handbook.course);
-  const id=existing?.id||crypto.randomUUID();
-  const source={id,name:handbook.course,kind:'exam',type:'import',visible:true,...existing,handbook};
-  try{stageOriginals(M,s.files,result.references,source);}
+  try{stageImport(M,'exam',result,s.files);}
   catch(error){s.error=error.message;redraw();return;}
-  M.sources=[...(M.sources||[]).filter(row=>row.id!==id),source];
-  M.events=M.events.filter(row=>row.source_id!==id).concat(result.rows.map(row=>({...row,source_id:id})));
   Object.assign(s,{open:false,files:[],handbookResult:null,error:'',notice:''});
   if(result.rows.length)root.AcademicCalendar.focusImported?.(M,'exam',result.rows);
   redraw();toast('已加入考试信息，请保存日历');
@@ -134,27 +148,25 @@
    const result=await api('/api/calendar/import',{kind,text:s.text,attachments:files});
    if(model()!==M||owner!==S.user?.id)return;
    if(!result.rows.length){s.error=result.reply||'没有读到完整安排，请换清晰原图或补充说明。';return;}
-   const name=s.files[0]?.filename?.replace(/\.[^.]+$/,'')||names[kind];
-   const matches=s.files.length?(M.sources||[]).filter(row=>row.type==='import'&&!row.handbook&&row.kind===kind&&row.name===name):[];
-   const existing=matches.length===1?matches[0]:null,id=existing?.id||crypto.randomUUID(),source={...existing,id,name,kind,type:'import',visible:true};
-   stageOriginals(M,files,result.references,source);
-   M.sources||=[];M.sources=M.sources.filter(row=>row.id!==id);M.sources.push(source);
-   if(existing)for(const field of ['calendar','timetable','events'])M[field]=M[field].filter(row=>row.source_id!==id);
-   const target=kind==='exam'?'events':kind;M[target].push(...result.rows.map(row=>({...row,source_id:id})));
+   stageImport(M,kind,result,files,s.files[0]?.filename);
    s.text='';s.files=[];s.open=false;s.notice=(result.incomplete?'仅填入已确认的部分，请核对后保存。':`已填入${names[kind]}，确认后保存。`)+(result.reply?' '+result.reply:'');root.AcademicCalendar.reset(M);root.AcademicCalendar.focusImported?.(M,kind,result.rows);
   }catch(e){s.error=e.message;}finally{s.busy=false;if(model()===M&&owner===S.user?.id)redraw();}
  }
  const readSubscription=source=>api('/api/calendar/subscribe',{source_id:source.id||'',url:source.url,name:source.name});
+ function stageSubscription(M,result,existing){
+  const source={...result.source,...(existing?{id:existing.id,color:existing.color,visible:existing.visible,kind:existing.kind}:{})};
+  M.sources=(M.sources||[]).filter(row=>row.id!==source.id).concat(source);
+  for(const key of ['calendar','timetable','events'])M[key]=M[key].filter(row=>row.source_id!==source.id).concat((result[key]||[]).map(row=>({...row,source_id:source.id})));
+ }
  async function subscription(id=''){
   const M=model(),s=state(M),owner=S.user?.id,existing=M.sources?.find(r=>r.id===id);
   try{s.busy=true;s.error='';s.notice='';redraw();const result=await readSubscription(existing||{url:s.url,name:s.name});if(model()!==M||owner!==S.user?.id)return;
-   const source={...result.source,...(existing?{color:existing.color,visible:existing.visible,kind:existing.kind}:{})};M.sources||=[];M.sources=M.sources.filter(r=>r.id!==source.id);M.sources.push(source);
-   for(const key of ['calendar','timetable','events'])M[key]=M[key].filter(r=>r.source_id!==source.id).concat(result[key]||[]);
+   stageSubscription(M,result,existing);
    s.open=false;s.url='';s.name='';s.notice='已读取订阅，核对后保存。'+result.notice;root.AcademicCalendar.reset(M);
   }catch(e){if(existing){M.error=e.message;}else s.error=e.message;}finally{s.busy=false;if(model()===M&&owner===S.user?.id)redraw();}
  }
  function openImport(mode='ai'){const M=model();if(!M||busy(M)||M.saving)return;if(root.AcademicCalendar.pending(M)){root.StudySchedule.reportError('请先完成或取消安排编辑。');return;}Object.assign(state(M),{open:true,mode,error:'',notice:'',files:[],text:'',handbookCourse:'',handbookResult:null});redraw();}
- root.AcademicReferences={markup,addMenu,pending,busy,validate,parseWeeks,formatWeeks,openImport,readSubscription,handbookDetails,originalLinks};
+ root.AcademicReferences={markup,addMenu,pending,busy,validate,parseWeeks,formatWeeks,openImport,readSubscription,handbookDetails,originalLinks,attachment,matchingSource,stageImport,stageSubscription};
  document.addEventListener('click',async event=>{
   const button=event.target.closest('[data-reference-action]');if(!button||!model())return;event.preventDefault();event.stopImmediatePropagation();const M=model(),s=state(M);if(busy(M)||M.saving)return;
   button.closest('.settings-action-menu')?.removeAttribute('open');

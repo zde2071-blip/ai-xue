@@ -5,7 +5,6 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-import accounts
 import material_metadata as metadata
 import server as app
 
@@ -139,17 +138,15 @@ class ResourceDetails(unittest.TestCase):
         self.assertEqual(app.find_library_item('source-'+c['id'])['id'],asset['id'])
         self.assertEqual(app.unit_store().item(c)['source_id'],asset['id'])
         self.assertIn('集合不计次序',app.details_store().source_context(c))
-    def test_account_boundary_prevents_links_and_metadata_access(self):
-        store=accounts.Store(self.base/'accounts',app.ROOT,self.base/'legacy-vault',self.base/'old-provider.json')
-        a,_=store.action('register',{'email':'a@example.com','password':'test-password'},'')
-        b,_=store.action('register',{'email':'b@example.com','password':'test-password'},'')
-        ea=store.engine(a['user']);eb=store.engine(b['user'])
-        ra=ea.upload_material({'kind':'originals','filename':'private.md','text':'private'})['item']
-        rb=eb.upload_material({'kind':'originals','filename':'public.md','text':'public'})['item']
-        with self.assertRaises(eb.Problem):eb.details_store().get(ra['id'])
-        d=eb.details_store().get(rb['id'])
-        with self.assertRaises(eb.Problem):eb.details_store().save(rb['id'],{'etag':d['etag'],'relations':[{'material_id':ra['id'],'role':'reference','pages':''}]})
-        self.assertNotIn(ra['id'],[r['id'] for r in d['relation_candidates']])
+    def test_resource_from_another_vault_cannot_be_linked(self):
+        with patch.object(app, 'VAULT', self.base/'other-vault'):
+            foreign = app.upload_material({'kind':'originals','filename':'private.md','text':'private'})['item']
+        with self.assertRaises(app.Problem):
+            app.details_store().get(foreign['id'])
+        details = app.details_store().get(self.source)
+        with self.assertRaises(app.Problem):
+            app.details_store().save(self.source, {'etag':details['etag'],'relations':[{'material_id':foreign['id'],'role':'reference','pages':''}]})
+        self.assertNotIn(foreign['id'], [r['id'] for r in details['relation_candidates']])
     def test_linked_material_context_uses_pages_and_note_override(self):
         asset=self.upload_pdf()
         self.save(self.nid,relations=[{'material_id':asset['id'],'role':'primary','pages':'2'}])

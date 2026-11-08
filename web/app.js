@@ -25,7 +25,7 @@ function md(text){
 async function api(path,data){
   if(S.demonstration)return window.StudyDemo.request(path,data);
   let res;
-  try{const headers={'X-Study-App':'1',...(S.user?{'X-Study-User':S.user.id}:{})};res=await fetch(path,data===undefined?{headers}:{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(data)});}catch{throw new Error('本地服务没有响应。请重新打开“启动学记.command”。');}
+  try{const headers={'X-Study-App':'1'};res=await fetch(path,data===undefined?{headers}:{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(data)});}catch{throw new Error('本地服务没有响应。请重新打开“启动学记.command”。');}
   const value=await res.json();if(!res.ok){const e=new Error(value.error || '操作没有完成，请重试。');e.status=res.status;throw e;}return value;
 }
 function updateCourse(c){S.course=c;const i=S.courses.findIndex(x=>x.id===c.id);if(i<0)S.courses.unshift(c);else S.courses[i]=c;localStorage.setItem('study-course-'+S.user.id,c.id);}
@@ -44,17 +44,8 @@ function canLeave(){
 }
 async function task(label,fn){if(S.busy)return;S.busy=true;S.busyText=label;render();try{await fn();}catch(e){toast(e.message);}finally{S.busy=false;S.busyText='';render();}}
 
-function readProfile(){
-  try{
-    const p=JSON.parse(localStorage.getItem('study-profile')||'{}');
-    return {name:typeof p.name==='string'?p.name.slice(0,32):'',avatar:typeof p.avatar==='string'&&/^data:image\/(png|jpeg|webp);base64,/.test(p.avatar)?p.avatar:''};
-  }catch{return {name:'',avatar:''};}
-}
 function avatarMarkup(profile){return profile.avatar?`<img src="${esc(profile.avatar)}" alt="头像">`:icon('user-round');}
-function sidebarFooter(){return `<footer class="sidebar-footer" aria-label="个人与设置"><button class="profile-button" data-action="account-menu" aria-label="个人账户" aria-haspopup="menu" aria-expanded="false"><span class="profile-avatar">${avatarMarkup(S.profile)}</span><span class="profile-copy"><strong>${esc(S.profile.name||S.user?.email||'个人账户')}</strong><small>个人账户</small></span>${icon('chevrons-up-down')}</button></footer>`;}
-function showProfile(){
-  modalContent('个人资料',`<form id="profile-form"><div class="profile-photo-field"><span class="profile-avatar large">${avatarMarkup(S.profile)}</span><label class="avatar-picker">更换头像<input type="file" name="avatar" accept="image/png,image/jpeg,image/webp" aria-label="更换头像"></label></div><label class="field"><span class="field-label">昵称</span><input name="name" value="${esc(S.profile.name)}" placeholder="本地用户" maxlength="32" autocomplete="nickname"></label><p class="small muted">仅保存在当前浏览器。头像支持 PNG、JPG、WebP，最大 2 MB。</p><div id="modal-error" class="error-message" role="alert"></div><div class="modal-actions"><button type="button" class="outline-button" data-action="close-modal">取消</button><button type="submit" class="primary">保存</button></div></form>`);
-}
+function sidebarFooter(){return `<footer class="sidebar-footer" aria-label="个人与设置"><button class="profile-button" data-action="account-menu" aria-label="个人设置" aria-haspopup="menu" aria-expanded="false"><span class="profile-avatar">${avatarMarkup(S.profile)}</span><span class="profile-copy"><strong>${esc(S.profile.name||'本机用户')}</strong><small>个人设置</small></span>${icon('chevrons-up-down')}</button></footer>`;}
 async function saveProfile(form,data){
   const next={name:String(data.name||'').trim().slice(0,32),avatar:S.profile.avatar};
   const file=form.elements.avatar.files[0];
@@ -64,7 +55,7 @@ async function saveProfile(form,data){
     const probe=new Image();probe.src=next.avatar;
     try{await probe.decode();}catch{throw new Error('无法识别这张图片，请换一张。');}
   }
-  const result=await api('/api/auth/profile',next);S.user=result.user;
+  const result=await api('/api/workspace/profile',next);S.user=result.user;
   S.profile={name:result.user.name,avatar:result.user.avatar};modal.close();render();toast('个人资料已保存');
 }
 
@@ -372,35 +363,15 @@ function showImport(){
   const zone=$('#dropzone');zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag');});zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag');chooseFile(e.dataTransfer.files[0]);});
 }
 function chooseFile(file){if(!file)return;if(file.size>15*1024*1024){$('#modal-error').textContent='文件不能超过 15 MB。';return;}currentFile=file;$('#file-name').textContent=file.name;$('#modal-error').textContent='';}
-let authMode='login',authFirstRun=false;
-function renderAuth(mode='login'){
- authMode=mode;const register=mode==='register';
- $('#app').innerHTML=`<div class="auth-page"><div class="auth-brand">${icon('book-open')}<strong>学记</strong></div><main class="auth-panel"><h1>${register?'创建账户':'登录学记'}</h1><p class="auth-intro">继续你的学习，留下自己的理解。</p><form id="auth-form"><label class="field"><span class="field-label">邮箱</span><input type="email" name="email" required maxlength="254" autocomplete="username" placeholder="you@example.com"></label><label class="field"><span class="field-label">密码</span><input type="password" name="password" required minlength="${register?8:1}" maxlength="128" autocomplete="${register?'new-password':'current-password'}" placeholder="${register?'至少 8 个字符':'输入密码'}"></label>${register?'<label class="field"><span class="field-label">确认密码</span><input type="password" name="confirm" required minlength="8" maxlength="128" autocomplete="new-password" placeholder="再次输入密码"></label>':''}<div id="auth-error" class="error-message" role="alert"></div><button class="primary auth-submit" type="submit">${register?'注册并进入':'登录'}</button></form><p class="auth-switch">${register?'已有账户？':'还没有账户？'}<button class="text-button" data-action="auth-switch" data-mode="${register?'login':'register'}">${register?'登录':'注册'}</button></p><p class="auth-footnote">本机账户，数据保存在这台电脑。${authFirstRun&&register?'<br>首个账户将接续现有知识库。':''}</p></main></div>`;icons();
-}
-async function submitAuth(form){
- const button=$('button[type=submit]',form);if(button.disabled)return;
- const data=Object.fromEntries(new FormData(form));const mode=authMode;
- if(mode==='register'&&data.password!==data.confirm){$('#auth-error').textContent='两次输入的密码不一致。';return;}
- button.disabled=true;$$('[data-action="auth-switch"]').forEach(b=>b.disabled=true);$('#auth-error').textContent='';
- try{const result=await api('/api/auth/'+mode,{email:data.email,password:data.password});S.user=result.user;location.reload();}
- catch(error){$('#auth-error').textContent=error.message;button.disabled=false;$$('[data-action="auth-switch"]').forEach(b=>b.disabled=false);}
-}
-async function logout(){
- if(S.busy||S.threadBusy){toast('请等待当前操作完成。');return;}
- if(S.dirty&&!(await saveEditingNote()))return;
- await api('/api/auth/logout',{});clearInterval(notePoll);window.speechSynthesis?.cancel();location.reload();
-}
-function passwordForm(){return `<h2>修改密码</h2><form id="password-form"><label class="field"><span class="field-label">当前密码</span><input type="password" name="old" required autocomplete="current-password"></label><label class="field"><span class="field-label">新密码</span><input type="password" name="password" required minlength="8" maxlength="128" autocomplete="new-password"></label><label class="field"><span class="field-label">确认新密码</span><input type="password" name="confirm" required minlength="8" maxlength="128" autocomplete="new-password"></label><div id="modal-error" class="error-message" role="alert"></div><div class="modal-actions"><button class="primary" type="submit">更新密码</button></div></form>`;}
-
 let accountAI=null,aiEdit=null,aiBusy=false,accountTab='ai';
 function closeAccountMenu(){const root=$('#account-menu-root');if(root)root.innerHTML='';$('.profile-button')?.setAttribute('aria-expanded','false');}
 function showAccountMenu(){
  if(S.demonstration){modalContent('示例模式','<p class="modal-description">这里使用示例课程，不会修改你的资料。</p><a class="primary" href="/">返回我的学习资料</a>');return;}
  const root=$('#account-menu-root');if(root.innerHTML){closeAccountMenu();return;}
- root.innerHTML=`<div class="account-menu" role="menu" aria-label="个人账户"><div class="account-menu-user"><span class="profile-avatar">${avatarMarkup(S.profile)}</span><div><strong>${esc(S.profile.name||S.user?.email||'个人账户')}</strong><small>${esc(S.user?.email)}</small></div></div><button role="menuitem" data-action="settings">${icon('settings-2')}账户设置</button><div class="account-menu-divider"></div><button role="menuitem" data-action="logout">${icon('log-out')}退出登录</button></div>`;
+ root.innerHTML=`<div class="account-menu" role="menu" aria-label="个人设置"><div class="account-menu-user"><span class="profile-avatar">${avatarMarkup(S.profile)}</span><div><strong>${esc(S.profile.name||'本机用户')}</strong></div></div><button role="menuitem" data-action="settings">${icon('settings-2')}个人设置</button><button role="menuitem" data-action="onboarding">${icon('compass')}新手引导</button></div>`;
  $('.profile-button')?.setAttribute('aria-expanded','true');icons();
 }
-function accountProfileForm(){return `<div class="settings-page-title"><h2>个人资料</h2></div><form id="profile-form"><div class="profile-photo-field"><span class="profile-avatar large">${avatarMarkup(S.profile)}</span><div class="profile-photo-copy"><strong>${esc(S.profile.name||'个人账户')}</strong><label class="avatar-picker">更换头像<input type="file" name="avatar" accept="image/png,image/jpeg,image/webp" aria-label="更换头像"></label></div></div><label class="field"><span class="field-label">昵称</span><input name="name" value="${esc(S.profile.name)}" placeholder="你的名字" maxlength="32" autocomplete="nickname"></label><div class="profile-email-row"><span>邮箱</span><span>${esc(S.user?.email)}</span></div><div id="modal-error" class="error-message" role="alert"></div><div class="modal-actions"><button type="submit" class="primary">保存修改</button></div></form><div class="settings-security-row"><span>登录密码</span><button class="text-button" data-action="change-password">修改密码 ${icon('chevron-right')}</button></div>`;}
+function accountProfileForm(){return `<div class="settings-page-title"><h2>个人资料</h2></div><form id="profile-form"><div class="profile-photo-field"><span class="profile-avatar large">${avatarMarkup(S.profile)}</span><div class="profile-photo-copy"><strong>${esc(S.profile.name||'本机用户')}</strong><label class="avatar-picker">更换头像<input type="file" name="avatar" accept="image/png,image/jpeg,image/webp" aria-label="更换头像"></label></div></div><label class="field"><span class="field-label">昵称</span><input name="name" value="${esc(S.profile.name)}" placeholder="你的名字" maxlength="32" autocomplete="nickname"></label><div id="modal-error" class="error-message" role="alert"></div><div class="modal-actions"><button type="submit" class="primary">保存修改</button></div></form>`;}
 function serviceModelName(p,m){return p.model_names?.[m]||m;}
 function defaultModelOptions(scope){const chosen=accountAI.defaults[scope];return `${scope==='translation'?`<option value="" ${!chosen?'selected':''}>跟随学习模型</option>`:''}${!accountAI.services.length&&scope==='learning'?'<option value="">尚未连接服务</option>':''}${accountAI.services.map(p=>`<optgroup label="${esc(p.name)}">${p.models.map(m=>`<option value="${esc(p.id+'|'+m)}" ${chosen?.id===p.id&&chosen?.model===m?'selected':''}>${esc(serviceModelName(p,m))}</option>`).join('')}</optgroup>`).join('')}`;}
 function providerMark(provider){return {deepseek:'DS',openai:'GPT',qwen:'Q',zhipu:'GLM',doubao:'豆',kimi:'K',gemini:'G',claude:'C'}[provider]||'AI';}
@@ -408,7 +379,7 @@ function accountAIHome(){return `<div class="settings-section-head settings-page
 function aiDefaultsContent(){return `<details class="ai-default-settings"><summary>默认模型</summary><div class="settings-model-row"><label for="ai-learning-default">学习</label><select id="ai-learning-default" aria-label="学习默认模型">${defaultModelOptions('learning')}</select></div><div class="settings-model-row"><label for="ai-translation-default">翻译</label><select id="ai-translation-default" aria-label="翻译默认模型">${defaultModelOptions('translation')}</select></div></details>`;}
 function renderAccount(){
  if(accountTab==='ai'&&aiEdit){modalContent(`<span class="ai-title-mark">${providerMark(aiEdit.provider)}</span><span>${aiEdit.id?esc(aiEdit.name):'添加服务'}</span>`,aiEditorContent());modal.classList.add('ai-service-dialog');modal.setAttribute('aria-label',aiEdit.id?'编辑 AI 服务':'添加服务');return;}
- modalContent('账户设置',`<div class="account-settings"><nav class="account-settings-nav" aria-label="账户设置栏目"><div class="account-nav-title">账户设置</div><button data-action="account-profile" class="${accountTab==='profile'||accountTab==='password'?'active':''}" ${accountTab==='profile'?'aria-current="page"':''}>${icon('user-round')}个人资料</button><button data-action="account-ai" class="${accountTab==='ai'?'active':''}" ${accountTab==='ai'?'aria-current="page"':''}>${icon('sparkles')}AI 服务</button><div class="settings-account-identity"><span class="profile-avatar">${avatarMarkup(S.profile)}</span><span><strong>${esc(S.profile.name||'个人账户')}</strong><small>本机账户</small></span></div></nav><section class="account-settings-content">${accountTab==='password'?passwordForm():accountTab==='profile'?accountProfileForm():aiEdit?aiEditorContent():accountAIHome()}</section></div>`);
+ modalContent('个人设置',`<div class="account-settings"><nav class="account-settings-nav" aria-label="个人设置栏目"><div class="account-nav-title">个人设置</div><button data-action="account-profile" class="${accountTab==='profile'?'active':''}" ${accountTab==='profile'?'aria-current="page"':''}>${icon('user-round')}个人资料</button><button data-action="account-ai" class="${accountTab==='ai'?'active':''}" ${accountTab==='ai'?'aria-current="page"':''}>${icon('sparkles')}AI 服务</button><div class="settings-account-identity"><span class="profile-avatar">${avatarMarkup(S.profile)}</span><span><strong>${esc(S.profile.name||'本机用户')}</strong><small>本机工作区</small></span></div></nav><section class="account-settings-content">${accountTab==='profile'?accountProfileForm():aiEdit?aiEditorContent():accountAIHome()}</section></div>`);
 }
 async function showSettings(tab='ai'){
  closeAccountMenu();if(aiBusy)return;accountTab=typeof tab==='string'?tab:'ai';aiEdit=null;
@@ -546,9 +517,7 @@ document.addEventListener('click',async e=>{
   try{
     if(action==='import'){if(canLeave())showImport();}
     else if(action==='settings')await showSettings();
-    else if(action==='auth-switch')renderAuth(button.dataset.mode);
-    else if(action==='logout')await logout();
-    else if(action==='change-password'){accountTab='password';renderAccount();}
+    else if(action==='onboarding'){closeAccountMenu();await window.StudyOnboarding?.open();}
     else if(action==='account-menu')showAccountMenu();
     else if(action==='account-profile'){accountTab='profile';renderAccount();}
     else if(action==='account-ai'){accountTab='ai';aiEdit=null;renderAccount();}
@@ -660,7 +629,6 @@ document.addEventListener('submit',async e=>{if(e.target.id!=='academic-course-f
 document.addEventListener('dblclick',e=>{const b=e.target.closest('[data-action="browser-select"]');if(b)openResource(b.dataset.id).catch(error=>toast(error.message));});
 document.addEventListener('submit',async e=>{
   const form=e.target;if(form.getAttribute('id')==='academic-course-form')return;e.preventDefault();const data=Object.fromEntries(new FormData(form));
-  if(form.getAttribute('id')==='auth-form'){await submitAuth(form);return;}
   if(form.getAttribute('id')==='main-question'){await sendStudyQuestion(data.question);return;}
   if(form.getAttribute('id')==='thread-form'){await sendQuestion(data.question);return;}
   if(form.getAttribute('id')==='ai-service-form'){if(aiEdit.tab!=='models'){await advanceAI();return;}const payload=aiPayload();await aiOperation('正在连接…',async()=>{const result=await api('/api/ai/save',payload);aiEdit=null;await updateAIState(result);renderAccount();toast('AI 服务已连接');});return;}
@@ -668,8 +636,7 @@ document.addEventListener('submit',async e=>{
   const original=submit.innerHTML;submit.disabled=true;modal.dataset.working='1';$$('button[data-action="close-modal"]',modal).forEach(b=>b.disabled=true);
   const errorBox=$('#modal-error');if(errorBox){errorBox.textContent='';errorBox.className='error-message';}
   try{
-    if(form.getAttribute('id')==='password-form'){if(data.password!==data.confirm)throw new Error('两次输入的密码不一致。');await api('/api/auth/password',{old:data.old,password:data.password});accountTab='profile';renderAccount();toast('密码已更新，其他登录已退出。');}
-    else if(form.getAttribute('id')==='reading-comment-form'){updateCourse(await api(courseUrl('highlight'),{...readingComment,style:'comment',comment:data.comment}));modal.close();selectionAnchor=null;render();}
+    if(form.getAttribute('id')==='reading-comment-form'){updateCourse(await api(courseUrl('highlight'),{...readingComment,style:'comment',comment:data.comment}));modal.close();selectionAnchor=null;render();}
     else if(form.getAttribute('id')==='profile-form'){
       await saveProfile(form,data);
     }else if(form.getAttribute('id')==='resource-upload-form'){
@@ -723,6 +690,7 @@ document.addEventListener('input',e=>{if(e.target.closest('#resource-metadata-fo
   if(e.target.id==='note-search'){if(!S.search)B.searchScope='semester';S.search=e.target.value;const start=e.target.selectionStart;render();$('#note-search').focus();$('#note-search').setSelectionRange(start,start);}
 });
 document.addEventListener('keydown',e=>{
+  if(window.StudyOnboarding?.isOpen())return;
   if(e.target.id==='note-search'&&e.key==='Escape'){e.preventDefault();S.search='';B.searchScope='semester';render();return;}
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();(async()=>{if(S.editing&&S.dirty&&!(await saveEditingNote()))return;await returnToBrowser();$('#note-search')?.focus();})().catch(error=>toast(error.message));return;}
   if(e.key==='Escape'&&modal.open&&modal.classList.contains('ai-service-dialog')){e.preventDefault();if(!modal.dataset.working){aiEdit=null;renderAccount();}return;}
@@ -753,7 +721,7 @@ document.addEventListener('scroll',()=>{$('#selection-tools').hidden=true;},true
 window.addEventListener('beforeunload',e=>{if(S.dirty||S.threadBusy){e.preventDefault();e.returnValue='';}});
 
 async function refreshExternal(){
-  if(!S.user||document.hidden||S.busy||S.threadBusy||modal.open)return;
+  if(!S.user||document.hidden||S.busy||S.threadBusy||modal.open||window.StudyOnboarding?.isOpen())return;
   try{
     if(S.view==='library'&&!['INPUT','SELECT'].includes(document.activeElement?.tagName)&&!document.querySelector('.academic-switcher[open],.classified-extra[open],.classified-display[open]')){const result=await api('/api/library');if(JSON.stringify(result.items)!==JSON.stringify(S.resources)){S.resources=result.items;render();}}
     if(S.view==='note'&&S.note){const latest=await api(`/api/courses/${S.course.id}/notes/${S.note.id}`);if(latest.etag!==S.note.etag){
@@ -767,10 +735,7 @@ async function init(){
   if(window.StudyDemo?.active){const data=window.StudyDemo.state();Object.assign(S,data);Object.assign(B,data.browser);restoreBrowser();S.view='library';if(B.week!=='all'&&!B.paths[S.libraryCourse])B.paths[S.libraryCourse]=[String(B.week)];S.course=S.courses.find(c=>c.id===S.libraryCourse)||S.courses[0];render();return;}
   window.speechSynthesis?.getVoices();
   try{
-    const auth=await api('/api/auth/me');authFirstRun=auth.first_run;
-    if(!auth.user){renderAuth(auth.first_run?'register':'login');return;}
-    S.user=auth.user;S.profile={name:auth.user.name,avatar:auth.user.avatar};
-    const data=await api('/api/state');Object.assign(S,data);await window.StudyTemplates?.prepare();S.course=S.courses.find(c=>c.id===localStorage.getItem('study-course-'+S.user.id))||S.courses[0];restoreBrowser();S.view='library';render();notePoll=setInterval(refreshExternal,4000);
+    const data=await api('/api/state');Object.assign(S,data);S.profile={name:S.user.name,avatar:S.user.avatar};await window.StudyTemplates?.prepare();S.course=S.courses.find(c=>c.id===localStorage.getItem('study-course-'+S.user.id))||S.courses[0];restoreBrowser();S.view='library';render();notePoll=setInterval(refreshExternal,4000);await window.StudyOnboarding?.open({automatic:true});
   }catch(e){$('#app').innerHTML=`<div class="boot"><h2>学习空间暂时没能打开</h2><p>${esc(e.message)}</p><a href="/">重新打开</a></div>`;}
 }
 window.StudyUnits?.install();
@@ -778,4 +743,5 @@ window.StudyNavigation?.install();
 window.StudyReview?.install();
 window.StudyDetails?.install();
 window.StudyTemplates?.install();
+window.StudyOnboarding?.install();
 init();

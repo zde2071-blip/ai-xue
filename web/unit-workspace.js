@@ -47,7 +47,7 @@
   let importRetry=null,localSourceUrl='';
   async function importLearning(data,file){
    if(S.importPending)return;
-   if(!S.settings.connected)throw new Error('请先在个人账户的 AI 服务中连接模型。');
+   if(!S.settings.connected)throw new Error('请先在个人设置的 AI 服务中连接模型。');
    if(file&&(!file.size||file.size>15*1024*1024))throw new Error('请选择 15 MB 以内的非空课件。');
    if(localSourceUrl)URL.revokeObjectURL(localSourceUrl);
    localSourceUrl=file?URL.createObjectURL(file):'';

@@ -137,16 +137,21 @@ class LearningWorkflow(unittest.TestCase):
         self.assertTrue(app.state()['settings']['connected'])
 
     def test_http_origin_and_path_guard(self):
-        old_auth=app.AUTH
-        app.AUTH=app.accounts.Store(Path(self.tmp.name)/'accounts',app.ROOT,app.VAULT,app.CONFIG)
         http = app.ThreadingHTTPServer(('127.0.0.1', 0), app.Handler)
         worker = threading.Thread(target=http.serve_forever, daemon=True)
         worker.start()
         base = f'http://127.0.0.1:{http.server_port}'
         try:
+            with urlopen(base+'/api/state') as response:
+                self.assertEqual(json.load(response)['user']['id'], 'local')
+                self.assertIsNone(response.headers.get('Set-Cookie'))
             with self.assertRaises(HTTPError) as caught:
-                urlopen(base+'/api/state')
-            self.assertEqual(caught.exception.code,401)
+                urlopen(Request(base+'/api/state', headers={'Sec-Fetch-Site': 'same-site'}))
+            self.assertEqual(caught.exception.code, 403)
+            with self.assertRaises(HTTPError) as caught:
+                urlopen(Request(base+'/api/auth/register', b'{}',
+                                {'Content-Type': 'application/json', 'X-Study-App': '1'}))
+            self.assertEqual(caught.exception.code, 404)
             req = Request(base+'/api/demo', b'{}', {'Content-Type':'application/json','X-Study-App':'1','Origin':'https://evil.example'})
             with self.assertRaises(HTTPError) as caught:
                 urlopen(req)
@@ -156,7 +161,6 @@ class LearningWorkflow(unittest.TestCase):
         finally:
             http.shutdown()
             http.server_close()
-            app.AUTH=old_auth
 
     def test_compatible_model_end_to_end_over_http(self):
         """Exercise the real client transport with a local, deterministic model stub."""

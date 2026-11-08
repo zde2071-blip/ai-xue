@@ -19,11 +19,11 @@ import json
 import mimetypes
 import os
 import re
+import sqlite3
 import threading
 import uuid
 import ai_services
-import accounts
-from http.cookies import SimpleCookie
+from contextlib import closing
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -37,8 +37,6 @@ CONFIG = ROOT / '.local' / 'provider.json'
 PORT = int(os.environ.get('PORT', 8767))
 LOCK = threading.RLock()
 COURSE_LOCKS = {}
-AUTH = None
-AUTH_LOCK = threading.Lock()
 KEY = ''  # Deliberately memory-only; never write API credentials to disk.
 VERIFIED = False
 PROVIDER = {'base_url': 'https://api.deepseek.com/v1', 'model': 'deepseek-chat'}
@@ -129,7 +127,7 @@ def parse_json(text):
 def ask(messages, json_mode=False, scope='learning', max_tokens=6500):
     cfg=active_ai(scope)
     if not cfg['key']:
-        raise Problem('请先在账户设置的 AI 服务中连接模型。',409)
+        raise Problem('请先在个人设置的 AI 服务中连接模型。',409)
     try:result=ai_services.chat_messages(cfg,messages,json_mode=json_mode,max_tokens=max_tokens)
     except ai_services.AIServiceError as e:raise Problem(str(e),502) from None
     return parse_json(result) if json_mode else result
@@ -1103,6 +1101,7 @@ def file_store():return file_operations.Files(globals())
 def details_store():return resource_details.Details(globals())
 
 def route_post(path, data):
+    if path == '/api/workspace/profile':return save_workspace_profile(data)
     global KEY, PROVIDER, VERIFIED
     details_match=re.fullmatch(r'/api/library/([\w-]+)/details',path)
     if details_match:return details_store().save(details_match[1],data)
@@ -1111,7 +1110,7 @@ def route_post(path, data):
     if path.startswith('/api/ai/'):
         return ai_route(path,data)
     if path == '/api/settings' and ai_document()['services'] and any(p['id']!='legacy' for p in ai_document()['services']):
-        raise Problem('请从账户设置管理 AI 服务。',409)
+        raise Problem('请从个人设置管理 AI 服务。',409)
     if path == '/api/settings':
         base = clean_text(data.get('base_url'), 500).rstrip('/')
         parsed = urlparse(base)
@@ -1273,12 +1272,37 @@ def state():
     return {'courses': courses, 'settings': {**PROVIDER, 'connected': active_ai()['connected'], 'translation_connected':active_ai('translation')['connected'], 'has_key': bool(active_ai()['key'])}, 'vault': str(VAULT), 'method': METHOD, 'resources': library_items(courses), 'semester_context': background_context(),'academic_settings':academic_store().document(courses),'units':unit_store().index()['items'],'tag_catalog':unit_store().catalog()}
 
 
-def account_store():
-    global AUTH
-    with AUTH_LOCK:
-        if AUTH is None:
-            AUTH=accounts.Store(Path(os.environ.get('STUDY_ACCOUNTS', ROOT / '.local')),ROOT,VAULT,CONFIG)
-        return AUTH
+def workspace_profile():
+    profile = {'id': 'local', 'name': '', 'avatar': ''}
+    legacy_db = Path(os.environ.get('STUDY_ACCOUNTS', CONFIG.parent)) / 'accounts.db'
+    if legacy_db.is_file():
+        try:
+            with closing(sqlite3.connect(legacy_db.resolve().as_uri() + '?mode=ro', uri=True)) as db:
+                old = db.execute('SELECT id, name, avatar FROM users WHERE legacy=1 LIMIT 1').fetchone()
+            if old:
+                profile.update(zip(('id', 'name', 'avatar'), old))
+        except sqlite3.Error:
+            pass  # The original vault remains usable even without the old profile.
+    profile_path = CONFIG.with_name('workspace-profile.json')
+    if profile_path.is_file():
+        try:
+            saved = read_json(profile_path)
+            for field in ('name', 'avatar'):
+                if isinstance(saved.get(field), str):
+                    profile[field] = saved[field]
+        except (ValueError, OSError, AttributeError):
+            pass
+    return profile
+
+
+def save_workspace_profile(data):
+    name = str(data.get('name', '')).strip()[:32]
+    avatar = data.get('avatar', '')
+    if not isinstance(avatar, str) or len(avatar) > 2800000 or (avatar and not re.fullmatch(r'data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+', avatar)):
+        raise Problem('头像格式无效或超过 2 MB。')
+    with LOCK:
+        write_json(CONFIG.with_name('workspace-profile.json'), {'name': name, 'avatar': avatar})
+        return {'user': workspace_profile()}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1299,8 +1323,6 @@ class Handler(BaseHTTPRequestHandler):
         is_preview=bool(re.fullmatch(r'/api/courses/[\w-]+/source-preview',urlparse(getattr(self,'path','')).path))
         self.send_header('X-Frame-Options', 'SAMEORIGIN' if is_preview else 'DENY')
         self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; frame-ancestors "+("'self'" if is_preview else "'none'")+"; base-uri 'none'; form-action 'self'")
-        if getattr(self,'session_cookie',None) is not None:
-            self.send_header('Set-Cookie',self.session_cookie)
         self.end_headers()
         self.wfile.write(raw)
 
@@ -1309,74 +1331,23 @@ class Handler(BaseHTTPRequestHandler):
         if host not in (f'127.0.0.1:{self.server.server_port}', f'localhost:{self.server.server_port}'):
             raise Problem('仅允许本机访问。', 403)
 
-    def session_token(self):
-        cookie=SimpleCookie()
-        try:cookie.load(self.headers.get('Cookie',''))
-        except Exception:return ''
-        item=cookie.get('study_session_'+str(self.server.server_port))
-        return item.value if item else ''
-
-    def set_session(self,token):
-        name='study_session_'+str(self.server.server_port)
-        self.session_cookie=f'{name}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={30*86400 if token else 0}'
-
-    def authenticated(self,write=False):
-        self.user=account_store().current(self.session_token())
-        if not self.user:raise Problem('请先登录。',401)
-        expected=self.headers.get('X-Study-User')
-        if (write or expected) and expected!=self.user['id']:
-            raise Problem('账户已在另一个页面切换，请刷新后继续。',409)
-        return account_store().engine(self.user)
+    def verify_api_origin(self):
+        origin = self.headers.get('Origin')
+        if self.headers.get('Sec-Fetch-Site') not in (None, 'same-origin', 'none') or (origin and origin != 'http://' + self.headers['Host']):
+            raise Problem('请求来源不受信任。', 403)
 
     def do_GET(self):
-        self.session_cookie=None
-        try:
-            self.verify_host()
-            path=unquote(urlparse(self.path).path)
-            if path=='/api/auth/me':
-                store=account_store()
-                return self.respond({'user':store.current(self.session_token()),'first_run':store.first_run()})
-            if path.startswith('/api/'):
-                engine=self.authenticated()
-                return engine.Handler._get(self)
-            return self._get()
-        except (Problem,accounts.AuthError) as error:self.respond({'error':str(error)},error.status)
-        except Exception:self.respond({'error':'账户服务暂时不可用，请重试。'},500)
-
-    def do_POST(self):
-        self.session_cookie=None
-        try:
-            self.verify_host()
-            origin=self.headers.get('Origin')
-            if origin and origin not in (f'http://127.0.0.1:{self.server.server_port}', f'http://localhost:{self.server.server_port}'):
-                raise Problem('请求来源不受信任。',403)
-            if self.headers.get('X-Study-App')!='1' or not self.headers.get('Content-Type','').startswith('application/json'):
-                raise Problem('请求格式无效。',403)
-            path=urlparse(self.path).path
-            if path.startswith('/api/auth/'):
-                action=path.rsplit('/',1)[1]
-                if action not in ('register','login'):self.authenticated(write=True)
-                length=int(self.headers.get('Content-Length','0'))
-                if not 0<length<=3000000:raise Problem('请求数据过大或为空。',413)
-                data=json.loads(self.rfile.read(length))
-                if not isinstance(data,dict):raise Problem('请求数据无效。')
-                result,token=account_store().action(action,data,self.session_token())
-                if token is not None:self.set_session(token)
-                return self.respond(result)
-            engine=self.authenticated(write=True)
-            return engine.Handler._post(self)
-        except (Problem,accounts.AuthError) as error:self.respond({'error':str(error)},error.status)
-        except (ValueError,TypeError):self.respond({'error':'请求数据无效。'},400)
-        except Exception:self.respond({'error':'账户操作未完成，请重试。'},500)
-
-    def _get(self):
         try:
             self.verify_host()
             path = unquote(urlparse(self.path).path)
+            if path.startswith('/api/'):
+                self.verify_api_origin()
+            if path == '/api/workspace':
+                return self.respond({'user': workspace_profile()})
             if path == '/api/ai':
                 return self.respond(ai_state())
             if path == '/api/state':
-                return self.respond({**state(),'user':self.user})
+                return self.respond({**state(), 'user': workspace_profile()})
             if path=='/api/calendar':
                 document=calendar_store.Calendar(globals()).document()
                 return self.respond({**document,'course_choices':calendar_store.imported_courses(document)})
@@ -1458,17 +1429,15 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             self.respond({'error': '读取失败，请检查本地文件。'}, 500)
 
-    def _post(self):
+    def do_POST(self):
         try:
             self.verify_host()
-            origin = self.headers.get('Origin')
-            if origin and origin not in (f'http://127.0.0.1:{self.server.server_port}', f'http://localhost:{self.server.server_port}'):
-                raise Problem('请求来源不受信任。', 403)
+            self.verify_api_origin()
             if self.headers.get('X-Study-App') != '1' or not self.headers.get('Content-Type', '').startswith('application/json'):
                 raise Problem('请求格式无效。', 403)
             length = int(self.headers.get('Content-Length', '0'))
-            if length > 23 * 1024 * 1024:
-                raise Problem('文件过大。', 413)
+            if not 0 < length <= 23 * 1024 * 1024:
+                raise Problem('请求数据过大或为空。', 413)
             data = json.loads(self.rfile.read(length))
             if not isinstance(data, dict):
                 raise Problem('请求数据无效。')

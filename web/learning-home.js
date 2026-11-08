@@ -251,7 +251,9 @@
   }catch(failure){error.textContent=failure.message;}
   finally{opening=false;submit.disabled=false;}
  }
- root.StudyLearningHome={markup,mount,install(){
+ root.StudyLearningHome={markup,mount,updateCalendar(doc){
+  resetOwner();request=null;calendar={document:doc};paintWeek();
+ },install(){
   document.addEventListener('submit',async event=>{
    if(event.target.id!=='learning-import-confirm')return;
    event.preventDefault();

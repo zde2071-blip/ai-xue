@@ -7,7 +7,7 @@
   <title>学记</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/vendor/katex.min.css">
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=local-workspace">
   <link rel="stylesheet" href="/unit-workspace.css">
   <link rel="stylesheet" href="/classified-navigation.css">
   <link rel="stylesheet" href="/learning-home.css?v=study-prompt-layout">
@@ -23,17 +23,19 @@
   <script defer src="/vendor/katex.min.js"></script>
   <script defer src="/vendor/lucide.min.js"></script>
   <script defer src="/editor.bundle.js"></script>
-  <script defer src="/unit-workspace.js?v=current-week"></script>
+  <script defer src="/unit-workspace.js?v=local-workspace"></script>
   <script defer src="/academic-calendar.js?v=source-originals"></script>
-  <script defer src="/academic-references.js?v=source-originals"></script>
+  <script defer src="/academic-references.js?v=onboarding"></script>
   <script defer src="/academic-workspace.js?v=20261107-source-delete"></script>
   <script defer src="/study-schedule.js?v=20261107-source-delete"></script>
-  <script defer src="/learning-home.js?v=study-prompt-layout"></script>
-  <script defer src="/classified-navigation.js?v=source-originals"></script>
+  <script defer src="/learning-home.js?v=onboarding"></script>
+  <script defer src="/classified-navigation.js?v=local-workspace"></script>
   <script defer src="/review-focus.js"></script>
   <script defer src="/material-details.js"></script>
   <script defer src="/learning-templates.js?v=study-prompt-layout"></script>
-  <script defer src="/app.js?v=current-week"></script>
+  <link rel="stylesheet" href="/onboarding.css">
+  <script defer src="/onboarding.js?v=local-workspace"></script>
+  <script defer src="/app.js?v=local-workspace"></script>
   <link rel="stylesheet" href="/learning-layout.css?v=source-originals">
   <script defer src="/quick-tooltips.js"></script>
   <script defer src="/pane-resize.js"></script>
@@ -44,6 +46,7 @@
   <div id="drawer-root"></div>
   <div id="account-menu-root"></div>
   <dialog id="modal"></dialog>
+  <dialog id="study-onboarding" aria-labelledby="onboarding-title"></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
