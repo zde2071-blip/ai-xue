@@ -1,4 +1,4 @@
-/* A single calendar: multiday bars above the hourly grid, dated blocks below. */
+/* Calendar settings and shared weekly time grids. */
 .study-settings-content.calendar-settings-content{padding:28px 32px 0}
 .study-calendar-page,.academic-references,.academic-calendar{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0;color:#333}
 .study-calendar-page{height:100%}.academic-calendar{position:relative}
@@ -97,3 +97,41 @@
 .calendar-handbook-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .calendar-handbook-row svg{width:13px;height:13px}
 .calendar-handbook-row svg:last-child:not(:first-child){width:11px;height:11px;margin-left:auto}
+
+/* The academic calendar and timetable share navigation and keep separate grids. */
+.calendar-navigation-row .calendar-period > h1 { margin: 0; font: inherit; }
+.calendar-view-actions { display: flex; align-items: center; gap: 10px; }
+.calendar-view-actions .calendar-date-nav { flex: none; }
+.calendar-view-actions .calendar-add-button { display: inline-flex; align-items: center; gap: 5px; height: 34px; min-height: 34px; padding: 0 10px; font-size: 12px; white-space: nowrap; }
+.calendar-editor-category { margin-bottom: 16px; color: #666; font-size: 12px; }
+.study-settings-nav .calendar-category-heading:has([aria-current="page"]) { background: #e9e9e9; border-radius: 6px; }
+.study-settings-nav .calendar-category-heading .calendar-category-label { flex: 1; text-align: left; }
+.school-calendar-table { width: 100%; min-width: 570px; border-spacing: 0; font-size: 13px; }
+.school-calendar-table th,.school-calendar-table td { padding: 8px; border-right: 1px solid #e8e8e8; border-bottom: 1px solid #e8e8e8; }
+.school-calendar-table thead th { position: sticky; top: 0; z-index: 1; border-top: 1px solid #ddd; background: #f3f3f3; font-weight: 550; color: #515151; }
+.school-calendar-table thead th:not(:first-child,:last-child) { width: 7.5%; white-space: nowrap; }
+.school-calendar-table thead th:first-child { width: 110px; min-width: 94px; }
+.school-calendar-table tbody th { background: #fafafa; font-weight: 500; }
+.school-calendar-table .school-month-start > * { border-top: 1px solid #ddd; }
+.school-calendar-table tbody td { height: 36px; text-align: center; font-variant-numeric: tabular-nums; background: var(--event-bg,white); color: var(--event-ink,#333); }
+.school-calendar-table tbody .is-weekend { background: var(--event-bg,#fafafa); }
+.school-calendar-table tbody .is-outside { color: #aaa; }
+.school-calendar-table time[aria-current="date"] { display: inline-grid; place-items: center; min-width: 25px; height: 25px; border-radius: 50%; background: #333; color: #fff; }
+.school-calendar-table tbody .school-calendar-description { text-align: left; padding: 4px 10px; }
+.school-calendar-description button { display: inline-block; max-width: 100%; text-align: left; margin: 2px 5px 2px 0; padding: 4px 8px; border-radius: 4px; border-left: 3px solid var(--event-color); background: var(--event-bg); color: var(--event-ink); font-size: 12px; overflow-wrap: anywhere; }
+.school-calendar-description button:hover { filter: brightness(.94); }
+.calendar-settings-content > .settings-timetable-tabs { margin: 0; padding: 14px 28px 10px; }
+.timetable-week-picker { height: 34px; padding: 0 8px; border: 1px solid #ddd; border-radius: 6px; background: #fff; color: #444; font: inherit; font-size: 12px; }
+.settings-timetable-grid { min-width: 620px; }
+.settings-timetable-grid .week-day-headings { min-height: 40px; background: #f3f3f3; }
+.settings-timetable-grid .week-day-headings > div { flex-direction: row; gap: 6px; color: #444; font-size: 12px; }
+.settings-timetable-grid .week-day-headings > span { display: grid; place-items: center; color: #555; font-size: 11px; }
+.settings-timetable-grid .week-day-headings time { color: #666; font-variant-numeric: tabular-nums; }
+.settings-timetable-grid .week-day-headings > .is-today { background: #e7e7e7; }
+.settings-timetable-grid .week-time-day > .calendar-entry { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 1px; padding: 3px 5px; margin-top: 1px; max-height: calc(100% - 1px); }
+.settings-timetable-grid .calendar-entry > small { display: block; line-height: 1.2; }
+.settings-timetable-grid :is(.week-day-headings,.week-all-day,.week-time-scroll) { scrollbar-width: thin; scrollbar-gutter: stable; }
+@media (max-width: 850px) {
+ .calendar-settings-content > .settings-timetable-tabs { padding-inline: 16px; }
+ .calendar-navigation-row .calendar-period { flex-basis: 100%; }
+}

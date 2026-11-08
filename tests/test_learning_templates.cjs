@@ -20,11 +20,13 @@ test('addition method menus name the target and separate manual entry from AI re
 test('import selects the configured template and preserves an explicit manual choice',()=>{const form={elements:{class_type:{value:' Tutorial '},learning_kind:{value:'',dataset:{}}}};suggestDefault(form,{Tutorial:'solutions',Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'solutions');form.elements.class_type.value='Studio';suggestDefault(form,{Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'tpl_custom');form.elements.learning_kind.value='concepts';form.elements.learning_kind.dataset.userEdited='true';suggestDefault(form,{Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'concepts');});
 
 test('calendar is the expandable second-level entry for the category tree',()=>{
- const categories='<nav>校历 课表 考试信息</nav>';
- const calendar=navigationMarkup('calendar',()=>'',categories,true,'<button>加号</button>');
+ const categories='<nav>校历 课表</nav>';
+ const calendar=navigationMarkup('calendar',()=>'',categories,true);
  assert.equal((calendar.match(/data-settings-action="mode"/g)||[]).length,1);
  assert.match(calendar,/aria-expanded="true"/);
- assert.match(calendar,/校历 课表 考试信息/);
+ assert.match(calendar,/校历 课表/);
+ assert.doesNotMatch(calendar,/考试信息/);
+ assert.match(timetableTabs('timetable'),/data-mode="timetable" aria-current="page">周课表/);
  assert.doesNotMatch(calendar,/课表设置/);
  assert.match(navigationMarkup('calendar',()=>'',categories,false),/id="calendar-submenus" hidden/);
  assert.match(timetableTabs('rules'),/data-mode="rules" aria-current="page">课堂分类/);

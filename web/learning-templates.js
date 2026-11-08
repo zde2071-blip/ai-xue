@@ -38,19 +38,18 @@
   const state=chat(),speechSupported=!!(root.SpeechRecognition||root.webkitSpeechRecognition);
   return `<aside class="template-ai" aria-label="模板 AI 助手"><header><span>${icon('sparkles')}AI 整理</span><button type="button" class="icon-button" data-template-action="ai-toggle" aria-label="收起 AI 整理" title="收起">${icon('x')}</button></header><div class="template-ai-history" aria-live="polite">${state.messages.map(message=>`<div class="template-ai-message ${message.role}">${escape(message.content)}</div>`).join('')}${state.proposal?`<section class="template-proposal"><details><summary>查看整理结果</summary><pre>${escape(state.proposal.prompt)}</pre></details><button type="button" class="outline-button" data-template-action="apply">应用到 Prompt</button></section>`:''}${state.busy?'<p class="template-ai-working" role="status">正在整理…</p>':''}</div><div class="template-ai-composer"><div class="template-attachments">${state.files.map((file,i)=>`<span>${icon('file-text')}<span>${escape(file.filename)}</span><button type="button" class="icon-button" data-template-action="remove-file" data-index="${i}" aria-label="移除附件 ${escape(file.filename)}">${icon('x')}</button></span>`).join('')}</div><textarea data-template-field="message" aria-label="告诉 AI 你的模板要求" rows="3" maxlength="40000" placeholder="粘贴模板，或说说你想怎么学…" ${state.busy?'disabled':''}>${escape(state.message)}</textarea><div class="template-ai-tools"><button type="button" class="icon-button" data-template-action="attach" aria-label="导入到 AI 整理" title="添加文件" ${state.busy?'disabled':''}>${icon('paperclip')}</button><button type="button" class="icon-button ${state.recording?'recording':''}" data-template-action="voice" aria-label="${state.recording?'结束口述':'口述模板要求'}" title="${speechSupported?'口述，由浏览器转写':'当前浏览器不支持语音转写，可使用系统听写输入'}" ${!speechSupported||state.busy?'disabled':''}>${icon(state.recording?'square':'mic')}</button><span></span><button type="button" class="template-send" data-template-action="send" aria-label="发送给 AI 整理" title="发送" ${state.busy||state.recording?'disabled':''}>${icon('arrow-up')}</button></div><input type="file" id="template-attachments" aria-label="选择模板参考文件" accept=".md,.txt,.json,.yaml,.yml,.pdf,.docx,.pptx,.png,.jpg,.jpeg,.webp" multiple hidden><p class="template-ai-error" role="alert" ${state.error?'':'hidden'}>${escape(state.error)}</p></div></aside>`;
  }
- function navigationMarkup(mode,glyph=()=>'',calendarTree='',expanded=true,addCalendar=''){
+ function navigationMarkup(mode,glyph=()=>'',calendarTree='',expanded=true){
   return `<aside class="study-settings-nav" aria-label="学习设置二级导航"><nav>
    <div class="settings-nav-branch"><div class="settings-branch-heading">
-    <button type="button" data-settings-action="mode" data-mode="calendar" class="settings-section selected" ${mode==='calendar'?'aria-current="page"':''}>${glyph('calendar-days')}<span>日历</span></button>
+    <button type="button" data-settings-action="mode" data-mode="calendar" class="settings-section selected" ${mode==='calendar'?'aria-current="true"':''}>${glyph('calendar-days')}<span>日历</span></button>
     <div class="calendar-branch-controls">
      <button type="button" class="icon-button" data-settings-action="toggle-calendar" aria-label="${expanded?'收起':'展开'}日历子菜单" aria-expanded="${expanded}" aria-controls="calendar-submenus">${glyph(expanded?'chevron-down':'chevron-right')}</button>
-     ${mode==='calendar'?addCalendar:''}
     </div>
    </div><div id="calendar-submenus" ${expanded?'':'hidden'}>${calendarTree}</div></div>
   </nav></aside>`;
  }
  function timetableTabs(mode){
-  return `<nav class="settings-timetable-tabs" aria-label="课表内容">${[['courses','课程'],['rules','课堂分类'],['prompts','讲解与笔记']].map(([id,label])=>
+  return `<nav class="settings-timetable-tabs" aria-label="课表内容">${[['timetable','周课表'],['courses','课程'],['rules','课堂分类'],['prompts','讲解与笔记']].map(([id,label])=>
    `<button type="button" data-settings-action="mode" data-mode="${id}" ${mode===id?'aria-current="page"':''}>${label}</button>`).join('')}</nav>`;
  }
  function coursesFromTimetable(doc){
@@ -107,14 +106,14 @@
   ]));
   rememberSettings(settings);
  }
+ const calendarSurface=mode=>mode==='calendar'||mode==='timetable';
  function page(){
   if(!V.data||!V.draft)return '';
-  const calendar=V.mode==='calendar';
-  const tree=V.calendarExpanded?root.AcademicCalendar.sidebar(calendar):'';
-  const navigation=navigationMarkup(V.mode,icon,tree,V.calendarExpanded,root.AcademicReferences.addButton());
+  const calendar=calendarSurface(V.mode);
+  const tree=V.calendarExpanded?root.AcademicCalendar.sidebar(V.mode):'';
+  const navigation=navigationMarkup(V.mode,icon,tree,V.calendarExpanded);
   return `<section class="study-settings-shell">${navigation}
-   <div class="template-page study-settings-content ${calendar?'calendar-settings-content':''}">${calendar?root.StudySchedule.markup():
-    timetableTabs(V.mode)+(V.mode==='courses'?coursesPage():V.mode==='rules'?rulesPage():promptPage())}</div>
+   <div class="template-page study-settings-content ${calendar?'calendar-settings-content':''}">${V.mode==='calendar'?'':timetableTabs(V.mode)}${calendar?root.StudySchedule.markup(V.mode):V.mode==='courses'?coursesPage():V.mode==='rules'?rulesPage():promptPage()}</div>
   </section>`;
  }
  function paint(){
@@ -136,7 +135,7 @@
    const [doc,settings,timetable]=await Promise.all([
     api('/api/templates'),api('/api/learning-settings'),mode==='courses'?api('/api/calendar'):null
    ]);
-   if(mode==='calendar')await root.StudySchedule.prepare({keepView:true});
+   if(calendarSurface(mode))await root.StudySchedule.prepare({keepView:true});
    if(S.user?.id!==owner)return;
    if(timetable)V.courses=coursesFromTimetable(timetable);
    if(category)root.AcademicCalendar.setCategoryExpanded(category,true);
@@ -184,7 +183,7 @@
   notePage=function(){return S.view==='templates'?page():base.notePage();};header=function(){return S.view==='templates'?'':base.header();};statusPanel=function(){return S.view==='templates'?'':base.statusPanel();};
   canLeave=function(){
    if(S.view==='templates'){
-    if(V.mode==='calendar'&&!root.StudySchedule.canLeave())return false;
+    if(calendarSurface(V.mode)&&!root.StudySchedule.canLeave())return false;
     if(working()||chat().recording){fail('请等待整理完成，或结束口述。');return false;}
     if(rulesDirty()){fail('请先保存或取消课程类型设置。');return false;}
     if(dirty()){fail('请先保存或取消模板修改。');return false;}
@@ -199,10 +198,10 @@
     V.calendarExpanded=!V.calendarExpanded;paint();
     document.querySelector('[data-settings-action="toggle-calendar"]')?.focus();
    }else if(settingsAction==='calendar-source'){
-    if(V.mode==='calendar'){
+    if(V.mode===category){
      root.AcademicCalendar.setCategoryExpanded(category);paint();
      document.querySelector(`[data-settings-action="calendar-source"][data-category="${category}"]`)?.focus();
-    }else await open('calendar',category);
+    }else await open(category,category);
    }else if(settingsAction==='mode'&&mode!==V.mode)await open(mode);
   },true);
   document.addEventListener('pointerdown',event=>{document.querySelectorAll('.settings-action-menu[open]').forEach(menu=>{if(!menu.contains(event.target))menu.removeAttribute('open');});},true);
@@ -305,7 +304,7 @@
    }catch(error){V.error=error.message;}
    finally{V.saving=false;paint();}
   },true);
-  window.addEventListener('beforeunload',event=>{if(S.view==='templates'&&(working()||(V.mode==='calendar'&&(root.StudySchedule.dirty()||root.StudySchedule.busy()))||dirty()||rulesDirty()||chat().recording||chat().message.trim()||chat().files.length)){event.preventDefault();event.returnValue='';}});
+  window.addEventListener('beforeunload',event=>{if(S.view==='templates'&&(working()||(calendarSurface(V.mode)&&(root.StudySchedule.dirty()||root.StudySchedule.busy()))||dirty()||rulesDirty()||chat().recording||chat().message.trim()||chat().files.length)){event.preventDefault();event.returnValue='';}});
  }
  root.StudyTemplates={install,open,prepare,options,suggestImport,templateName,actionMenuMarkup};
 })(typeof window==='undefined'?{}:window);

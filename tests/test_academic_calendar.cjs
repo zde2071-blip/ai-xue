@@ -119,3 +119,25 @@ test('learning cards show the course code and actual class type while time stays
  assert.equal(cards[1],'<strong>SOE101</strong>');
  assert.match(html,/<div class="week-hours">[^<]*<span [^>]*>09:00<\/span>/);
 });
+
+test('school calendar uses September through August and keeps school examination periods only',()=>{
+ const day='2027-02-15';
+ assert.deepEqual(C.schoolBounds(day,'year'),{start:'2026-09-01',end:'2027-08-31'});
+ assert.deepEqual(C.schoolBounds(day,'month'),{start:'2027-02-01',end:'2027-02-28'});
+ assert.deepEqual(C.schoolBounds(day,'week'),{start:day,end:'2027-02-21'});
+ const period={kind:'exam',start:day,end:'2027-02-19',label:'学校考试周'};
+ const data={sources:[{id:'exams',kind:'exam'},{id:'school',kind:'calendar'}],
+  calendar:[{...period,source_id:'school'},{...period,source_id:'exams',label:'独立考试信息'}],
+  events:[{source_id:'exams',kind:'exam',date:day,title:'单场考试'}]};
+ assert.deepEqual(C.schoolRows(data,day,'2027-02-21').map(row=>row.title),['学校考试周']);
+});
+
+test('timetable retains independent weeks and displays dated lessons from timetable sources',()=>{
+ const day='2026-09-07';
+ const data={...term,sources:[{id:'classes',kind:'timetable'},{id:'exams',kind:'exam'}],
+  events:[...term.events,{source_id:'classes',title:'ENG102',date:day,start:'14:00',end:'15:00'},
+   {source_id:'exams',title:'Standalone exam',date:day,start:'14:00',end:'15:00'}]};
+ assert.deepEqual(C.timetableEntries(data,day).map(row=>row.title),['数学','编程','ENG102']);
+ assert.deepEqual(C.timetableEntries(data,day,2).map(row=>row.title),['编程']);
+ assert.deepEqual(C.timetableEntries(data,day,'all').map(row=>row.title),['数学','编程']);
+});

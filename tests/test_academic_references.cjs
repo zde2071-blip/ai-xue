@@ -59,18 +59,15 @@ test('the single add entry offers methods for the selected type and subscribes u
   }
  });
  const click=(action,attributes={})=>listeners.click({target:{closest:()=>({dataset:{referenceAction:action,...attributes}})},preventDefault(){},stopImmediatePropagation(){}});
- assert.match(root.AcademicReferences.addButton(),/data-reference-action="add"/);
- await click('add');
- assert.doesNotMatch(root.AcademicReferences.markup(model),/添加方式/);
- await click('choose-kind',{kind:'exam'});
- assert.match(root.AcademicReferences.markup(model),/导入 Module Handbook/);
- assert.doesNotMatch(root.AcademicReferences.markup(model),/订阅链接/);
+ assert.match(root.AcademicReferences.addButton('timetable'),/aria-label="添加课表".*data-kind="timetable"/);
+ await click('add',{kind:'timetable'});
+ assert.match(root.AcademicReferences.markup(model,'timetable'),/aria-label="添加课表"/);
+ assert.doesNotMatch(root.AcademicReferences.markup(model,'timetable'),/考试信息|Module Handbook/);
  await click('choose-method',{mode:'manual'});
- assert.equal(manualKind,'exam');
- await click('add');
- await click('choose-kind',{kind:'calendar'});
- assert.match(root.AcademicReferences.markup(model),/订阅链接/);
- assert.doesNotMatch(root.AcademicReferences.markup(model),/Module Handbook/);
+ assert.equal(manualKind,'timetable');
+ await click('add',{kind:'calendar'});
+ assert.match(root.AcademicReferences.markup(model,'calendar'),/aria-label="添加校历"/);
+ assert.match(root.AcademicReferences.markup(model,'calendar'),/订阅链接/);
  await click('choose-method',{mode:'subscription'});
  model.importUI.url='webcal://example.com/school';
  await click('load-subscription');

@@ -1,16 +1,14 @@
 /* Local workspace setup conversation. Import results use the same calendar rules as Settings. */
 (function(root){
  'use strict';
- const steps=['model','calendar','timetable','exam','done'];
- const labels={model:'AI 模型',calendar:'校历',timetable:'课表',exam:'考试信息'};
+ const steps=['model','calendar','timetable','done'];
+ const labels={model:'AI 模型',calendar:'校历',timetable:'课表'};
  const prompts={
   model:'先连接学习用的 AI 模型。如果接下来要发截图，请选支持图片的模型。',
   calendar:'请发学校的校历截图、PDF，或粘贴校历订阅链接。含周次的文件可用于识别教学周。',
   timetable:'请发你的课表截图、PDF，或粘贴学校提供的日历订阅链接。',
-  exam:'请发考试安排的截图或 PDF。也可以从已保存的课表选一门课，再上传它的 Module Handbook。',
   done:'设置完成。可以回到学习页，从本周课表选一节课，或直接导入课件。'
  };
- const canSubscribe=step=>step==='calendar'||step==='timetable';
  const key=id=>'study-onboarding-'+id;
  const read=id=>{try{return JSON.parse(localStorage.getItem(key(id))||'null');}catch{return null;}};
  const remember=(id,step,open)=>localStorage.setItem(key(id),JSON.stringify({step,open}));
@@ -20,7 +18,7 @@
  const live=f=>flow===f&&S.user?.id===f.owner;
  const attr=disabled=>disabled?'disabled':'';
  function go(f,step){
-  Object.assign(f,{step,file:null,url:'',course:'',handbook:false,review:null,error:'',promptSent:false});
+  Object.assign(f,{step,file:null,url:'',review:null,error:'',promptSent:false});
   remember(f.owner,step,true);
  }
  function next(f){go(f,steps[steps.indexOf(f.step)+1]);}
@@ -51,17 +49,13 @@
    </fieldset></form>`;
  }
  function assetForm(f){
-  const choices=f.calendar?.course_choices||[];
-  const allowUrl=canSubscribe(f.step);
-  const accept=f.handbook?'.pdf,.docx,.md,.txt':'.png,.jpg,.jpeg,.webp,.gif,.pdf,.docx,.pptx,.md,.txt';
+  const accept='.png,.jpg,.jpeg,.webp,.gif,.pdf,.docx,.pptx,.md,.txt';
   return `<form data-onboarding-form="asset" class="onboarding-composer">
-   ${f.step==='exam'&&choices.length?`<div class="onboarding-exam-options"><button class="text-button" type="button" data-onboarding-action="handbook" aria-pressed="${f.handbook}" ${attr(f.busy)}>${f.handbook?'改用考试安排':'使用 Module Handbook'}</button>
-    ${f.handbook?`<select name="course" aria-label="手册所属课程" ${attr(f.busy)}><option value="">选择课表中的课程</option>${choices.map(name=>`<option ${name===f.course?'selected':''}>${esc(name)}</option>`).join('')}</select>`:''}</div>`:''}
    ${f.file?`<div class="onboarding-file">${icon('paperclip')}<span>${esc(f.file.name)}</span><button class="icon-button" type="button" data-onboarding-action="clear-file" aria-label="移除附件" ${attr(f.busy)}>${icon('x')}</button></div>`:''}
    <div class="onboarding-input-row">
     <input type="file" id="onboarding-file" accept="${accept}" hidden ${attr(f.busy)}>
     <button type="button" class="outline-button" data-onboarding-action="attach" ${attr(f.busy)}>${icon('paperclip')}添加附件</button>
-    ${allowUrl?`<input name="url" aria-label="${labels[f.step]}订阅链接" placeholder="粘贴${labels[f.step]}订阅链接" value="${esc(f.url)}" ${attr(f.busy)}>`:`<span class="onboarding-file-hint">${f.handbook?'文字版 PDF 或 Word':'也可直接粘贴或拖入图片'}</span>`}
+    <input name="url" aria-label="${labels[f.step]}订阅链接" placeholder="粘贴${labels[f.step]}订阅链接" value="${esc(f.url)}" ${attr(f.busy)}>
     <button type="submit" class="primary" ${attr(f.busy)}>发送 ${icon('arrow-up')}</button>
    </div>
    <button type="button" class="text-button onboarding-skip" data-onboarding-action="skip" ${attr(f.busy)}>跳过${labels[f.step]}</button>
@@ -80,14 +74,14 @@
  function reviewMarkup(f){
   const {result,subscription,filename,attachment}=f.review;
   const rows=subscription?[...result.calendar,...result.timetable,...result.events]:result.rows;
-  const source=subscription?f.calendar.sources.find(s=>s.type==='subscription'&&s.kind===f.step&&s.url===result.source.url):refs().matchingSource(f.calendar,f.step,filename,result.handbook?.course);
+  const source=subscription?f.calendar.sources.find(s=>s.type==='subscription'&&s.kind===f.step&&s.url===result.source.url):refs().matchingSource(f.calendar,f.step,filename);
   return `<section class="onboarding-review" aria-label="核对导入结果">
    <strong>${esc(subscription?result.source.name:labels[f.step])}</strong>
    ${source?'<p>保存后会更新同一来源的安排。</p>':''}
    ${result.incomplete?'<p>有部分内容未能确认，请对照原件。</p>':''}
    ${result.reply||result.notice?`<p>${esc(result.reply||result.notice)}</p>`:''}
    ${/^image\/(png|jpeg|webp|gif)$/.test(attachment?.mime)?`<details class="onboarding-original"><summary>查看刚发送的图片</summary><img src="data:${attachment.mime};base64,${attachment.file}" alt="${esc(filename)}"></details>`:''}
-   ${result.handbook?refs().handbookDetails(result.handbook):''}${reviewRows(rows)}
+   ${reviewRows(rows)}
    <div class="onboarding-review-actions"><button class="outline-button" data-onboarding-action="retry" ${attr(f.busy)}>重新发送</button>
     <button class="primary" data-onboarding-action="confirm" ${attr(f.busy)}>确认并保存</button></div>
   </section>`;
@@ -105,7 +99,7 @@
     <p class="onboarding-error" role="alert" ${f.error?'':'hidden'}>${esc(f.error)}</p>
    </div>
    ${f.step==='model'?(f.ai?modelFields(f):f.error?'<button class="outline-button onboarding-retry" data-onboarding-action="reload">重试</button>':''):
-    f.step==='done'?'<footer class="onboarding-finish"><button class="text-button" data-onboarding-action="more-exams">再添加考试信息</button><button class="primary" data-onboarding-action="finish">开始学习</button></footer>':
+    f.step==='done'?'<footer class="onboarding-finish"><button class="primary" data-onboarding-action="finish">开始学习</button></footer>':
     f.review?'':f.calendar?assetForm(f):f.error?'<button class="outline-button onboarding-retry" data-onboarding-action="reload">重试</button>':''}`;
   if(!el.open)el.showModal();
   icons();
@@ -130,11 +124,11 @@
   if(!S.user||S.demonstration||dialog().open||modal.open||S.busy||S.threadBusy)return;
   const owner=S.user.id,saved=read(owner);
   if(automatic&&(saved?!saved.open:owner!=='local'||S.settings.connected))return;
-  let step=steps.includes(saved?.step)&&saved.step!=='done'?saved.step:'model';
+  let step=saved?.step==='exam'?'done':steps.includes(saved?.step)&&saved.step!=='done'?saved.step:'model';
   const afterModel=step==='model'?'calendar':step;
   if(!S.settings.connected)step='model';
   else if(step==='model')step='calendar';
-  flow={owner,step,afterModel,messages:[],busy:'',error:'',file:null,url:'',course:'',handbook:false,review:null};
+  flow={owner,step,afterModel,messages:[],busy:'',error:'',file:null,url:'',review:null};
   remember(owner,afterModel,true);
   await load(flow);
  }
@@ -197,17 +191,16 @@
   f.file=files[0];f.url='';f.error='';draw(f);
  }
  async function send(f){
-  if(!f.file&&!f.url){report(f,canSubscribe(f.step)?'请添加文件或粘贴订阅链接。':'请添加要发送的附件。');return;}
-  if(f.handbook&&!f.course){report(f,'请先选择这份 Module Handbook 对应的课程。');return;}
+  if(!f.file&&!f.url){report(f,'请添加文件或粘贴订阅链接。');return;}
   f.busy=f.file?'正在识别附件…':'正在读取订阅…';
   f.error='';
   if(!f.promptSent){say(f,'assistant',prompts[f.step]);f.promptSent=true;}
   say(f,'user',f.file?f.file.name:labels[f.step]+'订阅链接');draw(f);
   try{
    if(f.file){
-    const attachment=await refs().attachment(f.file,f.handbook);
-    const result=await api('/api/calendar/import',{kind:f.step,attachments:[attachment],...(f.handbook?{handbook_course:f.course}:{})});
-    if(!result.rows.length&&!result.handbook)throw new Error(result.reply||'没有识别到安排，请换一张清晰的图片或文件。');
+    const attachment=await refs().attachment(f.file);
+    const result=await api('/api/calendar/import',{kind:f.step,attachments:[attachment]});
+    if(!result.rows.length)throw new Error(result.reply||'没有识别到安排，请换一张清晰的图片或文件。');
     f.review={result,attachment,filename:attachment.filename};
    }else{
     const url=f.url.replace(/^webcal:\/\//i,'https://');
@@ -257,8 +250,6 @@
    if(action==='pause'||action==='finish'){pause(f);return;}
    if(action==='reload'){await load(f);return;}
    if(action==='skip'){if(!f.promptSent)say(f,'assistant',prompts[f.step]);say(f,'assistant','已跳过'+labels[f.step]+'，之后可以在学习设置里补上。');next(f);}
-   if(action==='more-exams'){go(f,'exam');if(!f.calendar){await load(f);return;}}
-   if(action==='handbook'){f.handbook=!f.handbook;f.file=null;f.course='';f.error='';}
    if(action==='clear-file'){f.file=null;f.error='';}
    if(action==='retry'){f.review=null;f.error='';}
    draw(f);
@@ -267,7 +258,6 @@
    const f=flow;if(!f||f.busy)return;
    const input=event.target;
    if(input.id==='onboarding-file')selectFile(f,[...input.files]);
-   if(input.name==='course')f.course=input.value;
    if(input.name==='provider')setProvider(f,input.form);
   });
   el.addEventListener('input',event=>{
