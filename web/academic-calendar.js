@@ -265,15 +265,21 @@
   s.sourceEditor=null;
   if(!await root.StudySchedule.save({quiet:true})){Object.assign(t,before);e.error=t.error||'保存失败，请重试。';t.error='';s.sourceEditor=e;redraw();return;}redraw();toast('已保存');
  }
- function sidebarMarkup(t){
+ function sidebarMarkup(t,calendar){
   const collapsed=view(t).collapsedCategories||{};
-  return `<div class="calendar-sidebar" id="calendar-source-tree" aria-label="日历分类">${[['calendar','校历'],['timetable','课表'],['exam','考试信息']].map(([key,name])=>{
+  return `<div class="calendar-sidebar" id="calendar-source-tree" aria-label="日历三级导航">${[['calendar','校历'],['timetable','课表'],['exam','考试信息']].map(([key,name])=>{
    const sources=(t.sources||[]).filter(source=>source.kind===key);
    const existing=localSource(t,key);
    const rows=sources.map(r=>r.handbook?
     `<button type="button" class="calendar-handbook-row" data-calendar-action="source-settings" data-source-id="${esc(r.id)}" data-is-source="true" title="${esc(r.name)}">${icon('file-text')}<span>${esc(r.name)}</span>${icon('chevron-right')}</button>`:
     sourceRow(t,r.id,r.name,r.color||t.colors?.[key]||defaultColors[key],r.visible!==false,true)).join('');
-   return `<details class="calendar-category" data-calendar-category="${key}" ${collapsed[key]?'':'open'}><summary>${icon('chevron-right')}<span>${name}</span></summary><div class="calendar-category-sources">${existing?sourceRow(t,key,existing.name,colorFor(t,key==='exam'?'events':key,{}),t.visible?.[key]!==false):''}${rows}</div></details>`;
+   const expanded=calendar&&!collapsed[key],timetable=key==='timetable';
+   const arrow=icon(expanded?'chevron-down':'chevron-right');
+   const control=`data-settings-action="calendar-source" data-category="${key}" aria-controls="calendar-sources-${key}" aria-expanded="${expanded}"`;
+   const heading=timetable?
+    `<button type="button" class="calendar-category-arrow" ${control} aria-label="${expanded?'收起':'展开'}课表来源">${arrow}</button><button type="button" class="calendar-category-label ${calendar?'':'selected'}" data-settings-action="mode" data-mode="courses" ${calendar?'':'aria-current="page"'}>课表</button>`:
+    `<button type="button" class="calendar-category-label" ${control}>${arrow}<span>${name}</span></button>`;
+   return `<div class="calendar-category"><div class="calendar-category-heading">${heading}</div><div class="calendar-category-sources" id="calendar-sources-${key}" ${expanded?'':'hidden'}>${existing?sourceRow(t,key,existing.name,colorFor(t,key==='exam'?'events':key,{}),t.visible?.[key]!==false):''}${rows}</div></div>`;
   }).join('')}</div>`;
  }
  function markup(M,t,kind,{tools='',importPanel='',message=''}={}){
@@ -316,7 +322,14 @@
   if(kind==='calendar')return open('calendar',-1,{kind:'teaching',week:weekAt(term(),day)??1,start:monday(day),end:addDays(monday(day),6),label:''});
   open('timetable',-1,{course:'',class_type:'',weekday:weekday(day)+1,time:'09:00–10:00',weeks:[],location:''});
  }
- root.AcademicCalendar={openManual,learningWeek,learningWeekGrid,teachingWeekLabel,today,addDays,focusImported(M,kind,rows){view(M).cursor=importedDate(kind,rows,today());},markup,sidebar:()=>manager()&&view().sidebar!==false?sidebarMarkup(manager()):'',sidebarExpanded:()=>!!manager()&&view().sidebar!==false,toggleSidebar(){if(manager()){view().sidebar=view().sidebar===false;redraw();}},pending:M=>!!(M?.calendarView?.editor||M?.calendarView?.sourceEditor),reset(M){delete M.calendarView;}};
+ root.AcademicCalendar={openManual,learningWeek,learningWeekGrid,teachingWeekLabel,today,addDays,focusImported(M,kind,rows){view(M).cursor=importedDate(kind,rows,today());},markup,
+  sidebar:calendar=>manager()?sidebarMarkup(manager(),calendar):'',
+  setCategoryExpanded(kind,expanded){
+   const s=view();s.collapsedCategories||={};
+   s.collapsedCategories[kind]=expanded===undefined?!s.collapsedCategories[kind]:!expanded;
+  },
+  pending:M=>!!(M?.calendarView?.editor||M?.calendarView?.sourceEditor),reset(M){delete M.calendarView;}
+ };
  function setColor(node,value){if(!manager()||manager().saving||root.AcademicReferences.busy(manager())||value&&!validColor(value))return;if(node.hasAttribute('data-source-settings-color')&&view().sourceEditor){view().sourceEditor.draft.color=value;redraw();}else if(node.hasAttribute('data-calendar-source-color')){const source=sourceOf(manager(),{source_id:node.dataset.calendarSourceColor});if(source)source.color=value;redraw();}else if(node.hasAttribute('data-calendar-category-color')){manager().colors||={};manager().colors[node.dataset.calendarCategoryColor]=value;redraw();}else if(node.hasAttribute('data-calendar-editor-color')&&view().editor){view().editor.draft.color=value;view().editor.dirty=true;redraw();}}
  document.addEventListener('click',event=>{const node=event.target.closest('button[data-color]');if(!node||!node.closest('.study-settings-shell'))return;event.preventDefault();setColor(node,node.dataset.color);},true);
  document.addEventListener('change',event=>{if(event.target.type==='color')setColor(event.target,event.target.value);if(event.target.hasAttribute('data-calendar-source')){const source=sourceOf(manager(),{source_id:event.target.dataset.calendarSource});if(source)source.visible=event.target.checked;redraw();}if(event.target.hasAttribute('data-source-name')){const source=sourceOf(manager(),{source_id:event.target.dataset.sourceName});if(source)source.name=event.target.value.trim()||source.name;redraw();}});
@@ -359,7 +372,6 @@
  document.addEventListener('submit',async event=>{if(event.target.id==='calendar-source-settings-form'){event.preventDefault();event.stopImmediatePropagation();await applySourceSettings();return;}if(event.target.id!=='calendar-event-form')return;event.preventDefault();event.stopImmediatePropagation();try{await applyEditor(event.target);}catch(e){const s=view();s.error=e.message;const error=event.target.querySelector('[role="alert"]');error.hidden=false;error.textContent=e.message;}} ,true);
  document.addEventListener('input',event=>{if(event.target.closest('#calendar-source-settings-form')&&event.target.name&&view().sourceEditor){view().sourceEditor.draft[event.target.name]=event.target.type==='checkbox'?event.target.checked:event.target.value;return;}if(event.target.closest('#calendar-event-form')&&event.target.name){const e=view().editor,{name,value}=event.target;e.dirty=true;if(event.target.hasAttribute('data-calendar-choice')&&value==='__new_calendar_value__')return;if(name==='weeks')e.draft._weeksText=value;else e.draft[name]=['weekday','week'].includes(name)?value?Number(value):null:value;root.StudySchedule.refreshActions();}});
  document.addEventListener('change',event=>{if(event.target.hasAttribute('data-calendar-choice')&&event.target.value==='__new_calendar_value__'&&view().editor){const name=event.target.name;view().editor.draft['_custom_'+name]=true;view().editor.draft[name]='';redraw();document.querySelector(`#calendar-event-form input[name="${name}"]`)?.focus();return;}if(event.target.name==='kind'&&event.target.closest('#calendar-event-form')&&view().editor?.source==='calendar'){view().editor.draft.kind=event.target.value;view().editor.draft.week=event.target.value==='teaching'?view().editor.draft.week||1:null;redraw();return;}if(event.target.name==='category'&&event.target.closest('#calendar-event-form')){const e=view().editor,source=event.target.value,day=e.draft.date||view().cursor,original=e.original||(e.index>=0?{source:e.source,index:e.index}:null);const draft=source==='calendar'?{kind:'teaching',week:1,start:monday(day),end:addDays(monday(day),6),label:''}:source==='events'?{id:'',title:e.draft.course||'',kind:'exam',date:day,start:'09:00',end:'10:00',location:e.draft.location||''}:{course:e.draft.title||'',class_type:'',weekday:weekday(day)+1,time:'09:00–10:00',weeks:[],location:e.draft.location||''};view().editor=null;open(source,-1,draft,original);view().editor.dirty=true;return;}if(event.target.hasAttribute('data-calendar-week')){view().week=Number(event.target.value);redraw();}});
- document.addEventListener('toggle',event=>{if(event.target.matches?.('details[data-calendar-category]')&&manager()){view().collapsedCategories||={};view().collapsedCategories[event.target.dataset.calendarCategory]=!event.target.open;}},true);
  document.addEventListener('pointerdown',event=>{for(const menu of document.querySelectorAll('.calendar-source-menu[open],.calendar-color-menu[open]'))if(!menu.contains(event.target))menu.removeAttribute('open');},true);
  document.addEventListener('keydown',event=>{if(!document.querySelector('.academic-calendar'))return;if(event.key==='Escape')document.querySelectorAll('.calendar-source-menu[open],.calendar-color-menu[open]').forEach(menu=>menu.removeAttribute('open'));if(event.key==='Escape'&&manager()&&view().sourceEditor){if(!view().sourceEditor.busy){view().sourceEditor=null;redraw();}return;}if(event.key==='Escape'&&manager()&&view().editor){event.preventDefault();view().editor=null;redraw();}else if(event.key==='Enter'&&event.target.hasAttribute('data-calendar-slot')){event.preventDefault();event.target.click();}});
 })(typeof window==='undefined'?{}:window);

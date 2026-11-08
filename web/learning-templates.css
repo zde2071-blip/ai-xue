@@ -68,27 +68,23 @@
 /* Learning settings share one navigation surface. */
 .study-settings-shell{height:100%;min-height:0;display:flex;background:#fff;--action-ink:#333;--action-border:#ddd;--action-radius:6px}
 .study-settings-nav{width:184px;min-width:220px;box-sizing:border-box;flex:0 0 184px;overflow-y:auto;padding:24px 12px;background:#f7f7f7;border-right:1px solid #e8e8e8}
-.study-settings-nav>nav,.study-timetable-nav>nav{display:flex;flex-direction:column;gap:6px}
-:is(.study-settings-nav,.study-timetable-nav) button{width:100%;display:flex;align-items:center;gap:9px;min-height:40px;text-align:left;border-radius:6px;color:#777;font-size:13px;padding:10px 12px}
-:is(.study-settings-nav,.study-timetable-nav) svg{width:16px;height:16px;flex-shrink:0}:is(.study-settings-nav,.study-timetable-nav) button:hover{background:#efefef;color:#333}:is(.study-settings-nav,.study-timetable-nav) button.selected{background:#e9e9e9;color:#242424}
+.study-settings-nav>nav{display:flex;flex-direction:column;gap:6px}
+.study-settings-nav button{width:100%;display:flex;align-items:center;gap:9px;min-height:40px;text-align:left;border-radius:6px;color:#777;font-size:13px;padding:10px 12px}
+.study-settings-nav svg{width:16px;height:16px;flex-shrink:0}.study-settings-nav button:hover{background:#efefef;color:#333}.study-settings-nav button.selected{background:#e9e9e9;color:#242424}
 .study-settings-content{min-width:0;flex:1;padding:24px 28px 0;overflow:hidden}.study-settings-content>.template-tabs-row{margin-bottom:16px}.study-settings-content .template-editor-tools{height:38px;min-height:38px;margin-bottom:15px}
 @media(max-width:900px){.study-settings-nav{width:150px;flex-basis:150px;padding:20px 8px}.study-settings-content{padding-left:20px;padding-right:20px}}
 @media(max-width:700px){.study-settings-nav{width:120px;flex-basis:120px;padding:20px 6px}.study-settings-nav button{gap:6px;font-size:12px;padding:10px 8px}.study-settings-content{padding:20px 14px 0}.study-settings-content .template-workspace{flex:0 0 auto}.study-settings-content:not(.calendar-settings-content){overflow-y:auto}}
 
-.settings-template-tree{padding:8px 0 0 25px;display:flex;flex-direction:column;gap:4px}.settings-template-tree>button{display:flex;align-items:center;gap:9px;text-align:left;width:100%;border-radius:6px;padding:10px 12px;font-size:12px;color:#666}.settings-template-tree>button.selected{background:#e8e8e8;color:#333}.settings-template-tree svg{width:15px;height:15px;flex-shrink:0}.settings-template-tree span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.settings-template-pending{padding:10px 12px;color:#888}.template-current-name{font-size:16px;font-weight:550;flex:1}
 .template-stage-switch{display:flex;align-self:flex-start;flex:none;max-width:100%;overflow-x:auto;gap:4px;padding:3px;background:#f0f0f0;border-radius:7px;margin-bottom:16px}
 .template-stage-switch button{min-height:32px;padding:5px 13px;border-radius:5px;color:#626262;white-space:nowrap;font-size:13px;line-height:20px}
 .template-stage-switch button.selected{background:#fff;color:#252525;box-shadow:0 1px 2px #00000012}
 .study-settings-content:has(.template-workspace){overflow-y:auto}
-/* Keep navigation and its action in distinct grid cells. */
-.settings-branch-heading { display: grid; grid-template-columns: minmax(0,1fr); align-items: center; }
-.settings-branch-heading.with-action { grid-template-columns: minmax(0,1fr) 28px; gap: 5px; padding-right: 7px; background: #e9e9e9; border-radius: 6px; }
-:is(.study-settings-nav,.study-timetable-nav) .settings-section { min-width: 0; white-space: nowrap; }
-:is(.study-settings-nav,.study-timetable-nav) .settings-section > span:not(.settings-disclosure) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-:is(.study-settings-nav,.study-timetable-nav) .settings-section .settings-disclosure { display: flex; flex: none; }
-:is(.study-settings-nav,.study-timetable-nav) .settings-section .settings-disclosure svg { width: 12px; height: 12px; }
-:is(.study-settings-nav,.study-timetable-nav) .settings-branch-add > button { display: grid; place-items: center; width: 28px; height: 28px; min-height: 28px; padding: 0; }
-:is(.study-settings-nav,.study-timetable-nav) .settings-branch-add > button svg { width: 14px; height: 14px; }
+/* The calendar link, disclosure, and add button each have their own target. */
+.settings-branch-heading { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 4px; padding-right: 6px; background: #e9e9e9; border-radius: 6px; }
+.study-settings-nav .settings-section { min-width: 0; white-space: nowrap; }
+.calendar-branch-controls { display: flex; align-items: center; gap: 4px; }
+.study-settings-nav .calendar-branch-controls > button { display: grid; place-items: center; width: 28px; height: 28px; min-height: 28px; padding: 0; }
+.study-settings-nav .calendar-branch-controls > button svg { width: 14px; height: 14px; }
 
 #template-type-rules { width: min(100%,600px); min-height: 0; overflow-y: auto; padding-bottom: 20px; }
 #template-type-rules fieldset { min-width: 0; margin: 0 0 16px; padding: 0; border: 0; }
@@ -99,22 +95,25 @@
 .template-rule-row select { width: 100%; min-width: 0; border: 1px solid #dedede; border-radius: 6px; padding: 7px 10px; color: inherit; font: inherit; }
 .template-rules-empty { margin: 15px 0; color: #666; line-height: 1.6; font-size: 13px; }
 
-.settings-timetable-workspace { display: flex; flex: 1; min-width: 0; min-height: 0; }
-.study-timetable-nav { flex: 0 0 206px; width: 206px; min-width: 196px; overflow-y: auto; box-sizing: border-box; padding: 24px 12px; background: #fafafa; border-right: 1px solid #e8e8e8; }
-.study-timetable-nav .settings-section { padding-right: 6px; }
+.settings-timetable-tabs { display: flex; flex-wrap: wrap; gap: 6px 18px; flex-shrink: 0; padding-bottom: 8px; margin-bottom: 14px; border-bottom: 1px solid #e8e8e8; }
+.settings-timetable-tabs button { padding: 7px 10px; border-radius: 6px; color: #666; white-space: nowrap; }
+.settings-timetable-tabs [aria-current="page"] { background: #efefef; color: #292929; }
 .settings-courses { width: min(100%,600px); min-height: 0; overflow-y: auto; }
-.settings-courses ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid #e8e8e8; }
-.settings-courses li { padding: 11px 0; border-bottom: 1px solid #ececec; overflow-wrap: anywhere; }
-@media(max-width:850px) {
- .settings-timetable-workspace { flex-direction: column; }
- .study-timetable-nav { flex: none !important; width: auto !important; min-width: 0; padding: 10px 14px; border-right: 0; border-bottom: 1px solid #e8e8e8; max-height: 40%; }
- .study-timetable-nav > nav { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
- .study-timetable-nav .settings-template-tree { padding-left: 8px; }
- .settings-timetable-workspace > .study-settings-content { height: auto; }
-}
+.settings-courses ul { list-style: none; margin: 0; padding: 0; }
+.settings-courses li { padding: 12px 0; border-bottom: 1px solid #ececec; overflow-wrap: anywhere; }
+.settings-courses li strong { font-weight: 550; }
+.settings-courses dl { margin: 8px 0 0; font-size: 13px; color: #666; }
+.settings-courses dl div { display: flex; flex-wrap: wrap; gap: 5px 12px; padding: 3px 0; }
+.settings-courses dt { min-width: 85px; }
+.settings-courses dd { margin: 0; }
+.settings-courses li > small { display: block; margin-top: 5px; color: #777; }
+.timetable-template-picker { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.timetable-template-picker select { width: min(180px,100%); min-width: 0; height: 34px; padding: 4px 8px; color: inherit; background: #fff; border: 1px solid #ddd; border-radius: 6px; font: inherit; }
+.timetable-template-picker button { flex: none; width: 34px; height: 34px; min-height: 34px; padding: 0; }
+.timetable-template-picker svg { width: 14px; height: 14px; }
 @media(max-width:720px) {
  .study-settings-shell { flex-direction: column; }
  .study-settings-shell > .study-settings-nav { flex: none !important; width: auto !important; min-width: 0; max-height: 36%; padding: 8px 12px; border-right: 0; border-bottom: 1px solid #e8e8e8; }
- .study-settings-shell > .study-settings-nav > nav { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; }
+ .study-settings-shell > .study-settings-nav > nav { display: block; }
  .study-settings-shell > .study-settings-content { height: auto; }
 }

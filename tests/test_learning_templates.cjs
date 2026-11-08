@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,timetableNavigation,actionMenuMarkup,defaultTypeFor,suggestDefault}=require('../web/learning-templates.js');
+const {draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,timetableTabs,coursesFromTimetable,actionMenuMarkup,defaultTypeFor,suggestDefault}=require('../web/learning-templates.js');
 const sample={id:'concepts',name:'知识点总结',prompt:'自由写下我的要求\n不要分字段。'};
 test('old prompts open in two independent drafts and only the active prompt is shown',()=>{
  const draft=draftOf(sample);
@@ -19,24 +19,26 @@ test('third sidebar destination and runtime styles remain wired',()=>{const root
 test('addition method menus name the target and separate manual entry from AI recognition',()=>{const html=actionMenuMarkup('添加',{label:'手动添加',icon:'plus',attributes:'data-settings-action="add"'},{label:'用 AI 识别',icon:'sparkles',attributes:'data-settings-action="add-ai"'},{ariaLabel:'添加课程类型'});assert.match(html,/aria-label="添加课程类型"/);assert.match(html,/<summary/);assert.match(html,/手动添加/);assert.match(html,/用 AI 识别/);assert.equal((html.match(/<button/g)||[]).length,2);});
 test('import selects the configured template and preserves an explicit manual choice',()=>{const form={elements:{class_type:{value:' Tutorial '},learning_kind:{value:'',dataset:{}}}};suggestDefault(form,{Tutorial:'solutions',Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'solutions');form.elements.class_type.value='Studio';suggestDefault(form,{Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'tpl_custom');form.elements.learning_kind.value='concepts';form.elements.learning_kind.dataset.userEdited='true';suggestDefault(form,{Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'concepts');});
 
-test('calendar and timetable settings are the two secondary destinations',()=>{
- const calendar=navigationMarkup('calendar',()=>'', '<div>日历来源</div>',true,'<button>加号</button>');
- assert.equal((calendar.match(/data-settings-action="mode"/g)||[]).length,2);
- assert.match(calendar,/data-mode="calendar" class="settings-section selected"/);
- assert.match(calendar,/日历来源/);
- assert.doesNotMatch(calendar,/课堂分类|讲解与笔记|三级导航/);
- assert.match(navigationMarkup('prompts'),/data-mode="courses" class="settings-section selected"/);
+test('calendar is the expandable second-level entry for the category tree',()=>{
+ const categories='<nav>校历 课表 考试信息</nav>';
+ const calendar=navigationMarkup('calendar',()=>'',categories,true,'<button>加号</button>');
+ assert.equal((calendar.match(/data-settings-action="mode"/g)||[]).length,1);
+ assert.match(calendar,/aria-expanded="true"/);
+ assert.match(calendar,/校历 课表 考试信息/);
+ assert.doesNotMatch(calendar,/课表设置/);
+ assert.match(navigationMarkup('calendar',()=>'',categories,false),/id="calendar-submenus" hidden/);
+ assert.match(timetableTabs('rules'),/data-mode="rules" aria-current="page">课堂分类/);
 });
-test('course settings and template contents use the tertiary sidebar',()=>{
- const rows=[{id:'a',name:'知识点总结'},{id:'b',name:'题目讲解'}];
- const expanded=timetableNavigation('prompts',rows,'a');
- assert.match(expanded,/aria-label="课表设置三级导航"/);
- assert.equal((expanded.match(/data-settings-action="mode"/g)||[]).length,3);
- assert.ok(expanded.indexOf('data-mode="rules"')<expanded.indexOf('aria-label="讲解与笔记方案"'));
- assert.match(expanded,/data-template-action="select" data-id="b"/);
- assert.match(expanded,/settings-branch-add"><button[^>]+aria-label="新建模板"/);
- const collapsed=timetableNavigation('prompts',rows,'a','',()=>'',false);
- assert.doesNotMatch(collapsed,/aria-label="讲解与笔记方案"/);
- assert.match(collapsed,/aria-expanded="false"/);
- assert.doesNotMatch(timetableNavigation('courses',rows,'a'),/aria-label="讲解与笔记方案"/);
+test('course types retain their own weeks from saved timetable rows',()=>{
+ const row={course:'ABC101',source_id:'class',class_type:'Lecture',weeks:[1,2,3]};
+ const courses=coursesFromTimetable({sources:[{id:'class',kind:'timetable'},{id:'exam',kind:'exam'}],
+  course_choices:['ABC101','XYZ102'],timetable:[row,{...row,class_type:'lecture',weeks:[3,4]},
+   {...row,class_type:'Lab',weeks:[5,9,13]},{...row,class_type:'Tutorial',weeks:[]},
+   {...row,class_type:'NotACourseType',source_id:'exam'}]});
+ assert.deepEqual(courses,[
+  {name:'ABC101',types:[
+   {name:'Lecture',allWeeks:false,weeks:[1,2,3,4]},
+   {name:'Lab',allWeeks:false,weeks:[5,9,13]},
+   {name:'Tutorial',allWeeks:true,weeks:[]}]},
+  {name:'XYZ102',types:[]}]);
 });

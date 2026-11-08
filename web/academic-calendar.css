@@ -64,7 +64,15 @@
 .calendar-year{gap:18px 36px}.year-month-grid{gap:1px}.year-month-grid>button{width:20px;height:20px}.year-month-grid>.has-events:after{left:9px}.year-month-title{margin-bottom:8px}
 
 /* Categories and their sources are children of Calendar, not peer destinations. */
-.calendar-category>summary{display:flex;align-items:center;gap:7px;list-style:none;cursor:pointer;padding:9px 6px;font-size:12px;color:#666;min-height:34px}.calendar-category>summary::-webkit-details-marker{display:none}.calendar-category>summary>svg{width:11px;height:11px;transition:transform .12s}.calendar-category[open]>summary>svg{transform:rotate(90deg)}.calendar-category-sources{padding-left:13px}.calendar-category .calendar-source-row{padding:7px 4px;min-height:32px}.calendar-category .calendar-source-row>label{font-size:12px;gap:7px}.calendar-category .calendar-source-row input[type=checkbox]{width:13px;height:13px}
+.calendar-category-heading { display: flex; align-items: center; gap: 3px; }
+.study-settings-nav .calendar-category-heading button { min-height: 33px; padding: 6px 7px; gap: 7px; color: #555; }
+.study-settings-nav .calendar-category-heading button.selected { color: #242424; }
+.study-settings-nav .calendar-category-heading .calendar-category-arrow { flex: 0 0 24px; width: 24px; justify-content: center; padding: 0; }
+.study-settings-nav .calendar-category-heading button svg { width: 11px; height: 11px; }
+.calendar-category-sources { padding-left: 13px; }
+.calendar-category .calendar-source-row { padding: 7px 4px; min-height: 32px; }
+.calendar-category .calendar-source-row > label { font-size: 12px; gap: 7px; }
+.calendar-category .calendar-source-row input[type=checkbox] { width: 13px; height: 13px; }
 
 /* Source settings use the same floating form surface as calendar imports. */
 .study-settings-nav .calendar-source-settings-button{width:22px;height:22px;min-height:22px;flex:0 0 22px;padding:3px;display:grid;place-items:center;background:none;color:#999;border-radius:4px}.study-settings-nav .calendar-source-settings-button:hover{background:#e7e7e7;color:#333}

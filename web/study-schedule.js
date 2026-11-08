@@ -16,7 +16,7 @@
   return {...doc,reference_files:M.referenceFiles};
  }
  const snapshot=doc=>JSON.stringify(Object.fromEntries(['calendar','timetable','events','references','sources','colors'].map(k=>[k,doc[k]||(k==='colors'?{}:[])])));
- async function prepare(){const owner=S.user?.id,doc=await api('/api/calendar');if(owner!==S.user?.id)return;M={...activeDocument(doc),owner,saving:false,referenceFiles:[],visible:{calendar:true,timetable:true,exam:true}};M.baseline=snapshot(M);}
+ async function prepare({keepView=false}={}){const owner=S.user?.id,previous=keepView&&M?.owner===owner?M.calendarView:null,doc=await api('/api/calendar');if(owner!==S.user?.id)return;M={...activeDocument(doc),owner,saving:false,referenceFiles:[],visible:{calendar:true,timetable:true,exam:true}};if(previous)M.calendarView=previous;M.baseline=snapshot(M);}
  function changed(){return !!M&&(snapshot(M)!==M.baseline||M.referenceFiles.length);}
  function dirty(){return changed()||!!M&&root.AcademicReferences.pending(M);}
  function busy(){return !!M?.saving||root.AcademicReferences.busy(M);}
