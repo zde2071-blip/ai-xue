@@ -269,8 +269,7 @@
    const rows=sources.map(r=>r.handbook?
     `<button type="button" class="calendar-handbook-row" data-calendar-action="source-settings" data-source-id="${esc(r.id)}" data-is-source="true" title="${esc(r.name)}">${icon('file-text')}<span>${esc(r.name)}</span>${icon('chevron-right')}</button>`:
     sourceRow(t,r.id,r.name,r.color||t.colors?.[key]||defaultColors[key],r.visible!==false,true)).join('');
-   const importButton=key==='exam'?'<button type="button" class="calendar-handbook-row" data-reference-action="handbook" aria-label="从 Module Handbook 导入考试">'+icon('plus')+'<span>导入手册</span></button>':'';
-   return `<details class="calendar-category" data-calendar-category="${key}" ${collapsed[key]?'':'open'}><summary>${icon('chevron-right')}<span>${name}</span></summary><div class="calendar-category-sources">${existing?sourceRow(t,key,existing.name,colorFor(t,key==='exam'?'events':key,{}),t.visible?.[key]!==false):''}${rows}${importButton}</div></details>`;
+   return `<details class="calendar-category" data-calendar-category="${key}" ${collapsed[key]?'':'open'}><summary>${icon('chevron-right')}<span>${name}</span></summary><div class="calendar-category-sources">${existing?sourceRow(t,key,existing.name,colorFor(t,key==='exam'?'events':key,{}),t.visible?.[key]!==false):''}${rows}</div></details>`;
   }).join('')}</div>`;
  }
  function markup(M,t,kind,{tools='',importPanel='',message=''}={}){
@@ -307,7 +306,13 @@
  }
  let dragStart=null,suppressedSlotClick=null;
  function newDate(day){open('events',-1,{id:'',title:'',date:day,kind:'exam',start:'',end:'',location:''});}
- root.AcademicCalendar={learningWeek,learningWeekGrid,teachingWeekLabel,today,addDays,focusImported(M,kind,rows){view(M).cursor=importedDate(kind,rows,today());},markup,sidebar:()=>manager()&&view().sidebar!==false?sidebarMarkup(manager()):'',sidebarExpanded:()=>!!manager()&&view().sidebar!==false,toggleSidebar(){if(manager()){view().sidebar=view().sidebar===false;redraw();}},pending:M=>!!(M?.calendarView?.editor||M?.calendarView?.sourceEditor),reset(M){delete M.calendarView;}};
+ function openManual(kind){
+  const day=view().cursor;
+  if(kind==='exam')return newDate(day);
+  if(kind==='calendar')return open('calendar',-1,{kind:'teaching',week:weekAt(term(),day)??1,start:monday(day),end:addDays(monday(day),6),label:''});
+  open('timetable',-1,{course:'',class_type:'',weekday:weekday(day)+1,time:'09:00–10:00',weeks:[],location:''});
+ }
+ root.AcademicCalendar={openManual,learningWeek,learningWeekGrid,teachingWeekLabel,today,addDays,focusImported(M,kind,rows){view(M).cursor=importedDate(kind,rows,today());},markup,sidebar:()=>manager()&&view().sidebar!==false?sidebarMarkup(manager()):'',sidebarExpanded:()=>!!manager()&&view().sidebar!==false,toggleSidebar(){if(manager()){view().sidebar=view().sidebar===false;redraw();}},pending:M=>!!(M?.calendarView?.editor||M?.calendarView?.sourceEditor),reset(M){delete M.calendarView;}};
  function setColor(node,value){if(!manager()||manager().saving||root.AcademicReferences.busy(manager())||value&&!validColor(value))return;if(node.hasAttribute('data-source-settings-color')&&view().sourceEditor){view().sourceEditor.draft.color=value;redraw();}else if(node.hasAttribute('data-calendar-source-color')){const source=sourceOf(manager(),{source_id:node.dataset.calendarSourceColor});if(source)source.color=value;redraw();}else if(node.hasAttribute('data-calendar-category-color')){manager().colors||={};manager().colors[node.dataset.calendarCategoryColor]=value;redraw();}else if(node.hasAttribute('data-calendar-editor-color')&&view().editor){view().editor.draft.color=value;view().editor.dirty=true;redraw();}}
  document.addEventListener('click',event=>{const node=event.target.closest('button[data-color]');if(!node||!node.closest('.study-settings-shell'))return;event.preventDefault();setColor(node,node.dataset.color);},true);
  document.addEventListener('change',event=>{if(event.target.type==='color')setColor(event.target,event.target.value);if(event.target.hasAttribute('data-calendar-source')){const source=sourceOf(manager(),{source_id:event.target.dataset.calendarSource});if(source)source.visible=event.target.checked;redraw();}if(event.target.hasAttribute('data-source-name')){const source=sourceOf(manager(),{source_id:event.target.dataset.sourceName});if(source)source.name=event.target.value.trim()||source.name;redraw();}});
@@ -327,8 +332,7 @@
    if(action==='close-source-settings'){if(!s.sourceEditor?.busy){s.sourceEditor=null;redraw();}return;}
    if(action==='refresh-source-settings'){await refreshSourceSettings();return;}
    if(s.sourceEditor)return;
-   if(action==='new'){node.closest('.settings-action-menu')?.removeAttribute('open');open('timetable',-1,{course:'',class_type:'',weekday:weekday(s.cursor)+1,time:'09:00–10:00',weeks:[],location:''});}
-   else if(action==='month'){s.cursor=node.dataset.date;s.mode='month';redraw();}
+   if(action==='month'){s.cursor=node.dataset.date;s.mode='month';redraw();}
    else if(action==='view'){s.mode=node.dataset.view;redraw();}
    else if(action==='previous'||action==='next'){s.cursor=['month','year'].includes(s.mode)?moveMonth(s.cursor,(action==='next'?1:-1)*(s.mode==='year'?12:1)):addDays(s.cursor,(action==='next'?1:-1)*(s.mode==='day'?1:7));redraw();}
    else if(action==='today'){s.cursor=today();redraw();}

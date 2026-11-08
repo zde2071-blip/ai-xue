@@ -41,6 +41,16 @@ class SubscriptionTests(unittest.TestCase):
             data={'url':'webcal://example.com/calendar','source_id':'school','name':'School'}
             one=c.subscribe(app.__dict__,data);two=c.subscribe(app.__dict__,data)
         self.assertEqual(one['events'],two['events']);self.assertEqual(one['source']['url'],'https://example.com/calendar')
+        self.assertEqual(one['source']['kind'],'timetable')
+    def test_academic_feed_retains_selected_category_and_timed_events(self):
+        with patch.object(c,'fetch_calendar',return_value=ICS):
+            result=c.subscribe(app.__dict__,{'url':'https://example.com/calendar','kind':'calendar'})
+        self.assertEqual(result['source']['kind'],'calendar')
+        self.assertTrue(result['calendar'])
+        self.assertTrue(result['events'])
+        saved={'sources':[result['source']],'events':result['events'],'timetable':[]}
+        self.assertEqual(app.calendar_store.imported_courses(saved),[])
+
     def test_invalid_content_private_urls_and_transport_errors(self):
         with self.assertRaises(ValueError):c.parse_calendar(b'<html>login</html>','school')
         with patch.object(c.socket,'getaddrinfo',return_value=[(2,1,6,'',('127.0.0.1',80))]):

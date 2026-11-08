@@ -110,13 +110,15 @@ def subscribe(host, data):
     try:
         url = subscription_url(data.get('url'))
         source_id = data.get('source_id') or uuid.uuid4().hex
-        import re
+        kind = data.get('kind', 'timetable')
+        if kind not in ('calendar', 'timetable', 'exam'):
+            raise ValueError('日历来源分类无效。')
         if not isinstance(source_id,str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}',source_id):
             raise ValueError('日历来源无效。')
         result = parse_calendar(fetch_calendar(url),source_id)
         name = data.get('name') or result.pop('name')
         if not isinstance(name,str) or len(name)>150:raise ValueError('日历名称过长。')
-        return {**result,'source':{'id':source_id,'name':name,'kind':'timetable','type':'subscription','url':url,'visible':True,'updated_at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='seconds')}}
+        return {**result,'source':{'id':source_id,'name':name,'kind':kind,'type':'subscription','url':url,'visible':True,'updated_at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='seconds')}}
     except ValueError as error:
         raise host['Problem'](str(error),422) from None
     except Exception:

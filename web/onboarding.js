@@ -5,11 +5,12 @@
  const labels={model:'AI 模型',calendar:'校历',timetable:'课表',exam:'考试信息'};
  const prompts={
   model:'先连接学习用的 AI 模型。如果接下来要发截图，请选支持图片的模型。',
-  calendar:'请发学校的校历截图或 PDF。我会从里面找教学周和假期的日期。',
+  calendar:'请发学校的校历截图、PDF，或粘贴校历订阅链接。含周次的文件可用于识别教学周。',
   timetable:'请发你的课表截图、PDF，或粘贴学校提供的日历订阅链接。',
   exam:'请发考试安排的截图或 PDF。也可以从已保存的课表选一门课，再上传它的 Module Handbook。',
   done:'设置完成。可以回到学习页，从本周课表选一节课，或直接导入课件。'
  };
+ const canSubscribe=step=>step==='calendar'||step==='timetable';
  const key=id=>'study-onboarding-'+id;
  const read=id=>{try{return JSON.parse(localStorage.getItem(key(id))||'null');}catch{return null;}};
  const remember=(id,step,open)=>localStorage.setItem(key(id),JSON.stringify({step,open}));
@@ -51,7 +52,7 @@
  }
  function assetForm(f){
   const choices=f.calendar?.course_choices||[];
-  const allowUrl=f.step==='timetable';
+  const allowUrl=canSubscribe(f.step);
   const accept=f.handbook?'.pdf,.docx,.md,.txt':'.png,.jpg,.jpeg,.webp,.gif,.pdf,.docx,.pptx,.md,.txt';
   return `<form data-onboarding-form="asset" class="onboarding-composer">
    ${f.step==='exam'&&choices.length?`<div class="onboarding-exam-options"><button class="text-button" type="button" data-onboarding-action="handbook" aria-pressed="${f.handbook}" ${attr(f.busy)}>${f.handbook?'改用考试安排':'使用 Module Handbook'}</button>
@@ -60,7 +61,7 @@
    <div class="onboarding-input-row">
     <input type="file" id="onboarding-file" accept="${accept}" hidden ${attr(f.busy)}>
     <button type="button" class="outline-button" data-onboarding-action="attach" ${attr(f.busy)}>${icon('paperclip')}添加附件</button>
-    ${allowUrl?`<input name="url" aria-label="课表订阅链接" placeholder="粘贴课表订阅链接" value="${esc(f.url)}" ${attr(f.busy)}>`:`<span class="onboarding-file-hint">${f.handbook?'文字版 PDF 或 Word':'也可直接粘贴或拖入图片'}</span>`}
+    ${allowUrl?`<input name="url" aria-label="${labels[f.step]}订阅链接" placeholder="粘贴${labels[f.step]}订阅链接" value="${esc(f.url)}" ${attr(f.busy)}>`:`<span class="onboarding-file-hint">${f.handbook?'文字版 PDF 或 Word':'也可直接粘贴或拖入图片'}</span>`}
     <button type="submit" class="primary" ${attr(f.busy)}>发送 ${icon('arrow-up')}</button>
    </div>
    <button type="button" class="text-button onboarding-skip" data-onboarding-action="skip" ${attr(f.busy)}>跳过${labels[f.step]}</button>
@@ -79,7 +80,7 @@
  function reviewMarkup(f){
   const {result,subscription,filename,attachment}=f.review;
   const rows=subscription?[...result.calendar,...result.timetable,...result.events]:result.rows;
-  const source=subscription?f.calendar.sources.find(s=>s.type==='subscription'&&s.url===result.source.url):refs().matchingSource(f.calendar,f.step,filename,result.handbook?.course);
+  const source=subscription?f.calendar.sources.find(s=>s.type==='subscription'&&s.kind===f.step&&s.url===result.source.url):refs().matchingSource(f.calendar,f.step,filename,result.handbook?.course);
   return `<section class="onboarding-review" aria-label="核对导入结果">
    <strong>${esc(subscription?result.source.name:labels[f.step])}</strong>
    ${source?'<p>保存后会更新同一来源的安排。</p>':''}
@@ -196,12 +197,12 @@
   f.file=files[0];f.url='';f.error='';draw(f);
  }
  async function send(f){
-  if(!f.file&&!f.url){report(f,f.step==='timetable'?'请添加课表文件或粘贴订阅链接。':'请添加要发送的附件。');return;}
+  if(!f.file&&!f.url){report(f,canSubscribe(f.step)?'请添加文件或粘贴订阅链接。':'请添加要发送的附件。');return;}
   if(f.handbook&&!f.course){report(f,'请先选择这份 Module Handbook 对应的课程。');return;}
   f.busy=f.file?'正在识别附件…':'正在读取订阅…';
   f.error='';
   if(!f.promptSent){say(f,'assistant',prompts[f.step]);f.promptSent=true;}
-  say(f,'user',f.file?f.file.name:'课表订阅链接');draw(f);
+  say(f,'user',f.file?f.file.name:labels[f.step]+'订阅链接');draw(f);
   try{
    if(f.file){
     const attachment=await refs().attachment(f.file,f.handbook);
@@ -210,8 +211,8 @@
     f.review={result,attachment,filename:attachment.filename};
    }else{
     const url=f.url.replace(/^webcal:\/\//i,'https://');
-    const existing=f.calendar.sources.find(row=>row.type==='subscription'&&row.url===url);
-    const result=await refs().readSubscription(existing||{url});
+    const existing=f.calendar.sources.find(row=>row.type==='subscription'&&row.kind===f.step&&row.url===url);
+    const result=await refs().readSubscription(existing||{url,kind:f.step});
     if(!result.calendar.length&&!result.timetable.length&&!result.events.length)throw new Error('订阅中没有读到安排，请核对链接。');
     f.review={result,subscription:true};
    }
@@ -223,7 +224,7 @@
   try{
    const {result,subscription,attachment,filename}=f.review;
    const draft={...structuredClone(f.calendar),referenceFiles:[]};
-   if(subscription)refs().stageSubscription(draft,result,draft.sources.find(s=>s.type==='subscription'&&s.url===result.source.url));
+   if(subscription)refs().stageSubscription(draft,result,draft.sources.find(s=>s.type==='subscription'&&s.kind===f.step&&s.url===result.source.url));
    else refs().stageImport(draft,f.step,result,[attachment],filename);
    const {referenceFiles,...document}=draft;
    f.calendar=await api('/api/calendar',{...document,reference_files:referenceFiles});

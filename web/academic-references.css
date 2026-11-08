@@ -1,7 +1,6 @@
 .academic-references{min-width:0;color:#333}.academic-references svg{width:15px;height:15px;flex-shrink:0}
 .academic-reference-import{width:440px;max-width:100%;max-height:calc(100vh - 48px);overflow:auto;background:#fff;border:1px solid #ddd;border-radius:10px;padding:20px;box-shadow:0 14px 50px #00000014}
 .academic-reference-import>header{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:500;margin-bottom:22px}.academic-reference-import>header .icon-button{width:26px;height:26px;display:grid;place-items:center}
-.academic-import-target{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:center;gap:14px;font-size:12px;color:#888;margin-bottom:16px}.academic-import-target>select{width:100%;height:36px;border:1px solid #ddd;border-radius:5px;background:#fff;padding:6px 9px;color:#444;font:inherit}
 .academic-reference-drop{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;cursor:pointer;min-height:100px;border:1px dashed #ccc;border-radius:6px;padding:14px;margin-bottom:16px;font-size:13px;color:#666}.academic-reference-drop>img{max-width:100%;max-height:130px;object-fit:contain}.academic-reference-drop>span{overflow-wrap:anywhere}
 .academic-reference-import>textarea{box-sizing:border-box;width:100%;min-height:90px;resize:vertical;border:1px solid #ddd;border-radius:6px;padding:10px 12px;font:13px/1.7 inherit;color:#444;outline:none;background:#fff}.academic-reference-import>textarea:focus{border-color:#999}.academic-reference-import>footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.academic-reference-import>footer button{height:34px;min-height:34px;padding:6px 16px;font-size:12px}.academic-reference-import>.error-message{margin:12px 0 0;font-size:12px}
 .academic-reference-message{font-size:12px;color:#888;line-height:1.6;margin:0 0 10px}.academic-reference-message[hidden]{display:none}
@@ -26,3 +25,15 @@
 .calendar-originals a svg{width:13px;height:13px;flex:none}
 .calendar-originals a svg:last-child{margin-left:auto;color:#777}
 .calendar-originals small{display:block;margin:3px 9px 0;color:#777}
+
+.calendar-add-chooser > header { margin-bottom: 15px; }
+.calendar-add-kinds { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; padding: 4px; background: #f3f3f3; border-radius: 8px; }
+.calendar-add-kinds > button { min-height: 34px; padding: 4px 6px; border-radius: 6px; color: #595959; white-space: nowrap; }
+.calendar-add-kinds > button[aria-pressed="true"] { background: #fff; color: #272727; box-shadow: 0 1px 3px #00000014; }
+.calendar-add-methods { margin-top: 13px; }
+.calendar-add-methods > button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 8px; border-radius: 6px; text-align: left; }
+.calendar-add-methods > button:hover { background: #f5f5f5; }
+.calendar-add-methods > button > span { display: grid; flex: 1; gap: 3px; }
+.calendar-add-methods strong { color: #333; font-size: 13px; font-weight: 550; }
+.calendar-add-methods small { color: #686868; font-size: 12px; }
+.academic-reference-import > footer .calendar-add-back { margin-right: auto; padding-left: 0; }
