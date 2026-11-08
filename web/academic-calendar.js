@@ -118,14 +118,14 @@
   const t=M;
   return M.calendarView||={cursor:firstDate(t,today()),mode:'month',week:[...new Set((t.timetable||[]).flatMap(r=>r.weeks))].sort((a,b)=>a-b)[0]||1,editor:null,error:''};
  }
- function entryButton(entry,layout,attributes){
+ function entryButton(entry,layout,attributes,{label=entry.title,showTime=true}={}){
   const classes=['calendar-entry'];
   if(entry.kind==='exam')classes.push('is-exam');
   if(entry.range&&entry.range.end-entry.range.start<45)classes.push('is-short');
   if(entry.completed)classes.push('learning-lesson-complete');
   const title=[entry.title,entry.time,entry.subtitle,entry.completed?'已学完课件':''].filter(Boolean).join(' · ');
   const completion=entry.completed?'<i data-lucide="check" class="learning-lesson-check" aria-hidden="true"></i>':'';
-  return `<button type="button" class="${classes.join(' ')}" ${attributes} ${entry.completed?`aria-label="${esc(title)}"`:''} title="${esc(title)}" style="${colorStyle(entry.color)}${layout}"><strong>${esc(entry.title)}</strong>${entry.time?`<span>${esc(entry.time)}</span>`:''}${entry.subtitle?`<small>${esc(entry.subtitle)}</small>`:''}${completion}</button>`;
+  return `<button type="button" class="${classes.join(' ')}" ${attributes} ${entry.completed||!showTime?`aria-label="${esc(title)}"`:''} title="${esc(title)}" style="${colorStyle(entry.color)}${layout}"><strong>${esc(label)}</strong>${showTime&&entry.time?`<span>${esc(entry.time)}</span>`:''}${entry.subtitle?`<small>${esc(entry.subtitle)}</small>`:''}${completion}</button>`;
  }
  const button=(entry,layout='')=>entryButton(entry,layout,`data-calendar-action="edit" data-entry="${esc(entry.key)}"`);
 
@@ -158,12 +158,16 @@
  function learningWeekGrid(week,currentDate){
   const dates=week.days.map(day=>day.date);
   const entries=week.days.map(day=>day.classes.map((lesson,index)=>({
-   ...lesson,index,title:lesson.course,range:clockRange(lesson.time)
+   ...lesson,index,title:lesson.course,subtitle:lesson.classType,range:clockRange(lesson.time)
   })));
   const grid=weekGrid(dates,entries,{
    currentDate,hourHeight:36,fitHours:true,
    renderDay:day=>`<time datetime="${day}" ${day===currentDate?'aria-current="date"':''}>${Number(day.slice(8))}</time>`,
-   renderEntry:(entry,layout)=>entryButton(entry,layout,`data-learning-action="lesson" data-date="${entry.date}" data-index="${entry.index}" aria-haspopup="dialog"`)
+   renderEntry:(entry,layout)=>{
+    const code=entry.title.trim().match(/^[a-z]{2,6}\s*\d{2,4}(?![a-z0-9])/i)?.[0];
+    const label=code?code.replace(/\s/g,'').toUpperCase():entry.title;
+    return entryButton(entry,layout,`data-learning-action="lesson" data-date="${entry.date}" data-index="${entry.index}" aria-haspopup="dialog"`,{label,showTime:false});
+   }
   });
   return `<div class="learning-week-scroll"><div class="semester-week" aria-label="周课表">${grid}</div></div>`;
  }

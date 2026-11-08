@@ -105,3 +105,17 @@ test('a dated lesson is still available without a teaching calendar and is not a
  assert.deepEqual(week.weeks,[]);
  assert.equal(week.days[4].classes[0].week,null);
 });
+
+test('learning cards show the course code and actual class type while time stays in the axis',()=>{
+ const date='2026-11-03';
+ const html=C.learningWeekGrid({days:[{date,classes:[
+  {date,course:'ads 102 · 离散数学与统计',classType:'Lecture',time:'09:00–09:30',completed:true},
+  {date,course:'SOE101',classType:'',time:'10:00–11:00'}
+ ]}]},date);
+ const cards=Array.from(html.matchAll(/<button [^>]+data-learning-action="lesson"[^>]*>(.*?)<\/button>/g),match=>match[1]);
+ assert.equal(cards.length,2);
+ assert.match(cards[0],/^<strong>ADS102<\/strong><small>Lecture<\/small>/);
+ assert.match(cards[0],/learning-lesson-check/);
+ assert.equal(cards[1],'<strong>SOE101</strong>');
+ assert.match(html,/<div class="week-hours">[^<]*<span [^>]*>09:00<\/span>/);
+});
