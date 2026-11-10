@@ -159,7 +159,7 @@
   const courses=calendar?.document?.course_choices||[];
   const timetableTypes=(calendar?.document?.timetable||[]).map(row=>row.class_type).filter(Boolean);
   const types=Array.from(new Map([...timetableTypes,...classTypes].map(type=>[normalized(type),type])).values());
-  const preset={course:courses.includes(lesson?.course)?lesson.course:'',weeks:lesson?.week!=null?String(lesson.week):'',class_type:lesson?.classType||''};
+  const preset={course:lesson?courses.find(course=>courseIdentity(course)===courseIdentity(lesson.course))||'':'',weeks:lesson?.week!=null?String(lesson.week):'',class_type:lesson?.classType||''};
   const draft={file,lesson,preset,courses,recognition:null,owner:S.user?.id};
   importDraft=draft;
   modalContent('确认课件归属',`<form id="learning-import-confirm">
@@ -239,7 +239,7 @@
    const data={tags,confirm_fields:Object.keys(tags),learning_import:true};
    if(draft.recognition)data.recognition=draft.recognition;
    const lesson=draft.lesson;
-   if(lesson&&tags.course===lesson.course&&(lesson.week==null||weeks.length===1&&weeks[0]===lesson.week)){
+   if(lesson&&courseIdentity(tags.course)===courseIdentity(lesson.course)&&(lesson.week==null||weeks.length===1&&weeks[0]===lesson.week)){
     data.scheduled_lesson={date:lesson.date,course:lesson.course,time:lesson.time,class_type:lesson.classType};
     if(weeks.length===1||tags.class_type)data.sessions=[{week:weeks[0]??null,class_type:tags.class_type}];
    }else if(values.weeks!==draft.preset.weeks||values.class_type!==draft.preset.class_type){

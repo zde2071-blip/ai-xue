@@ -141,3 +141,19 @@ test('timetable retains independent weeks and displays dated lessons from timeta
  assert.deepEqual(C.timetableEntries(data,day,2).map(row=>row.title),['编程']);
  assert.deepEqual(C.timetableEntries(data,day,'all').map(row=>row.title),['数学','编程']);
 });
+
+test('semesters isolate the timetable and learning week while exams stay separate',()=>{
+ const {timetableSemesters,timetableEntries,examEntries,learningWeek}=require('../web/academic-calendar.js');
+ const lesson={weekday:2,time:'11:00–12:50',weeks:[1],class_type:'Lecture'};
+ const doc={
+  sources:[{id:'fall',kind:'timetable',type:'import',semester:'2026-1'}],
+  calendar:[{kind:'teaching',week:1,start:'2026-09-07',end:'2026-09-13'},
+   {kind:'exam',start:'2027-01-11',end:'2027-01-15'}],
+  timetable:[{...lesson,course:'ADS102',source_id:'fall'},{...lesson,course:'ISA104',semester:'2026-2'}],
+  events:[{id:'exam',kind:'exam',title:'ADS102 final',date:'2027-01-12'}]
+ };
+ assert.deepEqual(timetableSemesters(doc),['2026-2','2026-1']);
+ assert.deepEqual(timetableEntries(doc,'2026-09-08','all','2026-2').map(row=>row.title),['ISA104']);
+ assert.deepEqual(learningWeek(doc,'2026-09-08').days[1].classes.map(row=>row.course),['ADS102']);
+ assert.deepEqual(examEntries(doc).map(row=>row.title),['ADS102 final']);
+});

@@ -24,13 +24,15 @@
  const modes={
   ai:['sparkles','用 AI 导入','图片、PDF 或文字'],
   subscription:['link','订阅链接','学校提供的 iCalendar 地址'],
-  manual:['pencil','手动添加','自己填写安排']
+  manual:['pencil','手动添加','自己填写安排'],
+  handbook:['book-open','从 Module Handbook 提取','核对手册里的考试与考核信息']
  };
  function addChooser(s){
   const label='添加'+names[s.kind];
+  const methods=s.kind==='calendar'?['ai','subscription','manual']:s.kind==='exam'?['manual','ai','handbook']:['ai','manual'];
   return `<div class="calendar-editor-shade"><section class="academic-reference-import calendar-add-chooser" role="dialog" aria-modal="true" aria-label="${label}">
    <header><span>${label}</span><button type="button" class="icon-button" data-reference-action="cancel-import" aria-label="关闭添加">${icon('x')}</button></header>
-   <div class="calendar-add-methods" role="group" aria-label="添加方式">${Object.entries(modes).map(([mode,[glyph,title,description]])=>`<button type="button" data-reference-action="choose-method" data-mode="${mode}">${icon(glyph)}<span><strong>${title}</strong><small>${description}</small></span>${icon('chevron-right')}</button>`).join('')}</div>
+   <div class="calendar-add-methods" role="group" aria-label="添加方式">${methods.map(mode=>{const [glyph,title,description]=modes[mode];return `<button type="button" data-reference-action="choose-method" data-mode="${mode}">${icon(glyph)}<span><strong>${title}</strong><small>${description}</small></span>${icon('chevron-right')}</button>`;}).join('')}</div>
   </section></div>`;
  }
  function backButton(busy){return `<button type="button" class="text-button calendar-add-back" data-reference-action="back" ${busy?'disabled':''}>返回</button>`;}
@@ -134,17 +136,19 @@
    redraw();
   }catch(e){s.open=true;s.mode=mode;s.error=e.message;redraw();}
  }
- function matchingSource(M,kind,filename,course=''){
+ function matchingSource(M,kind,filename,course='',semester=''){
   if(course)return (M.sources||[]).find(source=>source.handbook?.course===course);
-  const matches=filename?(M.sources||[]).filter(row=>row.type==='import'&&!row.handbook&&row.kind===kind&&row.name===filename.replace(/\.[^.]+$/,'')):[];
+  const matches=filename?(M.sources||[]).filter(row=>row.type==='import'&&!row.handbook&&row.kind===kind&&(kind!=='timetable'||(row.semester||'')===semester)&&row.name===filename.replace(/\.[^.]+$/,'')):[];
   return matches.length===1?matches[0]:null;
  }
  function stageImport(M,kind,result,files,filename){
   const handbook=result.handbook;
-  const existing=matchingSource(M,kind,filename,handbook?.course);
+  const semester=kind==='timetable'?root.AcademicCalendar.selectedSemester(M):'';
+  const existing=matchingSource(M,kind,filename,handbook?.course,semester);
   const id=existing?.id||crypto.randomUUID();
   const source={...existing,id,name:handbook?.course||filename?.replace(/\.[^.]+$/,'')||names[kind],kind,type:'import',visible:handbook?existing?.visible!==false:true};
   if(handbook)source.handbook=handbook;
+  if(semester)source.semester=semester;
   stageOriginals(M,files,result.references,source);
   M.sources=(M.sources||[]).filter(row=>row.id!==id).concat(source);
   if(existing)for(const field of handbook?['events']:['calendar','timetable','events'])M[field]=M[field].filter(row=>row.source_id!==id);
@@ -213,7 +217,7 @@
   const button=event.target.closest('[data-reference-action]');if(!button||!model())return;
   event.preventDefault();event.stopImmediatePropagation();
   const M=model(),s=state(M),action=button.dataset.referenceAction;if(busy(M)||M.saving)return;
-  if(action==='add'&&['calendar','timetable'].includes(button.dataset.kind))openImport('choose',button.dataset.kind);
+  if(action==='add'&&Object.hasOwn(names,button.dataset.kind))openImport('choose',button.dataset.kind);
   if(action==='choose-method'){
    const mode=button.dataset.mode;
    if(mode==='manual'){s.open=false;root.AcademicCalendar.openManual(s.kind);}

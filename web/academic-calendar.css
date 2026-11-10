@@ -124,3 +124,24 @@
 @media (max-width: 850px) {
  .calendar-navigation-row .calendar-period { flex-basis: 100%; }
 }
+
+.calendar-view-actions .timetable-semester-picker { max-width: 100%; margin: 0; letter-spacing: 0; }
+.calendar-reference-menu .settings-action-options { right: 0; left: auto; max-width: min(260px, 75vw); }
+.calendar-reference-menu .settings-action-options span { overflow: hidden; text-overflow: ellipsis; }
+#timetable-semester-form { display: grid; gap: 18px; }
+#timetable-semester-form label { display: grid; gap: 5px; min-width: 0; font-size: 13px; }
+#timetable-semester-form input, #timetable-semester-form select { width: 100%; }
+#timetable-semester-form footer { display: flex; justify-content: flex-end; gap: 8px; }
+.exam-overview { padding: 0 28px 20px; }
+.exam-empty { color: #777; font-size: 13px; }
+.exam-events { list-style: none; margin: 0 0 14px; padding: 0; }
+.exam-events button { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; width: 100%; padding: 12px 6px; border: 0; border-bottom: 1px solid #eee; background: transparent; text-align: left; color: inherit; }
+.exam-events button:hover { background: #f7f7f7; }
+.exam-events button time, .exam-events button span { color: #666; font-size: 12px; }
+.exam-events button strong { font-size: 14px; font-weight: 550; overflow-wrap: anywhere; }
+.exam-handbook { border-bottom: 1px solid #eee; padding: 12px 0; font-size: 13px; }
+.exam-handbook summary { cursor: pointer; }
+@media (max-width: 480px) {
+ .academic-calendar[aria-label="课表"] .calendar-view-actions { gap: 6px; }
+ .academic-calendar[aria-label="课表"] .calendar-add-button { padding-inline: 8px; }
+}

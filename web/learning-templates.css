@@ -102,15 +102,6 @@
 .template-rule-row select { width: 100%; min-width: 0; border: 1px solid #dedede; border-radius: 6px; padding: 7px 10px; color: inherit; font: inherit; }
 .template-rules-empty { margin: 15px 0; color: #666; line-height: 1.6; font-size: 13px; }
 
-.settings-courses { width: min(100%,600px); min-height: 0; overflow-y: auto; }
-.settings-courses ul { list-style: none; margin: 0; padding: 0; }
-.settings-courses li { padding: 12px 0; border-bottom: 1px solid #ececec; overflow-wrap: anywhere; }
-.settings-courses li strong { font-weight: 550; }
-.settings-courses dl { margin: 8px 0 0; font-size: 13px; color: #666; }
-.settings-courses dl div { display: flex; flex-wrap: wrap; gap: 5px 12px; padding: 3px 0; }
-.settings-courses dt { min-width: 85px; }
-.settings-courses dd { margin: 0; }
-.settings-courses li > small { display: block; margin-top: 5px; color: #777; }
 .timetable-template-picker { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .timetable-template-picker select { width: min(180px,100%); min-width: 0; height: 34px; padding: 4px 8px; color: inherit; background: #fff; border: 1px solid #ddd; border-radius: 6px; font: inherit; }
 .timetable-template-picker button { flex: none; width: 34px; height: 34px; min-height: 34px; padding: 0; }
@@ -119,4 +110,12 @@
  .study-settings-shell { display: grid; grid-template-columns: minmax(102px,28%) minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); }
  .study-settings-shell > :is(.study-settings-nav,.study-settings-subnav) { width: auto !important; min-width: 0; max-height: min(190px,34vh); padding: 8px; border-bottom: 1px solid #e8e8e8; }
  .study-settings-shell > .study-settings-content { grid-column: 1 / -1; height: 100%; }
+}
+
+.study-settings-nav [data-category="exam"] { column-gap: 3px; padding-inline: 3px; }
+.study-settings-nav [data-category="exam"] > span { white-space: nowrap; }
+@media (max-width: 720px) {
+ .study-settings-nav [data-category="exam"] > span { font-size: 12px; }
+ .study-settings-nav [data-category="exam"] > svg:first-child { width: 13px; }
+ .study-settings-nav [data-category="exam"] > svg:last-child { width: 9px; }
 }

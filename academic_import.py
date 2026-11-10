@@ -349,7 +349,9 @@ class Importer:
     def recognize_handbook(self,data):
         calendar=self.h['calendar_store']
         course=data.get('handbook_course')
-        if course not in calendar.imported_courses(calendar.Calendar(self.h).document()):
+        if not isinstance(course, str) or calendar.course_identity(course) not in {
+            calendar.course_identity(choice) for choice in calendar.imported_courses(calendar.Calendar(self.h).document())
+        }:
             self.fail('请从已保存的课表选择课程。')
         files=data.get('attachments')
         if not isinstance(files,list) or len(files)!=1 or not isinstance(files[0],dict):

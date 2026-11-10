@@ -47,12 +47,12 @@ class CalendarStoreTest(unittest.TestCase):
         midterm='Midterm Test 30% Teaching Week 8'
         final='Final Examination 70% 16 December 2026 09:00–11:00'
         original='Module Handbook ADS102\n'+midterm+'\n'+final
-        data={'kind':'exam','handbook_course':'ADS102 · 离散数学','attachments':[{'filename':'Handbook.txt','file':base64.b64encode(original.encode()).decode()}]}
+        data={'kind':'exam','handbook_course':'ADS102','attachments':[{'filename':'Handbook.txt','file':base64.b64encode(original.encode()).decode()}]}
         entries=[{'name':'Midterm Test','weight':'30%','timing':'Teaching Week 8','date_text':'2026-11-02','evidence':midterm},
                  {'name':'Final Examination','weight':'70%','timing':'16 December 2026 09:00–11:00','date_text':'16 December 2026','start':'09:00','end':'11:00','evidence':final},
                  {'name':'Made up Test','weight':'20%','evidence':'Invented evidence'}]
         with patch.object(app,'ask',return_value={'entries':entries}) as model:
-            for course in ('CSI101','ADS102'):
+            for course in ('CSI101','ADS103'):
                 with self.assertRaises(app.Problem):app.route_post('/api/calendar/import',{**data,'handbook_course':course})
             model.assert_not_called()
             result=app.route_post('/api/calendar/import',data)
@@ -73,6 +73,24 @@ class CalendarStoreTest(unittest.TestCase):
         self.assertEqual(name,'Handbook.txt')
         self.save(saved,sources=doc['sources'],events=[],references=[])
         self.assertEqual(importer.file(ref['id'])[0].read_bytes(),original.encode())
+    def test_semesters_and_course_codes_round_trip(self):
+        row = {'course':'ADS102 · 离散数学','weekday':5,'time':'09:00–10:50','source_id':'fall','weeks':[1]}
+        sources = [
+            {'id':'fall','name':'课表','kind':'timetable','type':'import','semester':'2026-1'},
+            {'id':'spring','name':'课表','kind':'timetable','type':'import','semester':'2026-2'},
+        ]
+        doc = self.save(self.store.document(), sources=sources, timetable=[
+            row, {**row,'course':'ADS 102','source_id':'spring'},
+            {'course':'ISA104','weekday':2,'time':'11:00–12:50','semester':'2026-2'},
+        ])
+        self.assertEqual(self.store.document(), doc)
+        self.assertEqual([s['semester'] for s in doc['sources']], ['2026-1','2026-2'])
+        self.assertEqual(doc['timetable'][-1]['semester'], '2026-2')
+        self.assertEqual(calendar_store.imported_courses(doc), ['ADS102','ISA104'])
+        with self.assertRaises(app.Problem):
+            self.save(doc,timetable=[{**row,'semester':'2026-3'}])
+        self.assertEqual(self.store.document(),doc)
+
     def test_only_timetable_locations_are_omitted_from_the_saved_calendar(self):
         doc=self.store.document()
         source={'id':'timetable','name':'课表','kind':'timetable','type':'import'}

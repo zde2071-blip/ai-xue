@@ -18,11 +18,11 @@
  function actionMenuMarkup(label,manual,ai,{glyph=()=>'',className='',ariaLabel=label,triggerIcon='plus'}={}){
   return `<details class="settings-action-menu ${className}"><summary class="outline-button" aria-label="${escape(ariaLabel)}">${glyph(triggerIcon)}<span>${escape(label)}</span>${glyph('chevron-down')}</summary><div class="settings-action-options">${[manual,ai].map(item=>`<button type="button" aria-label="${escape(item.label)}" ${item.attributes}>${glyph(item.icon)}<span>${escape(item.label)}</span></button>`).join('')}</div></details>`;
  }
- const settingsCategories=[['calendar','校历','calendar-days'],['timetable','课表','table-2']];
- const categoryForMode=mode=>mode==='calendar'?'calendar':'timetable';
- if(typeof module!=='undefined'&&module.exports){module.exports={draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,submenuMarkup,coursesFromTimetable,actionMenuMarkup,defaultTypeFor,suggestDefault};return;}
+ const settingsCategories=[['calendar','校历','calendar-days'],['timetable','课表','table-2'],['exam','考试信息','clipboard-list']];
+ const categoryForMode=mode=>mode==='calendar'||mode==='exam'?mode:'timetable';
+ if(typeof module!=='undefined'&&module.exports){module.exports={draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,submenuMarkup,actionMenuMarkup,defaultTypeFor,suggestDefault};return;}
  let installed=false,recognizer=null;
- const V={calendarExpanded:true,mode:'calendar',stage:'learning_prompt',owner:null,data:null,courses:[],selected:'concepts',draft:null,saving:false,loading:false,error:'',notice:'',aiOpen:false,chats:{},undo:null};
+ const V={calendarExpanded:true,mode:'calendar',stage:'learning_prompt',owner:null,data:null,selected:'concepts',draft:null,saving:false,loading:false,error:'',notice:'',aiOpen:false,chats:{},undo:null};
  const typeRules={settings:null,draft:null};
  const selected=()=>V.data?.templates.find(row=>row.id===V.selected);
  const dirty=()=>!!V.draft&&(!V.selected||changed(selected(),V.draft));
@@ -54,37 +54,13 @@
   </nav></aside>`;
  }
  function submenuMarkup(mode,sources){
-  const school=mode==='calendar';
-  const items=school?[['calendar','校历总览']]:[['timetable','周课表'],['courses','课程'],['rules','课堂分类'],['prompts','讲解与笔记']];
-  return `<aside class="study-settings-subnav" id="calendar-submenu"><nav aria-label="${school?'校历':'课表'}三级菜单">
+  const category=categoryForMode(mode);
+  const label=settingsCategories.find(([id])=>id===category)[1];
+  const items=category==='calendar'?[['calendar','校历总览']]:category==='exam'?[['exam','考试总览']]:[['timetable','课表'],['rules','课堂分类'],['prompts','讲解与笔记']];
+  return `<aside class="study-settings-subnav" id="calendar-submenu"><nav aria-label="${label}三级菜单">
    <ul class="settings-subnav-pages">${items.map(([id,label])=>`<li><button type="button" data-settings-action="mode" data-mode="${id}" ${mode===id?'aria-current="page"':''}>${label}</button></li>`).join('')}</ul>
-   <section class="settings-subnav-sources" aria-labelledby="calendar-source-title"><h2 id="calendar-source-title">来源</h2>${sources||'<p>暂无来源</p>'}</section>
+   ${category==='calendar'?`<section class="settings-subnav-sources" aria-labelledby="calendar-source-title"><h2 id="calendar-source-title">来源</h2>${sources||'<p>暂无来源</p>'}</section>`:''}
   </nav></aside>`;
- }
- function coursesFromTimetable(doc){
-  const timetableSources=new Set(doc.sources.filter(source=>source.kind==='timetable').map(source=>source.id));
-  const courses=new Map(doc.course_choices.map(name=>[name,new Map()]));
-  for(const row of doc.timetable){
-   if(!timetableSources.has(row.source_id)&&(row.source_id||row.calendar_group))continue;
-   if(!courses.has(row.course))courses.set(row.course,new Map());
-   if(!row.class_type)continue;
-   const types=courses.get(row.course),key=row.class_type.toLowerCase();
-   if(!types.has(key))types.set(key,{name:row.class_type,allWeeks:false,weeks:new Set()});
-   const type=types.get(key);
-   if(!row.weeks.length)type.allWeeks=true;
-   for(const week of row.weeks)type.weeks.add(week);
-  }
-  return [...courses].sort(([a],[b])=>a.localeCompare(b,'zh-CN',{numeric:true})).map(([name,types])=>({
-   name,types:[...types.values()].map(type=>({...type,weeks:[...type.weeks].sort((a,b)=>a-b)}))
-  }));
- }
- function coursesPage(){
-  return `<section class="settings-courses" aria-label="课程">
-   ${V.courses.length?`<ul aria-label="已保存课表中的课程">${V.courses.map(course=>`<li>
-    <strong>${escape(course.name)}</strong>
-    ${course.types.length?`<dl>${course.types.map(type=>`<div><dt>${escape(type.name)}</dt><dd>${type.allWeeks?'每个教学周':`第 ${root.AcademicReferences.formatWeeks(type.weeks)} 周`}</dd></div>`).join('')}</dl>`:'<small>课表未标注课堂类型</small>'}
-   </li>`).join('')}</ul>`:'<p class="template-rules-empty">课表里还没有课程。可在日历中添加或导入课表。</p>'}
-  </section>`;
  }
  function promptPage(){
   if(!V.data||!V.draft)return '';
@@ -115,14 +91,14 @@
   ]));
   rememberSettings(settings);
  }
- const calendarSurface=mode=>mode==='calendar'||mode==='timetable';
+ const calendarSurface=mode=>settingsCategories.some(([id])=>id===mode);
  function page(){
   if(!V.data||!V.draft)return '';
   const calendar=calendarSurface(V.mode);
   const navigation=navigationMarkup(V.mode,icon,V.calendarExpanded);
-  const submenu=V.calendarExpanded?submenuMarkup(V.mode,root.AcademicCalendar.sourceList(categoryForMode(V.mode),calendar)):'';
+  const submenu=V.calendarExpanded?submenuMarkup(V.mode,V.mode==='calendar'?root.AcademicCalendar.sourceList('calendar',calendar):''):'';
   return `<section class="study-settings-shell">${navigation}${submenu}
-   <div class="template-page study-settings-content ${calendar?'calendar-settings-content':''}">${calendar?root.StudySchedule.markup(V.mode):V.mode==='courses'?coursesPage():V.mode==='rules'?rulesPage():promptPage()}</div>
+   <div class="template-page study-settings-content ${calendar?'calendar-settings-content':''}">${calendar?root.StudySchedule.markup(V.mode):V.mode==='rules'?rulesPage():promptPage()}</div>
   </section>`;
  }
  function paint(){
@@ -141,12 +117,9 @@
   const owner=S.user?.id;
   V.loading=true;
   try{
-   const [doc,settings,timetable]=await Promise.all([
-    api('/api/templates'),api('/api/learning-settings'),mode==='courses'?api('/api/calendar'):null
-   ]);
+   const [doc,settings]=await Promise.all([api('/api/templates'),api('/api/learning-settings')]);
    if(calendarSurface(mode))await root.StudySchedule.prepare({keepView:true});
    if(S.user?.id!==owner)return;
-   if(timetable)V.courses=coursesFromTimetable(timetable);
    if(V.owner!==owner){V.owner=owner;V.selected='concepts';V.chats={};V.aiOpen=false;}
    V.data=doc;rememberChoices(doc);V.mode=mode;V.calendarExpanded=true;resetRules(settings);
    if(!selected())V.selected=doc.templates[0].id;

@@ -259,7 +259,7 @@ def import_course(data, source_item=None):
         selected = tags.get('course', '') if isinstance(tags, dict) else ''
         if selected not in choices and (choices or selected):
             raise Problem('请选择已导入课表里的课程。')
-        if lesson and lesson['course'] != selected:
+        if lesson and calendar_store.course_identity(lesson['course']) != calendar_store.course_identity(selected):
             raise Problem('课件课程与所选课次不一致，请重新选择。')
     fields = resolved_material_fields(data)
     method = clean_text(data.get('method') or METHOD, 4000)

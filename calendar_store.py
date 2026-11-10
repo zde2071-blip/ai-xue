@@ -11,12 +11,33 @@ import calendar_subscription
 MAX_REFERENCES=2000
 FIELDS={'calendar':academic_import.calendar_rows,'timetable':partial(academic_import.timetable_rows,keep_location=False),'events':academic_import.event_rows}
 
-def imported_courses(document):
-    sources = {source['id'] for source in document.get('sources', []) if source['kind'] == 'timetable'}
-    recurring = {row['course'] for row in document.get('timetable', []) if row.get('source_id') in sources}
-    dated = {row['title'] for row in document.get('events', []) if row.get('source_id') in sources and row['kind'] != 'exam'}
-    return sorted(recurring | dated, key=str.casefold)
+def course_label(value):
+    match = re.match(r'^([a-z]{2,6})\s*(\d{2,4})(?![a-z0-9])', value, re.I | re.ASCII)
+    return (match[1] + match[2]).upper() if match else value
 
+
+def course_identity(value):
+    return course_label(value.strip()).casefold() if isinstance(value, str) else ''
+
+
+def imported_courses(document):
+    sources = {source['id'] for source in document.get('sources', [])
+               if source['kind'] == 'timetable' and source.get('visible') is not False}
+    recurring = [row['course'] for row in document.get('timetable', [])
+                 if row.get('source_id') in sources or (row.get('semester') and not (row.get('source_id') or row.get('calendar_group')))]
+    dated = [row['title'] for row in document.get('events', [])
+             if row.get('source_id') in sources and row['kind'] != 'exam']
+    choices = {}
+    for title in recurring + dated:
+        choices.setdefault(course_identity(title), course_label(title))
+    return sorted(choices.values(), key=str.casefold)
+
+
+def semester_metadata(row):
+    semester = row.get('semester', '')
+    if not isinstance(semester, str) or not re.fullmatch(r'(?:[1-9]\d{3}-[12])?', semester):
+        raise ValueError('请选择有效的学期。')
+    return {'semester': semester} if semester else {}
 
 
 def timetable_class_types(document):
@@ -52,8 +73,9 @@ class Calendar:
                     if not isinstance(row,dict):raise ValueError('日历安排格式有误。')
                     group=row.get('calendar_group','')
                     if not isinstance(group,str) or not re.fullmatch(r'[a-zA-Z0-9_|-]{0,100}',group):raise ValueError('日历来源标识无效。')
-                    groups.setdefault((group,row.get('source_id','')),[]).append(row)
-                clean[field]=[{**r,**({'calendar_group':group} if group else {})} for (group,source),rows in groups.items() for chunk in ([rows] if field=='timetable' or len(rows)<=180 else [rows[i:i+180] for i in range(0,len(rows),180)]) for r in validator(chunk)]
+                    semester=semester_metadata(row).get('semester','') if field=='timetable' else ''
+                    groups.setdefault((group,row.get('source_id',''),semester),[]).append(row)
+                clean[field]=[{**r,**({'calendar_group':group} if group else {}),**({'semester':semester} if semester else {})} for (group,source,semester),rows in groups.items() for chunk in ([rows] if field=='timetable' or len(rows)<=180 else [rows[i:i+180] for i in range(0,len(rows),180)]) for r in validator(chunk)]
         except ValueError as error:self.fail(str(error))
         colors=data.get('colors',{})
         if not isinstance(colors,dict):self.fail('日历颜色格式无效。')
@@ -73,6 +95,7 @@ class Calendar:
             try:
                 item.update(academic_import.row_color({'color':row.get('color','')}))
                 if source_type=='subscription':item['url']=calendar_subscription.subscription_url(row.get('url'))
+                if kind=='timetable' and source_type=='import':item.update(semester_metadata(row))
                 originals=row.get('reference_ids',[])
                 if not isinstance(originals,list) or len(originals)>MAX_REFERENCES or any(not isinstance(ref,str) or ref not in reference_ids for ref in originals):
                     raise ValueError('日历来源引用了不存在的原始文件。')
@@ -107,10 +130,10 @@ class Calendar:
             latest=self.document()
             if data.get('etag')!=latest['etag']:self.fail('日历已在其他位置修改。当前修改已保留，请重新打开后再保存。',409)
             previous_handbooks={row['id']:row['handbook'] for row in latest['sources'] if 'handbook' in row}
-            courses=set(imported_courses(normalized))
+            courses={course_identity(course) for course in imported_courses(normalized)}
             for row in normalized['sources']:
                 handbook=row.get('handbook')
-                if handbook and handbook!=previous_handbooks.get(row['id']) and handbook['course'] not in courses:
+                if handbook and handbook!=previous_handbooks.get(row['id']) and course_identity(handbook['course']) not in courses:
                     self.fail('请选择仍在课表中的课程，再保存考试信息。')
             known=latest['references']+[r['reference'] for r in prepared]
             if any(ref not in known for ref in normalized['references']):self.fail('原始材料缺失，请重新导入。')
