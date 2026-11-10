@@ -42,9 +42,8 @@
 .learning-home-content:has(.learning-week:not([hidden])){width:min(920px,calc(100% - 64px))}
 .learning-week:not([hidden])+.learning-import{margin-top:22px}
 .learning-week>header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
-.learning-week-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 12px}
 .learning-week h2{font-size:18px;font-weight:600;margin:0;color:#30373b}
-.learning-week-heading>span,.learning-week-empty{font-size:12px;color:#696f74}
+.learning-week-empty{font-size:12px;color:#696f74}
 .learning-week .calendar-date-nav{flex:0 0 auto}
 .learning-week-scroll{overflow-x:auto;border:1px solid #e3e5e6;border-radius:8px}
 .learning-week-scroll .semester-week{min-width:660px;border:0}

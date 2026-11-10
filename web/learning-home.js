@@ -57,13 +57,6 @@
  function resetOwner(){const next=S.user?.id||'guest';if(next===owner)return;owner=next;query='';expanded=false;calendar=null;request=null;selectedLesson=null;weekCursor=null;importDraft=null;}
  const weekView=date=>calendar?.document&&root.AcademicCalendar.learningWeek(calendar.document,date||weekCursor||root.AcademicCalendar.today());
  const shortDate=date=>date.slice(5).split('-').map(Number).join('/');
- function dateRange(start,end){
-  const [year,month,day]=start.split('-').map(Number);
-  const [endYear,endMonth,endDay]=end.split('-').map(Number);
-  const first=`${year}年${month}月${day}日`;
-  const last=endYear!==year?`${endYear}年${endMonth}月${endDay}日`:endMonth!==month?`${endMonth}月${endDay}日`:`${endDay}日`;
-  return first+'–'+last;
- }
  function weekMarkup(){
   if(calendar?.error)return '<header><h2>周课表</h2><button type="button" class="outline-button" data-learning-action="refresh-week">重新加载</button></header><p class="learning-week-empty">暂时无法读取日历。</p>';
   const week=weekView();if(!week)return '';
@@ -71,7 +64,7 @@
   const hasClasses=week.days.some(day=>day.classes.length);
   return `<header>
    <div class="learning-week-title">
-    <div class="learning-week-heading"><h2 aria-live="polite">${dateRange(week.start,week.end)}</h2>${label?`<span>${label}</span>`:''}</div>
+    <h2 aria-live="polite">${label||'周课表'}</h2>
     ${hasClasses?'<p>点课程卡片，导入课件或继续学习。</p>':''}
    </div>
    <div class="calendar-date-nav" aria-label="切换周课表">

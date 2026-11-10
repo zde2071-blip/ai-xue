@@ -20,7 +20,7 @@ test('scheduled imports wait for confirmation, and ordinary imports suggest edit
  const helper=require('../web/academic-calendar.js');
  const modal={open:true,contains:target=>target===form};
  const window={
-  AcademicCalendar:{...helper,today:()=> '2026-11-07',teachingWeekLabel:weeks=>weeks.join(',')},
+  AcademicCalendar:{...helper,today:()=> '2026-11-07',teachingWeekLabel:weeks=>weeks.length?'第 '+weeks.join('、')+' 教学周':''},
   AcademicReferences:require('../web/academic-references.js'),
   StudyTemplates:{prepare:async()=>({}),templateName:type=>({Tutorial:'题目讲解',Lab:'实验记录'}[type]||'知识点总结')},
   StudyUnits:{importFile:async (file,context)=>{sent=context;}}
@@ -60,14 +60,15 @@ test('scheduled imports wait for confirmation, and ordinary imports suggest edit
  assert.equal(sent.scheduled_lesson.date,'2026-11-03');assert.equal(sent.tags.weeks[0],8);assert.equal(sent.tags.class_type,'Lab');
 
  await click({learningAction:'next-week'});
- assert.match(region.innerHTML,/2026年11月9日–15日/);
+ assert.match(region.innerHTML,/<h2 aria-live="polite">第 9 教学周<\/h2>/);
+ assert.doesNotMatch(region.innerHTML,/2026年/);
  assert.doesNotMatch(region.innerHTML,/2026-11-03/);
  await click({learningAction:'lesson',date:'2026-11-10',index:'0'});
  await change('learning-lesson-file');
  await submit();
  assert.equal(sent.tags.weeks[0],9);assert.equal(sent.scheduled_lesson.date,'2026-11-10');
  await click({learningAction:'current-week'});
- assert.match(region.innerHTML,/2026年11月2日–8日/);
+ assert.match(region.innerHTML,/<h2 aria-live="polite">第 8 教学周<\/h2>/);
 
  sent=null;
  await change('learning-home-file');
