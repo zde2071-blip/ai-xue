@@ -157,3 +157,20 @@ test('semesters isolate the timetable and learning week while exams stay separat
  assert.deepEqual(learningWeek(doc,'2026-09-08').days[1].classes.map(row=>row.course),['ADS102']);
  assert.deepEqual(examEntries(doc).map(row=>row.title),['ADS102 final']);
 });
+
+test('learning week follows the third teaching term when the school calendar marks its first week',()=>{
+ const {semesterForDate,learningWeek,timetableSemesters}=require('../web/academic-calendar.js');
+ const calendar=['2026-09-07','2027-01-11','2027-04-05'].map(start=>({
+  kind:'teaching',week:1,start,end:C.addDays(start,6)
+ }));
+ const lesson={weekday:2,time:'11:00–12:50',weeks:[1],class_type:'Lecture'};
+ const doc={calendar,timetable:[
+  {...lesson,course:'FALL101',semester:'2026-1'},
+  {...lesson,course:'WINTER101',semester:'2026-2'},
+  {...lesson,course:'SPRING101',semester:'2026-3'},
+  {...lesson,course:'TERM101',semester:'2026-10'},
+ ]};
+ assert.equal(semesterForDate('2027-01-12',doc),'2026-2');
+ assert.deepEqual(learningWeek(doc,'2027-04-06').days[1].classes.map(row=>row.course),['SPRING101']);
+ assert.deepEqual(timetableSemesters(doc),['2026-10','2026-3','2026-2','2026-1']);
+});

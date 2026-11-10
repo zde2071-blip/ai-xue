@@ -18,11 +18,11 @@
  function actionMenuMarkup(label,manual,ai,{glyph=()=>'',className='',ariaLabel=label,triggerIcon='plus'}={}){
   return `<details class="settings-action-menu ${className}"><summary class="outline-button" aria-label="${escape(ariaLabel)}">${glyph(triggerIcon)}<span>${escape(label)}</span>${glyph('chevron-down')}</summary><div class="settings-action-options">${[manual,ai].map(item=>`<button type="button" aria-label="${escape(item.label)}" ${item.attributes}>${glyph(item.icon)}<span>${escape(item.label)}</span></button>`).join('')}</div></details>`;
  }
- const settingsCategories=[['calendar','校历','calendar-days'],['timetable','课表','table-2'],['exam','考试信息','clipboard-list']];
+ const settingsCategories=[['calendar','校历'],['timetable','课表'],['exam','考试信息']];
  const categoryForMode=mode=>mode==='calendar'||mode==='exam'?mode:'timetable';
  if(typeof module!=='undefined'&&module.exports){module.exports={draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,submenuMarkup,actionMenuMarkup,defaultTypeFor,suggestDefault};return;}
  let installed=false,recognizer=null;
- const V={calendarExpanded:true,mode:'calendar',stage:'learning_prompt',owner:null,data:null,selected:'concepts',draft:null,saving:false,loading:false,error:'',notice:'',aiOpen:false,chats:{},undo:null};
+ const V={mode:'calendar',stage:'learning_prompt',owner:null,data:null,selected:'concepts',draft:null,saving:false,loading:false,error:'',notice:'',aiOpen:false,chats:{},undo:null};
  const typeRules={settings:null,draft:null};
  const selected=()=>V.data?.templates.find(row=>row.id===V.selected);
  const dirty=()=>!!V.draft&&(!V.selected||changed(selected(),V.draft));
@@ -40,17 +40,11 @@
   const state=chat(),speechSupported=!!(root.SpeechRecognition||root.webkitSpeechRecognition);
   return `<aside class="template-ai" aria-label="模板 AI 助手"><header><span>${icon('sparkles')}AI 整理</span><button type="button" class="icon-button" data-template-action="ai-toggle" aria-label="收起 AI 整理" title="收起">${icon('x')}</button></header><div class="template-ai-history" aria-live="polite">${state.messages.map(message=>`<div class="template-ai-message ${message.role}">${escape(message.content)}</div>`).join('')}${state.proposal?`<section class="template-proposal"><details><summary>查看整理结果</summary><pre>${escape(state.proposal.prompt)}</pre></details><button type="button" class="outline-button" data-template-action="apply">应用到 Prompt</button></section>`:''}${state.busy?'<p class="template-ai-working" role="status">正在整理…</p>':''}</div><div class="template-ai-composer"><div class="template-attachments">${state.files.map((file,i)=>`<span>${icon('file-text')}<span>${escape(file.filename)}</span><button type="button" class="icon-button" data-template-action="remove-file" data-index="${i}" aria-label="移除附件 ${escape(file.filename)}">${icon('x')}</button></span>`).join('')}</div><textarea data-template-field="message" aria-label="告诉 AI 你的模板要求" rows="3" maxlength="40000" placeholder="粘贴模板，或说说你想怎么学…" ${state.busy?'disabled':''}>${escape(state.message)}</textarea><div class="template-ai-tools"><button type="button" class="icon-button" data-template-action="attach" aria-label="导入到 AI 整理" title="添加文件" ${state.busy?'disabled':''}>${icon('paperclip')}</button><button type="button" class="icon-button ${state.recording?'recording':''}" data-template-action="voice" aria-label="${state.recording?'结束口述':'口述模板要求'}" title="${speechSupported?'口述，由浏览器转写':'当前浏览器不支持语音转写，可使用系统听写输入'}" ${!speechSupported||state.busy?'disabled':''}>${icon(state.recording?'square':'mic')}</button><span></span><button type="button" class="template-send" data-template-action="send" aria-label="发送给 AI 整理" title="发送" ${state.busy||state.recording?'disabled':''}>${icon('arrow-up')}</button></div><input type="file" id="template-attachments" aria-label="选择模板参考文件" accept=".md,.txt,.json,.yaml,.yml,.pdf,.docx,.pptx,.png,.jpg,.jpeg,.webp" multiple hidden><p class="template-ai-error" role="alert" ${state.error?'':'hidden'}>${escape(state.error)}</p></div></aside>`;
  }
- function navigationMarkup(mode,glyph=()=>'',expanded=true){
+ function navigationMarkup(mode){
   const active=categoryForMode(mode);
-  return `<aside class="study-settings-nav"><nav aria-label="日历二级菜单">
-   <div class="settings-nav-title">日历</div>
-   ${settingsCategories.map(([id,label,iconName])=>{
-    const selected=active===id;
-    return `<button type="button" class="${selected?'selected':''}" data-settings-action="category" data-category="${id}"
-     aria-expanded="${selected&&expanded}" ${selected&&expanded?'aria-controls="calendar-submenu"':''}>
-     ${glyph(iconName)}<span>${label}</span>${glyph(selected&&expanded?'chevron-down':'chevron-right')}
-    </button>`;
-   }).join('')}
+  return `<aside class="study-settings-nav"><nav aria-label="二级菜单">
+   ${settingsCategories.map(([id,label])=>`<button type="button" data-settings-action="category" data-category="${id}"
+    ${active===id?'aria-current="true"':''}>${label}</button>`).join('')}
   </nav></aside>`;
  }
  function submenuMarkup(mode,sources){
@@ -95,8 +89,8 @@
  function page(){
   if(!V.data||!V.draft)return '';
   const calendar=calendarSurface(V.mode);
-  const navigation=navigationMarkup(V.mode,icon,V.calendarExpanded);
-  const submenu=V.calendarExpanded?submenuMarkup(V.mode,V.mode==='calendar'?root.AcademicCalendar.sourceList('calendar',calendar):''):'';
+  const navigation=navigationMarkup(V.mode);
+  const submenu=submenuMarkup(V.mode,V.mode==='calendar'?root.AcademicCalendar.sourceList('calendar',calendar):'');
   return `<section class="study-settings-shell">${navigation}${submenu}
    <div class="template-page study-settings-content ${calendar?'calendar-settings-content':''}">${calendar?root.StudySchedule.markup(V.mode):V.mode==='rules'?rulesPage():promptPage()}</div>
   </section>`;
@@ -121,7 +115,7 @@
    if(calendarSurface(mode))await root.StudySchedule.prepare({keepView:true});
    if(S.user?.id!==owner)return;
    if(V.owner!==owner){V.owner=owner;V.selected='concepts';V.chats={};V.aiOpen=false;}
-   V.data=doc;rememberChoices(doc);V.mode=mode;V.calendarExpanded=true;resetRules(settings);
+   V.data=doc;rememberChoices(doc);V.mode=mode;resetRules(settings);
    if(!selected())V.selected=doc.templates[0].id;
    V.draft=draftOf(selected());V.error='';V.notice='';V.undo=null;
   }catch(error){toast(error.message);return;}
@@ -176,9 +170,7 @@
    event.preventDefault();event.stopImmediatePropagation();
    const {settingsAction,mode,category}=node.dataset;
    if(settingsAction==='category'){
-    if(category===categoryForMode(V.mode)){
-     V.calendarExpanded=!V.calendarExpanded;paint();
-    }else if(!await open(category))return;
+    if(category!==V.mode&&!await open(category))return;
     document.querySelector(`[data-settings-action="category"][data-category="${category}"]`)?.focus();
    }else if(settingsAction==='open-source'){
     if(await open(categoryForMode(V.mode)))root.AcademicCalendar.openSourceSettings(node.dataset.sourceId,node.dataset.isSource==='true');

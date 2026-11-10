@@ -94,20 +94,63 @@
 .calendar-view-actions .calendar-date-nav { flex: none; }
 .calendar-view-actions .calendar-add-button { display: inline-flex; align-items: center; gap: 5px; height: 34px; min-height: 34px; padding: 0 10px; font-size: 12px; white-space: nowrap; }
 .calendar-editor-category { margin-bottom: 16px; color: #666; font-size: 12px; }
-.school-calendar-table { width: 100%; min-width: 570px; border-spacing: 0; font-size: 13px; }
-.school-calendar-table th,.school-calendar-table td { padding: 8px; border-right: 1px solid #e8e8e8; border-bottom: 1px solid #e8e8e8; }
-.school-calendar-table thead th { position: sticky; top: 0; z-index: 1; border-top: 1px solid #ddd; background: #f3f3f3; font-weight: 550; color: #515151; }
-.school-calendar-table thead th:not(:first-child,:last-child) { width: 7.5%; white-space: nowrap; }
-.school-calendar-table thead th:first-child { width: 110px; min-width: 94px; }
-.school-calendar-table tbody th { background: #fafafa; font-weight: 500; }
-.school-calendar-table .school-month-start > * { border-top: 1px solid #ddd; }
-.school-calendar-table tbody td { height: 36px; text-align: center; font-variant-numeric: tabular-nums; background: var(--event-bg,white); color: var(--event-ink,#333); }
-.school-calendar-table tbody .is-weekend { background: var(--event-bg,#fafafa); }
-.school-calendar-table tbody .is-outside { color: #aaa; }
-.school-calendar-table time[aria-current="date"] { display: inline-grid; place-items: center; min-width: 25px; height: 25px; border-radius: 50%; background: #333; color: #fff; }
-.school-calendar-table tbody .school-calendar-description { text-align: left; padding: 4px 10px; }
-.school-calendar-description button { display: inline-block; max-width: 100%; text-align: left; margin: 2px 5px 2px 0; padding: 4px 8px; border-radius: 4px; border-left: 3px solid var(--event-color); background: var(--event-bg); color: var(--event-ink); font-size: 12px; overflow-wrap: anywhere; }
+/* Annual school calendar */
+.academic-calendar[aria-label="校历"] .calendar-navigation-row { gap: 8px 16px; }
+.school-year-control, .school-year-label {
+ display: inline-flex; align-items: center; height: 34px; gap: 7px; padding-inline: 10px;
+ border: 1px solid #ddd; border-radius: 6px; color: #4f4f4f; font-size: 12px; white-space: nowrap;
+ font-variant-numeric: tabular-nums;
+}
+.school-year-control > span { color: #686868; }
+.school-year-control select { padding: 2px 0; border: 0; background: transparent; color: #303030; font: inherit; }
+.school-year-control:has(select:focus-visible) { outline: 2px solid #838383; outline-offset: 2px; }
+.school-year-control select:focus-visible { outline: none; }
+.school-calendar-frame { margin: 0 28px 24px; }
+.school-calendar-table {
+ width: 100%; min-width: 268px; table-layout: fixed; border: 1px solid #e5e5e5; border-radius: 8px;
+ border-spacing: 0; font-size: 13px;
+}
+.school-calendar-table th, .school-calendar-table td { padding: 5px 8px; border-bottom: 1px solid #efefef; }
+.school-calendar-table thead th {
+ position: sticky; top: 0; z-index: 1; height: 36px; background: #f5f5f5; color: #4f4f4f; font-weight: 550;
+ white-space: nowrap;
+}
+.school-calendar-table thead th:not(:first-child,:last-child) { width: 7%; }
+.school-calendar-table thead th:first-child { width: 80px; border-top-left-radius: 7px; }
+.school-calendar-table thead th:last-child { padding-left: 14px; text-align: left; border-top-right-radius: 7px; }
+.school-calendar-table tbody th { padding: 10px 4px; border-right: 1px solid #eee; background: #fafafa; vertical-align: top; }
+.school-calendar-table tbody th strong { display: block; font-size: 14px; font-weight: 600; }
+.school-calendar-table tbody th small { display: block; margin-top: 2px; color: #666; font-size: 11px; font-weight: 400; }
+.school-calendar-table tbody + tbody tr:first-child > * { border-top: 1px solid #e2e2e2; }
+.school-calendar-table tbody td { height: 37px; text-align: center; font-variant-numeric: tabular-nums; color: #373737; }
+.school-calendar-table .is-weekend { color: #666; background: #fafafa; }
+.school-calendar-table .is-outside { color: #929292; }
+.school-calendar-table :is(.school-date-mark, time[aria-current="date"]) {
+ display: inline-grid; place-items: center; min-width: 24px; height: 24px; border-radius: 6px;
+}
+.school-calendar-table .school-date-mark { background: var(--event-bg); color: var(--event-ink); }
+.school-calendar-table time[aria-current="date"] { background: #353535; color: #fff; font-weight: 600; }
+.school-calendar-table tbody .school-calendar-description { text-align: left; padding: 4px 14px; }
+.school-calendar-description button {
+ max-width: 100%; margin: 2px 6px 2px 0; padding: 3px 7px; border-radius: 5px; background: var(--event-bg);
+ color: var(--event-ink); font-size: 12px; text-align: left; overflow-wrap: anywhere;
+}
+.school-calendar-description button[data-kind="teaching"] { background: #f2f2f2; color: #4f4f4f; }
 .school-calendar-description button:hover { filter: brightness(.94); }
+@media (max-width: 720px) {
+ .academic-calendar[aria-label="校历"] .calendar-period { flex-basis: auto; }
+ .school-calendar-frame { margin: 0 12px 16px; }
+ .school-calendar-table { font-size: 11px; }
+ .school-weekday-prefix { display: none; }
+ .school-calendar-table th, .school-calendar-table td { padding: 3px 0; }
+ .school-calendar-table thead th:first-child { width: 44px; }
+ .school-calendar-table thead th:not(:first-child,:last-child) { width: 7.5%; }
+ .school-calendar-table thead th:last-child, .school-calendar-table tbody .school-calendar-description { padding-inline: 5px; }
+ .school-calendar-table tbody th strong { font-size: 12px; }
+ .school-calendar-table tbody th small { font-size: 10px; }
+ .school-calendar-table :is(.school-date-mark, time[aria-current="date"]) { min-width: 19px; height: 21px; }
+ .school-calendar-description button { margin-right: 2px; padding: 2px 4px; font-size: 11px; }
+}
 .timetable-week-picker { height: 34px; padding: 0 8px; border: 1px solid #ddd; border-radius: 6px; background: #fff; color: #444; font: inherit; font-size: 12px; }
 .settings-timetable-grid :is(.week-day-headings,.week-all-day,.week-time-grid) { grid-template-columns: 62px var(--timetable-columns); }
 .settings-timetable-grid .week-day-headings { min-height: 40px; background: #f3f3f3; }
@@ -119,7 +162,6 @@
 .settings-timetable-grid .calendar-entry > strong { line-height: 12px; }
 .settings-timetable-grid .calendar-entry > small { display: block; line-height: 9px; font-size: 10px; }
 .settings-timetable-grid .calendar-entry > .timetable-card-weeks { white-space: normal; overflow-wrap: anywhere; flex-shrink: 0; }
-.calendar-period > [data-school-year] { font-size: 20px; padding: 0 12px; height: 40px; }
 .settings-timetable-grid :is(.week-day-headings,.week-all-day,.week-time-scroll) { scrollbar-width: thin; scrollbar-gutter: stable; }
 @media (max-width: 850px) {
  .calendar-navigation-row .calendar-period { flex-basis: 100%; }
@@ -130,7 +172,11 @@
 .calendar-reference-menu .settings-action-options span { overflow: hidden; text-overflow: ellipsis; }
 #timetable-semester-form { display: grid; gap: 18px; }
 #timetable-semester-form label { display: grid; gap: 5px; min-width: 0; font-size: 13px; }
-#timetable-semester-form input, #timetable-semester-form select { width: 100%; }
+#timetable-semester-form input {
+ box-sizing: border-box; width: 100%; height: 36px; padding: 0 9px;
+ border: 1px solid #dedede; border-radius: 6px; background: #fff; color: #333; font: inherit;
+}
+#timetable-semester-form input:focus-visible { outline: 2px solid #838383; outline-offset: 1px; }
 #timetable-semester-form footer { display: flex; justify-content: flex-end; gap: 8px; }
 .exam-overview { padding: 0 28px 20px; }
 .exam-empty { color: #777; font-size: 13px; }

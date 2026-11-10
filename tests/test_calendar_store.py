@@ -77,18 +77,18 @@ class CalendarStoreTest(unittest.TestCase):
         row = {'course':'ADS102 · 离散数学','weekday':5,'time':'09:00–10:50','source_id':'fall','weeks':[1]}
         sources = [
             {'id':'fall','name':'课表','kind':'timetable','type':'import','semester':'2026-1'},
-            {'id':'spring','name':'课表','kind':'timetable','type':'import','semester':'2026-2'},
+            {'id':'spring','name':'课表','kind':'timetable','type':'import','semester':'2026-3'},
         ]
         doc = self.save(self.store.document(), sources=sources, timetable=[
             row, {**row,'course':'ADS 102','source_id':'spring'},
-            {'course':'ISA104','weekday':2,'time':'11:00–12:50','semester':'2026-2'},
+            {'course':'ISA104','weekday':2,'time':'11:00–12:50','semester':'2026-3'},
         ])
         self.assertEqual(self.store.document(), doc)
-        self.assertEqual([s['semester'] for s in doc['sources']], ['2026-1','2026-2'])
-        self.assertEqual(doc['timetable'][-1]['semester'], '2026-2')
+        self.assertEqual([s['semester'] for s in doc['sources']], ['2026-1','2026-3'])
+        self.assertEqual(doc['timetable'][-1]['semester'], '2026-3')
         self.assertEqual(calendar_store.imported_courses(doc), ['ADS102','ISA104'])
         with self.assertRaises(app.Problem):
-            self.save(doc,timetable=[{**row,'semester':'2026-3'}])
+            self.save(doc,timetable=[{**row,'semester':'2026-0'}])
         self.assertEqual(self.store.document(),doc)
 
     def test_only_timetable_locations_are_omitted_from_the_saved_calendar(self):

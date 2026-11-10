@@ -20,18 +20,17 @@ test('addition method menus name the target and separate manual entry from AI re
 test('import selects the configured template and preserves an explicit manual choice',()=>{const form={elements:{class_type:{value:' Tutorial '},learning_kind:{value:'',dataset:{}}}};suggestDefault(form,{Tutorial:'solutions',Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'solutions');form.elements.class_type.value='Studio';suggestDefault(form,{Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'tpl_custom');form.elements.learning_kind.value='concepts';form.elements.learning_kind.dataset.userEdited='true';suggestDefault(form,{Studio:'tpl_custom'});assert.equal(form.elements.learning_kind.value,'concepts');});
 
 test('calendar categories control separate timetable, school and exam sidebars',()=>{
- const categories=navigationMarkup('rules',()=>'',true);
- assert.match(categories,/aria-label="日历二级菜单"/);
- assert.match(categories,/data-category="timetable"\s+aria-expanded="true"/);
- assert.match(categories,/data-category="calendar"\s+aria-expanded="false"/);
- assert.doesNotMatch(categories,/课堂分类|来源/);
- assert.doesNotMatch(navigationMarkup('rules',()=>'',false),/aria-expanded="true"|aria-controls=/);
+ const categories=navigationMarkup('rules');
+ assert.match(categories,/aria-label="二级菜单"/);
+ assert.match(categories,/data-category="timetable"\s+aria-current="true">课表/);
+ assert.match(categories,/data-category="calendar"\s*>校历/);
+ assert.doesNotMatch(categories,/日历|课堂分类|来源|aria-expanded|<svg/);
  const timetable=submenuMarkup('rules','<button>第一份课表</button><button>第二份课表</button>');
  assert.match(timetable,/study-settings-subnav.*id="calendar-submenu"/);
  assert.match(timetable,/data-mode="rules" aria-current="page">课堂分类/);
  assert.match(timetable,/>课表<.*课堂分类.*讲解与笔记/);
  assert.doesNotMatch(timetable,/周课表|data-mode="courses"|来源/);
  assert.match(submenuMarkup('calendar','<button>校历原件</button>'),/来源.*校历原件/);
- assert.match(navigationMarkup('exam'),/data-category="exam"\s+aria-expanded="true"/);
+ assert.match(navigationMarkup('exam'),/data-category="exam"\s+aria-current="true"/);
  assert.match(submenuMarkup('exam',''),/考试信息三级菜单[\s\S]*考试总览/);
 });

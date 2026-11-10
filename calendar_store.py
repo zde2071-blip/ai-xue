@@ -35,7 +35,7 @@ def imported_courses(document):
 
 def semester_metadata(row):
     semester = row.get('semester', '')
-    if not isinstance(semester, str) or not re.fullmatch(r'(?:[1-9]\d{3}-[12])?', semester):
+    if not isinstance(semester, str) or not re.fullmatch(r'(?:[1-9][0-9]{3}-[1-9][0-9]?)?', semester):
         raise ValueError('请选择有效的学期。')
     return {'semester': semester} if semester else {}
 
