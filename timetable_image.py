@@ -117,7 +117,7 @@ def colored_cards(image, edges, top, ordinary):
     return cards
 
 
-def recognize(raw):
+def recognize(raw, *, headings=None):
     if sys.platform != 'darwin':
         return None
     try:
@@ -135,6 +135,10 @@ def recognize(raw):
             if not header:
                 return None
             edges, top, bottom, ordinary = header
+            if headings is not None:
+                above = sorted((row for row in observations if row['y'] * image.height < top),
+                               key=lambda row: (row['y'], row['x']))
+                headings.append('\n'.join(row['text'] for row in above))
             cards = colored_cards(image, edges, bottom, ordinary)
             if not cards or len(cards) > 100:
                 return None

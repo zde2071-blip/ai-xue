@@ -150,11 +150,21 @@ class AcademicImportTest(unittest.TestCase):
         self.assertEqual(doc['terms'][0]['calendar'], self.calendar())
         self.assertEqual(doc['terms'][0]['key'], 'university|2|2')
 
+    def test_timetable_semester_uses_explicit_headings_and_rejects_conflicts(self):
+        from academic_import import timetable_semester
+
+        self.assertEqual(timetable_semester('2026–2027 学年第 3 学期'), '2026-3')
+        self.assertEqual(timetable_semester('Quarter 4 · 2026/27'), '2026-4')
+        self.assertEqual(timetable_semester('2026-2027_Semester_2_课表'), '2026-2')
+        self.assertEqual(timetable_semester('20261026 My Timetable'), '')
+        self.assertEqual(timetable_semester('2026–2028 学年第 2 学期'), '')
+        self.assertEqual(timetable_semester('2026–2027 Term 3','2026–2027 学年第 2 学期'), '')
+
     def test_picture_pixels_reach_the_model_without_flattening_ocr(self):
         raw=b'\x89PNG\r\n\x1a\nsynthetic-image';source=hashlib.sha256(raw).hexdigest()
         file={'filename':'微信课表.png','file':base64.b64encode(raw).decode()}
         content='周一 09:00–10:00 ADS102 · 离散数学 Lecture 第1、3、5周 A101'
-        answer={'transcripts':[{'source':source,'text':content}],'rows':[{**self.timetable()[0],'source':source,'evidence':content}]}
+        answer={'transcripts':[{'source':source,'text':'2026/27 Term 3\n'+content}],'rows':[{**self.timetable()[0],'source':source,'evidence':content}]}
         with patch.object(app,'active_ai',return_value={'provider':'deepseek','model':'deepseek-flash'}),patch.object(app,'extract',side_effect=AssertionError('OCR must not flatten the image')),patch.object(app,'ask',return_value=answer) as ask:
             result=app.route_post('/api/calendar/import',{'kind':'timetable','term_key':self.key,'attachments':[file]})
         parts=ask.call_args.args[0][-1]['content']
@@ -163,6 +173,7 @@ class AcademicImportTest(unittest.TestCase):
         expected={key:value for key,value in self.timetable()[0].items() if key!='location'}
         self.assertEqual(result['rows'],[{**expected,'course':'ADS102'}])
         self.assertEqual(result['recognition_mode'],'vision')
+        self.assertEqual(result['semester'],'2026-3')
         self.assertFalse((app.VAULT/'学期参考').exists())
 
     def test_spatial_timetable_preserves_even_and_odd_week_cells_without_calling_model(self):
@@ -175,11 +186,12 @@ class AcademicImportTest(unittest.TestCase):
             {'course':'CCT009','class_type':'Comp.Lab','weekday':4,'time':'11:00–12:50','weeks':[2,4,6,8,10,12]},
             {'course':'CCT009','class_type':'Tutorial','weekday':4,'time':'11:00–12:50','weeks':[1,3,5,7,9,11,13]},
         ])
-        file={'filename':'课表.png','file':base64.b64encode(b'\x89PNG\r\n\x1a\nimage').decode()}
+        file={'filename':'2026–2027 第三学期.png','file':base64.b64encode(b'\x89PNG\r\n\x1a\nimage').decode()}
         with patch('timetable_image.recognize',return_value=expected),patch.object(app,'ask',side_effect=AssertionError):
             result=app.route_post('/api/calendar/import',{'kind':'timetable','attachments':[file]})
         self.assertEqual(result['rows'],expected)
         self.assertEqual(result['recognition_mode'],'local-timetable')
+        self.assertEqual(result['semester'],'2026-3')
         self.assertFalse((app.VAULT/'学习日历.json').exists())
 
     def test_picture_requires_transcription_and_rejects_unsupported_model_clearly(self):

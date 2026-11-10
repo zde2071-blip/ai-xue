@@ -11,6 +11,39 @@ from pathlib import Path
 KINDS = ('calendar', 'timetable', 'exam')
 
 
+_TIMETABLE_YEAR = (
+    r'(?<![0-9])(?P<year>[1-9][0-9]{3}|[0-9]{2})\s*[-–—/~至到]\s*'
+    r'(?P<end>[1-9][0-9]{3}|[0-9]{2})(?![0-9])(?:\s*(?:学年|academic\s+year))?'
+)
+_TIMETABLE_TERM = (
+    r'(?:(?<![A-Za-z])(?:semester|term|quarter|s)[\s_:-]*(?P<english>[1-9][0-9]?)'
+    r'(?![0-9])|第?\s*(?P<chinese>[1-9][0-9]?|[一二三四五六七八九十])\s*学期)'
+)
+_TIMETABLE_SEPARATOR = r'[\s_·•:：,，()（）-]{0,24}'
+_TIMETABLE_HEADINGS = tuple(re.compile(pattern, re.I) for pattern in (
+    _TIMETABLE_YEAR + _TIMETABLE_SEPARATOR + _TIMETABLE_TERM,
+    _TIMETABLE_TERM + _TIMETABLE_SEPARATOR + _TIMETABLE_YEAR,
+))
+
+
+def timetable_semester(*sources):
+    """Use a printed year range and term number only when the sources agree."""
+    terms = set()
+    for source in sources:
+        source = unicodedata.normalize('NFKC', source)
+        for heading in _TIMETABLE_HEADINGS:
+            for match in heading.finditer(source):
+                year = int(match['year'])
+                year += 2000 if year < 100 else 0
+                last = int(match['end'])
+                if last != (year + 1 if len(match['end']) == 4 else (year + 1) % 100):
+                    continue
+                ordinal = match['english'] or match['chinese']
+                term = int(ordinal) if ordinal.isascii() else '一二三四五六七八九十'.index(ordinal) + 1
+                terms.add(f'{year}-{term}')
+    return terms.pop() if len(terms) == 1 else ''
+
+
 def image_mime(raw):
     if raw.startswith(b'\x89PNG\r\n\x1a\n'):return 'image/png'
     if raw.startswith(b'\xff\xd8\xff'):return 'image/jpeg'
@@ -216,10 +249,12 @@ class Importer:
             self.fail('请选择文件，或粘贴日历资料。')
         if kind == 'timetable' and prepared and all(row['mime'] for row in prepared) and not request.strip():
             from timetable_image import recognize as recognize_timetable
-            recognized = [recognize_timetable(row['raw']) for row in prepared]
+            headings = []
+            recognized = [recognize_timetable(row['raw'], headings=headings) for row in prepared]
             if all(recognized):
+                semester = timetable_semester(*headings, *(Path(row['reference']['filename']).stem for row in prepared))
                 return {'kind':kind, 'rows':timetable_rows([row for rows in recognized for row in rows], keep_location=False),
-                        'references':[row['reference'] for row in prepared], 'reply':'',
+                        'semester':semester, 'references':[row['reference'] for row in prepared], 'reply':'',
                         'recognition_mode':'local-timetable', 'incomplete':False}
         materials = [{'source': '材料'+str(index+1), 'filename': row['reference']['filename'], 'text': row['text'],'is_image':bool(row['mime'])} for index,row in enumerate(prepared)]
         aliases={material['source']:row['reference']['id'] for material,row in zip(materials,prepared)}
@@ -232,7 +267,7 @@ class Importer:
                            [{'course': 'ADS102', 'class_type': 'Lecture', 'weekday': 1, 'time': '09:00–10:00 或原文节次', 'weeks': [1, 2], 'source': '原件 source 或 输入', 'evidence': '逐字原文'}]), 'reply': '需要补充的信息或简短说明'}
         if kind=='exam':schema['rows']=[{'title':'考试名称','kind':'exam','date':'2026-12-01','start':'09:00','end':'11:00','location':'','source':'原件 source 或 输入','evidence':'逐字原文'}]
         if kind=='calendar':schema['rows'][0]['evidence']='transcripts.text 中逐字相同的活动短语，例如 Week 4 或 Reading Week，不拼接七列日期'
-        transcription = ('逐格记录星期列、课程代码、课程类型、Week 原文、起止时间原文，逐格另起一行'
+        transcription = ('若有明确学年和学期的表头，先逐字转写表头。逐格记录星期列、课程代码、课程类型、Week 原文和起止时间，逐格另起一行'
                          if kind == 'timetable' else '逐行简记年月、日期范围和周次/活动')
         schema={'transcripts':[{'source':'材料1','text':transcription}],**schema}
         scope='统一日历不需要学籍、年级或学期归属。读取原件所有明确日期，保留各学期原有周次编号。'
@@ -344,7 +379,10 @@ class Importer:
                     gaps.append(end+' 至 '+row['start'])
                 end=max(end,row['end'])
         if gaps:reply=(reply+' 以下日期之间没有识别到安排，请核对原图：'+'；'.join(gaps[:3])+'。').strip()
-        return {'kind': kind, 'rows': accepted, 'references': [row['reference'] for row in prepared], 'reply': reply,'recognition_mode':'vision' if images else 'text','incomplete':bool(rejected or gaps)}
+        semester = timetable_semester(*sources.values(), *(Path(row['reference']['filename']).stem for row in prepared)) if kind == 'timetable' else ''
+        return {'kind': kind, 'rows': accepted, 'references': [row['reference'] for row in prepared], 'reply': reply,
+                'recognition_mode':'vision' if images else 'text','incomplete':bool(rejected or gaps),
+                **({'semester':semester} if kind=='timetable' else {})}
 
     def recognize_handbook(self,data):
         calendar=self.h['calendar_store']

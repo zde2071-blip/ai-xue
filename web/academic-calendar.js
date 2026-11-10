@@ -71,11 +71,15 @@
   return year+'-'+(month>=2&&month<9?2:1);
  }
  const semesterOf=(t,row)=>sourceOf(t,row)?.semester||row.semester||'';
+ const timetableGroup=(t,row)=>{
+  const source=sourceOf(t,row);
+  return semesterOf(t,row)||(source?.kind==='timetable'&&source.type==='import'?'import:'+source.id:'');
+ };
  const newestSemesterFirst=(a,b)=>b.localeCompare(a,'en',{numeric:true});
  function timetableSemesters(t){
   const rows=(t.timetable||[]).filter(row=>belongsTo(t,row,'timetable','timetable'));
   const sources=(t.sources||[]).filter(source=>source.kind==='timetable'&&source.type==='import');
-  return [...new Set([...rows.map(row=>semesterOf(t,row)),...sources.map(source=>source.semester||'')])].sort(newestSemesterFirst);
+  return [...new Set([...rows.map(row=>timetableGroup(t,row)),...sources.map(source=>timetableGroup(t,{source_id:source.id}))])].sort(newestSemesterFirst);
  }
  function examEntries(t){
   return (t.events||[]).flatMap((row,i)=>{
@@ -92,8 +96,9 @@
    const activeSemester=semesterForDate(date,t);
    const off=(t.calendar||[]).some(r=>['break','nonteaching'].includes(r.kind)&&sources.get(r.source_id)?.type!=='subscription'&&r.start<=date&&r.end>=date);
    for(const r of t.timetable||[]){
-    const mapped=classWeek(t,r,date,week),semester=semesterOf(t,r);
-    if(off||(semester&&semester!==activeSemester)||r.weekday!==i+1||mapped===null||(r.weeks?.length&&!r.weeks.includes(mapped))||sources.get(r.source_id)?.visible===false)continue;
+    const mapped=classWeek(t,r,date,week),semester=semesterOf(t,r),source=sources.get(r.source_id);
+    const unplaced=source?.kind==='timetable'&&source.type==='import'&&!semester;
+    if(off||unplaced||(semester&&semester!==activeSemester)||r.weekday!==i+1||mapped===null||(r.weeks?.length&&!r.weeks.includes(mapped))||sources.get(r.source_id)?.visible===false)continue;
     classes.push({course:r.course,date,week:mapped,classType:r.class_type||'',time:r.time,location:r.location||'',color:colorFor(t,'timetable',r)});
    }
    for(const r of t.events||[]){
@@ -154,29 +159,45 @@
   if(row.source_id)return sourceOf(t,row)?.kind===kind;
   return field===kind;
  }
- function schoolYears(t,cursor){
-  const year=day=>Number(schoolBounds(day,'year').start.slice(0,4));
-  const selected=year(cursor),years=new Set([selected]);
-  for(const row of schoolRows(t,'0001-01-01','9999-12-31')){
-   for(let n=year(row.start),last=year(row.end);n<=last;n++)years.add(n);
+ function schoolYearOf(day){return Number(schoolBounds(day,'year').start.slice(0,4));}
+ function schoolYearRows(t){
+  const rows=schoolRows(t,'0001-01-01','9999-12-31',true),teachingYears=new Map(),sections=new Map();
+  for(const row of rows){
+   if(row.kind!=='teaching'||!row.source_id)continue;
+   if(!teachingYears.has(row.source_id))teachingYears.set(row.source_id,new Set());
+   teachingYears.get(row.source_id).add(schoolYearOf(row.start));
   }
-  return [...years].sort((a,b)=>b-a);
+  for(const row of rows){
+   const midpoint=addDays(row.start,Math.floor((dateOf(row.end)-dateOf(row.start))/86400000/2));
+   let year=schoolYearOf(row.kind==='teaching'?row.start:midpoint);
+   const anchors=teachingYears.get(row.source_id);
+   if(anchors&&!anchors.has(year)){
+    // An annual calendar may print orientation or summer days just outside September–August.
+    const next=year+1,previous=year-1;
+    if(anchors.has(next)&&row.start>=addDays(next+'-09-01',-7))year=next;
+    else if(anchors.has(previous)&&row.end<=addDays(previous+1+'-08-31',7))year=previous;
+   }
+   if(!sections.has(year))sections.set(year,[]);
+   sections.get(year).push(row);
+  }
+  return sections;
  }
+ function schoolYears(t){return [...schoolYearRows(t).keys()].sort((a,b)=>b-a);}
  function courseCode(name=''){
   return name.trim().match(/^[a-z]{2,6}\s*\d{2,4}(?![a-z0-9])/i)?.[0].replace(/\s/g,'').toUpperCase()||name;
  }
- function schoolRows(t,start,end){
+ function schoolRows(t,start,end,includeHidden=false){
   const descriptions={break:'假期',exam:'考试期',nonteaching:'其他安排'};
   const rows=(t.calendar||[]).flatMap((row,i)=>{
-   if(!belongsTo(t,row,'calendar','calendar')||!shown(t,row,'calendar'))return [];
+   if(!belongsTo(t,row,'calendar','calendar')||(!includeHidden&&!shown(t,row,'calendar')))return [];
    const repeatedWeek=Number(row.label?.match(/^(?:teaching\s+)?week\s*(\d+)$/i)?.[1])===row.week;
    const title=row.kind==='teaching'?'第 '+row.week+' 教学周'+(row.label&&!repeatedWeek?' · '+row.label:''):row.label||descriptions[row.kind];
    const defaultColor={teaching:'#868b92',break:'#b16363',exam:'#548568',nonteaching:'#8070a0'}[row.kind];
    return [{...row,key:'calendar:'+i,title,color:row.color||sourceOf(t,row)?.color||t.colors?.calendar||defaultColor}];
   });
   (t.events||[]).forEach((row,i)=>{
-   if(belongsTo(t,row,'events','calendar')&&shown(t,row,'calendar'))rows.push({
-    start:row.date,end:row.date,key:'events:'+i,title:row.title,kind:row.kind,color:colorFor(t,'events',row)
+   if(belongsTo(t,row,'events','calendar')&&(includeHidden||shown(t,row,'calendar')))rows.push({
+    start:row.date,end:row.date,key:'events:'+i,title:row.title,kind:row.kind,source_id:row.source_id,color:colorFor(t,'events',row)
    });
   });
   return rows.filter(row=>row.start<=end&&row.end>=start).sort((a,b)=>a.start.localeCompare(b.start)||Number(b.kind==='teaching')-Number(a.kind==='teaching'));
@@ -186,7 +207,7 @@
    ['break','nonteaching'].includes(row.kind)&&sourceOf(t,row)?.type!=='subscription'&&row.start<=day&&row.end>=day);
   const teachingWeek=week===null?weekAt(t,day):week;
   const timedClasses=(t.timetable||[]).flatMap((row,i)=>{
-   if(off||(semester!==undefined&&semesterOf(t,row)!==semester)||!belongsTo(t,row,'timetable','timetable')||!shown(t,row,'timetable')||row.weekday!==weekday(day)+1)return [];
+   if(off||(semester!==undefined&&timetableGroup(t,row)!==semester)||!belongsTo(t,row,'timetable','timetable')||!shown(t,row,'timetable')||row.weekday!==weekday(day)+1)return [];
    const mapped=week===null?classWeek(t,row,day,teachingWeek):week;
    if(mapped!=='all'&&(mapped===null||row.weeks.length&&!row.weeks.includes(mapped)))return [];
    const typeColor={lecture:'#7769a9',tutorial:'#a568a1',lab:'#548568','comp.lab':'#527eac'}[row.class_type?.toLowerCase()];
@@ -203,7 +224,7 @@
   });
   return timedClasses;
  }
- if(typeof module!=='undefined'&&module.exports){module.exports={addDays,weekday,monday,monthDays,moveMonth,weekAt,clockRange,firstDate,entriesForDay,timedLayout,periodLanes,colorFor,colorStyle,localSource,removeCalendarSource,importedDate,editorCategory,learningWeek,learningWeekGrid,schoolBounds,schoolRows,schoolYears,timetableEntries,timetableSemesters,semesterForDate,examEntries};return;}
+ if(typeof module!=='undefined'&&module.exports){module.exports={addDays,weekday,monday,monthDays,moveMonth,weekAt,clockRange,firstDate,entriesForDay,timedLayout,periodLanes,colorFor,colorStyle,localSource,removeCalendarSource,importedDate,editorCategory,learningWeek,learningWeekGrid,schoolBounds,schoolRows,schoolYears,schoolYearRows,timetableEntries,timetableSemesters,semesterForDate,examEntries};return;}
  const manager=()=>root.StudySchedule?.manager(),term=manager;
  const redraw=()=>root.StudySchedule?.paint();
  function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -276,13 +297,16 @@
    return {...r,lane,left:days.indexOf(first),span:days.indexOf(last)-days.indexOf(first)+1};
   });
  }
- function schoolMarkup(t,s){
-  const {start,end}=schoolBounds(s.cursor,'year'),rows=schoolRows(t,start,end),months=new Map();
+ function schoolMarkup(t,s,rows){
+  if(!rows?.length)return '<p class="calendar-overview-empty">添加校历后，这里会显示对应学年的安排。</p>';
+  const bounds=schoolBounds(s.cursor,'year'),months=new Map();
+  const start=rows.reduce((day,row)=>row.start<day?row.start:day,bounds.start);
+  const end=rows.reduce((day,row)=>row.end>day?row.end:day,bounds.end);
   const current=today();
   for(let date=monday(start);date<=end;date=addDays(date,7)){
    const days=Array.from({length:7},(_,i)=>addDays(date,i));
-   const month=(date<start?start:date).slice(0,7);
-   const items=rows.filter(row=>row.start<=days[6]&&row.end>=date);
+   const month=(date<bounds.start?bounds.start:date).slice(0,7);
+   const items=rows.filter(row=>shown(t,row,'calendar')&&row.start<=days[6]&&row.end>=date);
    if(!months.has(month))months.set(month,[]);
    months.get(month).push({days,items});
   }
@@ -303,8 +327,13 @@
   </table></div>`;
  }
  function timetableMarkup(t,s){
+  if(s.semester===undefined)return '<p class="calendar-overview-empty">添加课表后，这里会显示对应学期的安排。</p>';
   const start=monday(s.cursor),dates=Array.from({length:7},(_,i)=>addDays(start,i));
   const entries=dates.map(day=>timetableEntries(t,day,'all',s.semester));
+  const populated=new Set((t.timetable||[]).map(row=>row.source_id));
+  const unavailable=(t.sources||[]).filter(source=>source.kind==='timetable'&&source.type==='import'&&
+   timetableGroup(t,{source_id:source.id})===s.semester&&(source.visible===false||!populated.has(source.id)));
+  const importActions=unavailable.length?`<div class="calendar-overview-empty">${unavailable.map(source=>timetableImportButton(source,'管理 '+source.name)).join('')}</div>`:'';
   const minimumHeight=48;
   const lanes=entries.map(rows=>Math.max(1,...timedLayout(rows,minimumHeight*60/HOUR).map(row=>row.columns)));
   const columns=lanes.map(count=>`minmax(${count*86}px,${count}fr)`).join(' ');
@@ -324,7 +353,7 @@
      ${entry.time?`<small>${esc(entry.time)}</small>`:''}</button>`;
    }
   });
-  return `<div class="semester-week settings-timetable-grid" style="min-width:${width}px;--timetable-columns:${columns}" aria-label="课表时间网格">${grid}</div>`;
+  return `${importActions}<div class="semester-week settings-timetable-grid" style="min-width:${width}px;--timetable-columns:${columns}" aria-label="课表时间网格">${grid}</div>`;
  }
  function examMarkup(t){
   const rows=examEntries(t);
@@ -337,37 +366,29 @@
     ${root.AcademicReferences.originalLinks(t,source)}${root.AcademicReferences.handbookDetails(source.handbook,false)}</details>`).join('')}
   </section>`;
  }
- function semesterLabel(key){
-  if(!key)return '未分学期';
+ function semesterLabel(key,t){
+  if(!key)return '未标注学期';
+  if(key.startsWith('import:'))return '未标注学期 · '+(sourceOf(t,{source_id:key.slice(7)})?.name||'课表');
   const [year,term]=key.split('-').map(Number);
   return `${year}–${year+1} · 第 ${term} 学期`;
  }
  function semesterPicker(t,s){
-  const semesters=timetableSemesters(t);
-  if(s.newSemester&&!semesters.includes(s.newSemester))semesters.push(s.newSemester);
-  const current=semesterForDate(today(),t);
-  if(!semesters.length)semesters.push(current);
+  const semesters=timetableSemesters(t),current=semesterForDate(today(),t);
   if(!semesters.includes(s.semester))s.semester=semesters.includes(current)?current:semesters[0];
+  if(!semesters.length)return '';
+  if(semesters.length===1)return `<span class="timetable-semester-label" title="${esc(semesterLabel(s.semester,t))}">${esc(semesterLabel(s.semester,t))}</span>`;
   return `<select class="timetable-week-picker timetable-semester-picker" aria-label="选择学期" data-timetable-semester>
-   ${semesters.sort(newestSemesterFirst).map(key=>`<option value="${key}" ${key===s.semester?'selected':''}>${semesterLabel(key)}</option>`).join('')}
-   <option value="new">新增学期…</option></select>`;
+   ${semesters.map(key=>`<option value="${esc(key)}" ${key===s.semester?'selected':''}>${esc(semesterLabel(key,t))}</option>`).join('')}
+  </select>`;
  }
- function semesterDialog(s){
-  if(!s.semesterEditor)return '';
-  const [year,term]=(s.semester||semesterForDate(today())).split('-');
-  return `<div class="calendar-editor-shade"><section class="academic-reference-import" role="dialog" aria-modal="true" aria-label="新增学期">
-   <header><span>新增学期</span><button type="button" class="icon-button" data-calendar-action="cancel-semester" aria-label="关闭新增学期">${icon('x')}</button></header>
-   <form id="timetable-semester-form"><div class="calendar-editor-pair">
-    ${field('year','学年起始年',year,'number','min="1000" max="9999" step="1" required')}
-    ${field('term','学期序号',term,'number','min="1" max="99" step="1" required placeholder="例如 3"')}
-   </div><footer><button type="button" class="outline-button" data-calendar-action="cancel-semester">取消</button><button type="submit" class="primary">选择学期</button></footer></form>
-  </section></div>`;
+ function timetableImportButton(source,label='管理这份导入'){
+  return `<button type="button" class="text-button" data-calendar-action="manage-timetable-import"
+   data-source-id="${esc(source.id)}">${esc(label)}</button>`;
  }
- function referenceButton(t,kind,semester){
-  const sources=(t.sources||[]).filter(source=>source.kind===kind&&source.type==='import'&&
-   (kind!=='timetable'||(source.semester||'')===semester));
+ function examReferenceButton(t){
+  const sources=(t.sources||[]).filter(source=>source.kind==='exam'&&source.type==='import');
   if(!sources.length)return '';
-  const label=kind==='timetable'?'原件':'考试资料';
+  const label='考试资料';
   const button=(source,caption,style='')=>`<button type="button" ${style} data-calendar-action="source-settings" data-is-source="true" data-source-id="${esc(source.id)}" title="${esc(source.name)}">${icon('file-text')}<span>${esc(caption)}</span></button>`;
   if(sources.length===1)return button(sources[0],label,'class="outline-button calendar-add-button"');
   return `<details class="settings-action-menu calendar-reference-menu"><summary class="outline-button calendar-add-button">${icon('file-text')}${label}${icon('chevron-down')}</summary>
@@ -376,7 +397,9 @@
  function field(name,label,value,type='text',extra=''){return `<label><span>${label}</span><input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
  function editorMarkup(t,s){
   const e=s.editor;if(!e)return '';const r=e.draft;
-  const originals=root.AcademicReferences.originalLinks(t,sourceOf(t,r));
+  const source=sourceOf(t,r);
+  const originals=root.AcademicReferences.originalLinks(t,source);
+  const manageImport=source?.kind==='timetable'&&source.type==='import'?timetableImportButton(source):'';
   const select=(name,label,items,value)=>`<label><span>${label}</span><select name="${name}">${items.map(([id,n])=>`<option value="${id}" ${String(id)===String(value)?'selected':''}>${n}</option>`).join('')}</select></label>`;
   const choice=(name,label,value,values)=>{
    const options=[...new Set([...values,value].filter(Boolean))];
@@ -385,11 +408,11 @@
   };
   let body='';
   const contentCategory=editorCategory(t,e.source,r);
-  const category=`<div class="calendar-editor-category">${contentCategory==='timetable'?semesterLabel(s.semester):contentCategory==='calendar'?'校历':'考试信息'}</div>`;
-  if(e.source==='timetable')body=choice('course','课程代码',courseCode(r.course),[...new Map((t.timetable||[]).filter(row=>semesterOf(t,row)===s.semester&&belongsTo(t,row,'timetable','timetable')).map(row=>[courseCode(row.course).toLowerCase(),courseCode(row.course)])).values()])+choice('class_type','课程类型',r.class_type,[...(t.timetable||[]).filter(row=>belongsTo(t,row,'timetable','timetable')).map(row=>row.class_type)])+`<div class="calendar-editor-pair">${select('weekday','星期',dayNames.map((n,i)=>[i+1,n]),r.weekday)}${field('weeks','教学周',r._weeksText??root.AcademicReferences.formatWeeks(r.weeks),'text','placeholder="每周，如 1–6, 8–16"')}</div>`+field('time','时间 / 节次',r.time,'text','placeholder="09:00–10:00 或第1–2节" maxlength="80" required');
+  const category=`<div class="calendar-editor-category">${contentCategory==='timetable'?esc(semesterLabel(s.semester,t)):contentCategory==='calendar'?'校历':'考试信息'}</div>`;
+  if(e.source==='timetable')body=choice('course','课程代码',courseCode(r.course),[...new Map((t.timetable||[]).filter(row=>timetableGroup(t,row)===s.semester&&belongsTo(t,row,'timetable','timetable')).map(row=>[courseCode(row.course).toLowerCase(),courseCode(row.course)])).values()])+choice('class_type','课程类型',r.class_type,[...(t.timetable||[]).filter(row=>belongsTo(t,row,'timetable','timetable')).map(row=>row.class_type)])+`<div class="calendar-editor-pair">${select('weekday','星期',dayNames.map((n,i)=>[i+1,n]),r.weekday)}${field('weeks','教学周',r._weeksText??root.AcademicReferences.formatWeeks(r.weeks),'text','placeholder="每周，如 1–6, 8–16"')}</div>`+field('time','时间 / 节次',r.time,'text','placeholder="09:00–10:00 或第1–2节" maxlength="80" required');
   else if(e.source==='calendar')body=`<div class="calendar-editor-pair">${select('kind','类型',[['teaching','教学周'],['break','假期'],['exam','考试周'],['nonteaching','其他安排']],r.kind)}${r.kind==='teaching'?field('week','教学周',r.week,'number','min="1" max="60"'):''}</div><div class="calendar-editor-pair">${field('start','开始日期',r.start,'date','required')}${field('end','结束日期',r.end,'date','required')}</div>`+field('label','备注',r.label,'text','maxlength="80"');
   else body=field('title',contentCategory==='timetable'?'课程':'名称',r.title,'text','maxlength="150" required')+`<input type="hidden" name="kind" value="${r.kind||'exam'}">${field('date','日期',r.date,'date','required')}<div class="calendar-editor-pair">${field('start','开始时间',r.start,'time')}${field('end','结束时间',r.end,'time')}</div>`+(contentCategory==='timetable'?'':field('location','地点',r.location,'text','maxlength="120"'));
-  return `<aside class="calendar-event-editor" aria-label="编辑日历安排"><header><span>${contentCategory==='timetable'?'课程安排':contentCategory==='calendar'?'校历安排':'考试安排'}</span><button type="button" class="icon-button" data-calendar-action="close-editor" aria-label="关闭编辑">${icon('x')}</button></header><form id="calendar-event-form">${category}${body}${originals}<div class="calendar-editor-color"><span>颜色</span>${colorPicker(r.color||'','data-calendar-editor-color',true)}</div><p class="error-message" role="alert" ${s.error?'':'hidden'}>${esc(s.error)}</p><footer>${e.index>=0?`<button type="button" class="outline-button calendar-delete" data-calendar-action="delete" aria-label="删除这项安排" title="删除">${icon('trash-2')}删除</button>`:'<span></span>'}<button type="submit" class="outline-button">完成</button></footer></form></aside>`;
+  return `<aside class="calendar-event-editor" aria-label="编辑日历安排"><header><span>${contentCategory==='timetable'?'课程安排':contentCategory==='calendar'?'校历安排':'考试安排'}</span><button type="button" class="icon-button" data-calendar-action="close-editor" aria-label="关闭编辑">${icon('x')}</button></header><form id="calendar-event-form">${category}${body}${originals}${manageImport}<div class="calendar-editor-color"><span>颜色</span>${colorPicker(r.color||'','data-calendar-editor-color',true)}</div><p class="error-message" role="alert" ${s.error?'':'hidden'}>${esc(s.error)}</p><footer>${e.index>=0?`<button type="button" class="outline-button calendar-delete" data-calendar-action="delete" aria-label="删除这项安排" title="删除">${icon('trash-2')}删除</button>`:'<span></span>'}<button type="submit" class="outline-button">完成</button></footer></form></aside>`;
  }
  function sourceRow(t,id,name,color,checked,source=false){
   const attr=source?`data-calendar-source="${esc(id)}"`:`data-calendar-filter="${id}"`;
@@ -428,6 +451,10 @@
     const color=colors.get(key(row));
     return {...row,source_id:e.id,...(color?{color}:{})};
    }));
+   const source=sourceOf(t,{source_id:e.id});
+   if(source&&!source.semester&&/^[1-9]\d{3}-[1-9]\d?$/.test(result.semester||'')){
+    source.semester=result.semester;s.semester=result.semester;
+   }
    s.sourceEditor=null;
    t.importUI||={};t.importUI.notice='已重新识别 '+result.rows.length+' 项，请对照原图核对后保存。';
   }catch(error){e.error=error.message;}
@@ -446,38 +473,41 @@
   s.sourceEditor=null;
   if(!await root.StudySchedule.save({quiet:true})){Object.assign(t,before);e.error=t.error||'保存失败，请重试。';t.error='';s.sourceEditor=e;redraw();return;}redraw();toast('已保存');
  }
- function sourceList(t,kind,editable){
-  const color=t.colors?.[kind]||defaultColors[kind];
-  const rows=(t.sources||[]).filter(source=>source.kind===kind).map(source=>({...source,isSource:true}));
-  const local=localSource(t,kind);
-  if(local)rows.unshift({id:kind,name:local.name,visible:t.visible?.[kind],isSource:false});
-  return rows.map(row=>editable?sourceRow(t,row.id,row.name,row.color||color,row.visible!==false,row.isSource):
-   `<button type="button" class="calendar-source-link" data-settings-action="open-source" data-source-id="${esc(row.id)}" data-is-source="${row.isSource}" title="${esc(row.name)}">
-    <span>${esc(row.name)}</span>${icon('chevron-right')}
-   </button>`).join('');
+ function schoolSourceMenu(t){
+  const color=t.colors?.calendar||defaultColors.calendar;
+  const sources=(t.sources||[]).filter(source=>source.kind==='calendar');
+  const local=localSource(t,'calendar');
+  const rows=sources.map(source=>sourceRow(t,source.id,source.name,source.color||color,source.visible!==false,true));
+  if(local)rows.unshift(sourceRow(t,'calendar',local.name,color,t.visible?.calendar!==false,false));
+  if(!rows.length)return '';
+  return `<details class="calendar-source-menu"><summary class="outline-button calendar-add-button" aria-label="校历来源">来源${icon('chevron-down')}</summary>
+   <div>${rows.join('')}</div></details>`;
  }
- function schoolYearPicker(t,s){
-  const years=schoolYears(t,s.cursor),year=Number(schoolBounds(s.cursor,'year').start.slice(0,4));
+ function schoolYearPicker(years,year){
   const label=n=>`${n}–${n+1}`;
-  if(years.length<2)return `<span class="school-year-label">${label(year)} 学年</span>`;
+  if(!years.length)return '';
+  if(years.length===1)return `<span class="school-year-label">${label(year)} 学年</span>`;
   return `<label class="school-year-control"><span>学年</span><select aria-label="选择学年" data-school-year>
    ${years.map(n=>`<option value="${n}" ${n===year?'selected':''}>${label(n)}</option>`).join('')}
   </select></label>`;
  }
- function markup(M,t,kind,{importPanel='',message=''}={}){
+ function markup(M,t,kind,{importPanel='',message='',navigation=''}={}){
   const s=view(M),school=kind==='calendar',timetable=kind==='timetable';
   if(s.scope!==kind){
    s.cursors[s.scope]=s.cursor;
    s.cursor=s.cursors[kind]||today();
    s.scope=kind;
   }
-  const title=school?'校历':timetable?'课表总览':'考试信息';
-  const picker=school?schoolYearPicker(t,s):timetable?semesterPicker(t,s):'';
+  const title=school?'校历':timetable?'课表':'考试信息';
+  const sections=school?schoolYearRows(t):null,years=sections?[...sections.keys()].sort((a,b)=>b-a):[];
+  let year=school?schoolYearOf(s.cursor):null;
+  if(years.length&&!years.includes(year)){year=years[0];s.cursor=year+'-09-01';}
+  const picker=school?schoolYearPicker(years,year):timetable?semesterPicker(t,s):'';
   return `<section class="academic-calendar" aria-label="${school?'校历':timetable?'课表':'考试信息'}"><div class="calendar-body"><div class="calendar-main">
    <div class="calendar-navigation-row"><div class="calendar-period"><h1>${title}</h1></div>
-   <div class="calendar-view-actions">${picker}${school?'':referenceButton(t,kind,s.semester)}${root.AcademicReferences.addButton(kind)}</div></div>
-   ${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${school?schoolMarkup(t,s):timetable?timetableMarkup(t,s):examMarkup(t)}</div>${editorMarkup(t,s)}</div></div></div>
-   ${importPanel}${semesterDialog(s)}${sourceSettingsMarkup(t,s)}</section>`;
+   <div class="calendar-view-actions">${picker}${school?schoolSourceMenu(t):kind==='exam'?examReferenceButton(t):''}${root.AcademicReferences.addButton(kind)}</div></div>
+   ${navigation}${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${school?schoolMarkup(t,s,sections.get(year)):timetable?timetableMarkup(t,s):examMarkup(t)}</div>${editorMarkup(t,s)}</div></div></div>
+   ${importPanel}${sourceSettingsMarkup(t,s)}</section>`;
  }
  function open(source,index,draft,original=null){const s=view();if(s.editor?.dirty){s.error='请先完成或取消当前编辑。';redraw();return;}s.error='';s.editor={source,index,draft:structuredClone(draft),dirty:false,original};redraw();document.querySelector('#calendar-event-form input')?.focus();}
  async function applyEditor(form){
@@ -486,7 +516,8 @@
    if(!d.course.trim()||!d.time.trim())throw new Error('请填写课程和上课时间。');
    row={course:courseCode(d.course.trim()),class_type:d.class_type.trim(),weekday:Number(d.weekday),time:d.time.trim(),weeks:root.AcademicReferences.parseWeeks(d.weeks)};
    const semester=e.index>=0?e.draft.semester:s.semester;
-   if(semester&&!e.draft.source_id)row.semester=semester;
+   if(semester?.startsWith('import:'))row.source_id=semester.slice(7);
+   else if(semester&&!e.draft.source_id)row.semester=semester;
   }else if(e.source==='calendar'){
    if(!d.start||!d.end||d.end<d.start)throw new Error('请填写有效的起止日期。');
    const week=d.week?Number(d.week):null;if(d.kind==='teaching'&&(!Number.isInteger(week)||week<1||week>60))throw new Error('请填写教学周（1–60）。');
@@ -513,15 +544,19 @@
   if(kind==='exam')return open('events',-1,{kind:'exam',title:'',date:today(),start:'',end:'',location:''});
   open('timetable',-1,{course:'',class_type:'',weekday:weekday(day)+1,time:'09:00–10:00',weeks:[]});
  }
- root.AcademicCalendar={openManual,learningWeek,learningWeekGrid,teachingWeekLabel,today,addDays,focusImported(M,kind,rows){
+ root.AcademicCalendar={openManual,learningWeek,learningWeekGrid,teachingWeekLabel,today,addDays,focusImported(M,kind,rows,source){
    const s=view(M);
-   if(kind==='timetable')return;
+   if(kind==='timetable'){
+    if(source?.type==='import')s.semester=timetableGroup(M,{source_id:source.id});
+    return;
+   }
+   if(kind==='calendar'&&source){
+    const years=[...schoolYearRows(M)].filter(([,entries])=>entries.some(row=>row.source_id===source.id)).map(([year])=>year);
+    if(years.length){s.cursor=Math.max(...years)+'-09-01';return;}
+   }
    s.cursor=importedDate('calendar',rows,today());
   },markup,
-  sourceList:(kind,editable)=>manager()?sourceList(manager(),kind,editable):'',
-  openSourceSettings,
-  selectedSemester:M=>view(M).semester||'',
-  pending:M=>!!(M?.calendarView?.editor||M?.calendarView?.sourceEditor||M?.calendarView?.semesterEditor)
+  pending:M=>!!(M?.calendarView?.editor||M?.calendarView?.sourceEditor)
  };
  function setColor(node,value){if(!manager()||manager().saving||root.AcademicReferences.busy(manager())||value&&!validColor(value))return;if(node.hasAttribute('data-source-settings-color')&&view().sourceEditor){view().sourceEditor.draft.color=value;redraw();}else if(node.hasAttribute('data-calendar-source-color')){const source=sourceOf(manager(),{source_id:node.dataset.calendarSourceColor});if(source)source.color=value;redraw();}else if(node.hasAttribute('data-calendar-category-color')){manager().colors||={};manager().colors[node.dataset.calendarCategoryColor]=value;redraw();}else if(node.hasAttribute('data-calendar-editor-color')&&view().editor){view().editor.draft.color=value;view().editor.dirty=true;redraw();}}
  document.addEventListener('click',event=>{const node=event.target.closest('button[data-color]');if(!node||!node.closest('.study-settings-shell'))return;event.preventDefault();setColor(node,node.dataset.color);},true);
@@ -537,13 +572,13 @@
    if(s.editor?.dirty&&!['close-editor','delete','existing-choice'].includes(action)){s.error='请先完成或取消当前编辑。';redraw();return;}
 
    if(action==='existing-choice'){if(s.editor){s.editor.draft['_custom_'+node.dataset.field]=false;redraw();}return;}
+   if(action==='manage-timetable-import'){s.editor=null;openSourceSettings(node.dataset.sourceId,true);return;}
    if(action==='source-settings'){openSourceSettings(node.dataset.sourceId,node.dataset.isSource==='true');return;}
    if(action==='delete-source'){const e=s.sourceEditor;if(e&&!e.busy){removeCalendarSource(t,e.id,e.isSource);s.sourceEditor=null;t.importUI||={};t.importUI.notice='';redraw();toast('已删除，保存后生效');}return;}
    if(action==='close-source-settings'){if(!s.sourceEditor?.busy){s.sourceEditor=null;redraw();}return;}
    if(action==='refresh-source-settings'){await refreshSourceSettings();return;}
    if(action==='reread-timetable-source'){await rereadTimetableSource();return;}
    if(s.sourceEditor)return;
-   if(action==='cancel-semester'){s.semesterEditor=false;redraw();return;}
    if(action==='edit'){const [source,index]=node.dataset.entry.split(':');open(source,Number(index),t[source][Number(index)]);}
    else if(action==='close-editor'){s.editor=null;s.error='';redraw();}
    else if(action==='delete'){
@@ -566,22 +601,13 @@
  document.addEventListener('pointerdown',event=>{const slot=event.target.closest('[data-calendar-slot]');if(!slot||event.target.closest('button')||view().editor||root.AcademicReferences.busy(manager())||manager().saving)return;dragStart={slot,y:event.clientY};});
  document.addEventListener('pointerup',event=>{const start=dragStart;dragStart=null;if(!start||Math.abs(event.clientY-start.y)<6)return;const {slot}=start,top=slot.getBoundingClientRect().top,base=Number(slot.dataset.gridStart)*60;const minute=y=>Math.max(base,Math.min(1439,Math.floor((base+(y-top)/HOUR*60)/30)*30));const a=minute(Math.min(start.y,event.clientY)),b=Math.max(a+30,minute(Math.max(start.y,event.clientY)));suppressedSlotClick={until:event.timeStamp+300,day:slot.dataset.calendarSlot};open('timetable',-1,{course:'',class_type:'',weekday:weekday(slot.dataset.calendarSlot)+1,time:`${clock(a)}–${clock(Math.min(1439,b))}`,weeks:[]});});
  document.addEventListener('submit',async event=>{
-  if(event.target.id==='timetable-semester-form'){
-   event.preventDefault();event.stopImmediatePropagation();
-   const {year,term}=Object.fromEntries(new FormData(event.target));
-   if(!/^[1-9]\d{3}$/.test(year)||!/^[1-9]\d?$/.test(term))return;
-   const s=view();s.semester=s.newSemester=year+'-'+term;s.semesterEditor=false;redraw();
-   document.querySelector('[data-timetable-semester]')?.focus();
-   return;
-  }
   if(event.target.id==='calendar-source-settings-form'){event.preventDefault();event.stopImmediatePropagation();await applySourceSettings();return;}if(event.target.id!=='calendar-event-form')return;event.preventDefault();event.stopImmediatePropagation();try{await applyEditor(event.target);}catch(e){const s=view();s.error=e.message;const error=event.target.querySelector('[role="alert"]');error.hidden=false;error.textContent=e.message;}} ,true);
  document.addEventListener('input',event=>{if(event.target.closest('#calendar-source-settings-form')&&event.target.name&&view().sourceEditor){view().sourceEditor.draft[event.target.name]=event.target.type==='checkbox'?event.target.checked:event.target.value;return;}if(event.target.closest('#calendar-event-form')&&event.target.name){const e=view().editor,{name,value}=event.target;e.dirty=true;if(event.target.hasAttribute('data-calendar-choice')&&value==='__new_calendar_value__')return;if(name==='weeks')e.draft._weeksText=value;else e.draft[name]=['weekday','week'].includes(name)?value?Number(value):null:value;root.StudySchedule.refreshActions();}});
  document.addEventListener('change',event=>{if(event.target.hasAttribute('data-calendar-choice')&&event.target.value==='__new_calendar_value__'&&view().editor){const name=event.target.name;view().editor.draft['_custom_'+name]=true;view().editor.draft[name]='';redraw();document.querySelector(`#calendar-event-form input[name="${name}"]`)?.focus();return;}if(event.target.name==='kind'&&event.target.closest('#calendar-event-form')&&view().editor?.source==='calendar'){view().editor.draft.kind=event.target.value;view().editor.draft.week=event.target.value==='teaching'?view().editor.draft.week||1:null;redraw();return;}if(event.target.hasAttribute('data-timetable-semester')){
    const t=manager(),s=view();
    if(root.AcademicReferences.pending(t)||t.saving){event.target.value=s.semester;root.StudySchedule.reportError('请先完成或取消当前操作。');return;}
-   if(event.target.value==='new')s.semesterEditor=true;else s.semester=event.target.value;
-   redraw();
-   document.querySelector(s.semesterEditor?'#timetable-semester-form input':'[data-timetable-semester]')?.focus();
+   s.semester=event.target.value;redraw();
+   document.querySelector('[data-timetable-semester]')?.focus();
   }
   if(event.target.hasAttribute('data-school-year')){
    const t=manager(),s=view();

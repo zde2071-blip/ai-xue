@@ -74,9 +74,10 @@
  function reviewMarkup(f){
   const {result,subscription,filename,attachment}=f.review;
   const rows=subscription?[...result.calendar,...result.timetable,...result.events]:result.rows;
-  const source=subscription?f.calendar.sources.find(s=>s.type==='subscription'&&s.kind===f.step&&s.url===result.source.url):refs().matchingSource(f.calendar,f.step,filename);
+  const source=subscription?f.calendar.sources.find(s=>s.type==='subscription'&&s.kind===f.step&&s.url===result.source.url):refs().matchingSource(f.calendar,f.step,result);
   return `<section class="onboarding-review" aria-label="核对导入结果">
    <strong>${esc(subscription?result.source.name:labels[f.step])}</strong>
+   ${f.step==='timetable'&&!subscription?`<p>${esc(refs().timetablePlacement(result.semester||source?.semester))}</p>`:''}
    ${source?'<p>保存后会更新同一来源的安排。</p>':''}
    ${result.incomplete?'<p>有部分内容未能确认，请对照原件。</p>':''}
    ${result.reply||result.notice?`<p>${esc(result.reply||result.notice)}</p>`:''}

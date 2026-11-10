@@ -174,3 +174,36 @@ test('learning week follows the third teaching term when the school calendar mar
  assert.deepEqual(learningWeek(doc,'2027-04-06').days[1].classes.map(row=>row.course),['SPRING101']);
  assert.deepEqual(timetableSemesters(doc),['2026-10','2026-3','2026-2','2026-1']);
 });
+
+test('year options come from added calendar entries, with orientation and summer spill assigned to their source year',()=>{
+ const sources=[{id:'annual',kind:'calendar',type:'import'}];
+ const calendar=[
+  {source_id:'annual',kind:'nonteaching',start:'2026-08-31',end:'2026-09-06',label:'Orientation'},
+  {source_id:'annual',kind:'teaching',week:1,start:'2026-09-07',end:'2026-09-13'},
+  {source_id:'annual',kind:'nonteaching',start:'2027-08-09',end:'2027-09-05',label:'Summer School'}
+ ];
+ assert.deepEqual(C.schoolYears({}),[]);
+ assert.deepEqual(C.schoolYears({sources,calendar},'2030-11-10'),[2026]);
+ const [year,rows]=[...C.schoolYearRows({sources,calendar})][0];
+ assert.equal(year,2026);
+ assert.equal(rows[0].start,'2026-08-31');
+ assert.equal(rows.at(-1).end,'2027-09-05');
+ calendar.push({kind:'teaching',week:1,start:'2027-09-06',end:'2027-09-12'});
+ assert.deepEqual(C.schoolYears({sources,calendar}),[2027,2026]);
+});
+
+test('undated imported timetables stay separate and cannot leak into the learning week',()=>{
+ const day='2026-09-07',course={weekday:1,time:'11:00–12:50',weeks:[1],class_type:'Lecture'};
+ const doc={sources:[
+  {id:'a',kind:'timetable',type:'import'},
+  {id:'b',kind:'timetable',type:'import'},
+  {id:'fall',kind:'timetable',type:'import',semester:'2026-1'},
+ ],calendar:[{kind:'teaching',week:1,start:day,end:'2026-09-13'}],timetable:[
+  {...course,course:'AAA101',source_id:'a'},
+  {...course,course:'BBB101',source_id:'b'},
+  {...course,course:'CCC101',source_id:'fall'},
+ ]};
+ assert.equal(C.timetableSemesters(doc).length,3);
+ assert.deepEqual(C.timetableEntries(doc,day,'all','import:b').map(row=>row.title),['BBB101']);
+ assert.deepEqual(C.learningWeek(doc,day).days[0].classes.map(row=>row.course),['CCC101']);
+});

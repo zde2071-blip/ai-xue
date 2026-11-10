@@ -65,24 +65,19 @@
 @media(max-width:760px){.template-page{height:auto;min-height:100%;padding:27px 20px 0}.template-workspace{flex-direction:column;gap:0}#learning-template-form{flex-basis:auto}.template-ai{width:100%;flex-basis:auto;border-left:0;border-top:1px solid #f0f0f0;padding-left:0}.template-ai-history{max-height:340px;flex:0 1 auto}.template-ai-composer{margin-top:auto}.template-tabs{gap:20px}}
 @media(pointer:coarse){.template-prompt-size,.template-prompt,.template-name,.template-ai-composer>textarea{font-size:16px}.template-ai-tools>.icon-button,.template-send{min-height:38px;min-width:38px}}
 
-/* The section and its subpages occupy separate sidebar columns. */
+/* Category navigation and in-page timetable navigation. */
 .study-settings-shell{height:100%;min-height:0;display:flex;background:#fff;--action-ink:#333;--action-border:#ddd;--action-radius:6px}
-.study-settings-nav,.study-settings-subnav{box-sizing:border-box;min-width:0;overflow:auto;background:#f7f7f7;border-right:1px solid #e8e8e8;padding:18px 10px}
-.study-settings-shell>.study-settings-nav{flex:0 0 126px;padding-top:18px}
-.study-settings-subnav{flex:0 0 170px;background:#fafafa}
-.study-settings-nav button,.study-settings-subnav button{width:100%;min-width:0;min-height:34px;display:flex;align-items:center;gap:7px;padding:6px 8px;text-align:left;border-radius:6px;color:#575757;font-size:13px}
-.study-settings-subnav svg{width:15px;height:15px;flex:none}
-.study-settings-nav button:hover,.study-settings-subnav button:hover{background:#efefef;color:#252525}
-.study-settings-nav [aria-current="true"],.study-settings-subnav [aria-current="page"]{background:#e9e9e9;color:#242424}
+.study-settings-shell>.study-settings-nav{box-sizing:border-box;min-width:0;flex:0 0 126px;overflow:auto;background:#f7f7f7;border-right:1px solid #e8e8e8;padding:18px 10px}
 .study-settings-nav nav{display:grid;gap:2px}
-.study-settings-nav button{white-space:nowrap}
-.settings-subnav-pages{display:grid;gap:2px;margin:0;padding:0;list-style:none}
-.settings-subnav-sources{border-top:1px solid #e6e6e6;margin-top:14px;padding-top:11px}
-.settings-subnav-sources h2,.settings-subnav-sources p{margin:0 8px 6px;font-size:12px;font-weight:450;color:#707070}
-.settings-subnav-sources p{margin-top:10px}
-.study-settings-subnav .calendar-source-link{justify-content:space-between}
-.calendar-source-link span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.study-settings-subnav .calendar-source-link svg{width:12px;height:12px;color:#777}
+.study-settings-nav button{width:100%;min-height:34px;padding:6px 8px;text-align:left;border-radius:6px;color:#575757;font-size:13px;white-space:nowrap}
+.study-settings-nav button:hover{background:#efefef;color:#252525}
+.study-settings-nav [aria-current="true"]{background:#e9e9e9;color:#242424}
+.timetable-settings-header{flex:none;margin-bottom:16px}
+.timetable-page-navigation{display:flex;gap:16px;flex:none;overflow-x:auto;border-bottom:1px solid #e8e8e8}
+.timetable-page-navigation button{flex:none;padding:6px 2px 8px;border-bottom:2px solid transparent;border-radius:0;color:#666;font-size:13px;white-space:nowrap}
+.timetable-page-navigation button:hover{color:#242424}
+.timetable-page-navigation [aria-current="page"]{border-bottom-color:#424242;color:#242424;font-weight:600}
+.timetable-page-navigation button:focus-visible{outline-offset:-3px}
 .study-settings-content{min-width:0;flex:1;padding:24px 28px 0;overflow:hidden}
 .study-settings-content>.template-tabs-row{margin-bottom:16px}
 .study-settings-content .template-editor-tools{height:38px;min-height:38px;margin-bottom:15px}
@@ -107,7 +102,10 @@
 .timetable-template-picker button { flex: none; width: 34px; height: 34px; min-height: 34px; padding: 0; }
 .timetable-template-picker svg { width: 14px; height: 14px; }
 @media(max-width:720px) {
- .study-settings-shell { display: grid; grid-template-columns: minmax(102px,28%) minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); }
- .study-settings-shell > :is(.study-settings-nav,.study-settings-subnav) { width: auto !important; min-width: 0; max-height: min(190px,34vh); padding: 8px; border-bottom: 1px solid #e8e8e8; }
- .study-settings-shell > .study-settings-content { grid-column: 1 / -1; height: 100%; }
+ .study-settings-shell { display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); }
+ .study-settings-shell > .study-settings-nav { width: auto; padding: 7px 12px; border-right: 0; border-bottom: 1px solid #e8e8e8; }
+ .study-settings-nav nav { display: flex; gap: 4px; }
+ .study-settings-nav button { width: auto; padding-inline: 9px; }
+ .study-settings-shell > .study-settings-content { height: 100%; }
+ .timetable-page-navigation { gap: 12px; }
 }

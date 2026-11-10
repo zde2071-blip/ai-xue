@@ -13,7 +13,7 @@ test('successful recognition stages each original with its calendar source',asyn
  const model={calendar:[],timetable:[],events:[],references:[],referenceFiles:[],importUI:{kind:'calendar',files:[{filename:'calendar.txt',file:'dGVzdA=='}],text:'',open:true,busy:false}};
  const listeners={};const root={StudySchedule:{manager:()=>model,paint(){}},AcademicCalendar:{pending:()=>false,reset(){}}};
  const row={kind:'teaching',week:1,start:'2026-09-07',end:'2026-09-13'},reference={id:'a'.repeat(64),kind:'calendar',filename:'calendar.txt'};
- vm.runInNewContext(fs.readFileSync(require.resolve('../web/academic-references.js'),'utf8'),{crypto:require('node:crypto').webcrypto,window:root,document:{addEventListener:(name,fn)=>(listeners[name]||=[]).push(fn)},S:{user:{id:'demo'}},icon:()=>'',api:async(_path,data)=>({rows:[row],references:[{...reference,filename:data.attachments[0].filename}],incomplete:true,reply:'十月尚未确认'})});
+ vm.runInNewContext(fs.readFileSync(require.resolve('../web/academic-references.js'),'utf8'),{crypto:require('node:crypto').webcrypto,window:root,document:{addEventListener:(name,fn)=>(listeners[name]||=[]).push(fn)},S:{user:{id:'demo'}},icon:()=>'',api:async(_path,data)=>({rows:[row],references:[{...reference,id:data.attachments[0].filename==='second.txt'?'c'.repeat(64):reference.id,filename:data.attachments[0].filename}],incomplete:true,reply:'十月尚未确认'})});
  const button={dataset:{referenceAction:'recognize'},closest:()=>null};
  await listeners.click[0]({target:{closest:()=>button},preventDefault(){},stopImmediatePropagation(){}});
  assert.match(model.importUI.notice,/十月尚未确认/);assert.equal(model.importUI.open,false);assert.equal(model.importUI.error,'');assert.deepEqual(JSON.parse(JSON.stringify(model.calendar[0])),{...row,source_id:model.sources[0].id});assert.equal(model.sources[0].name,'calendar');
@@ -75,4 +75,27 @@ test('the single add entry offers methods for the selected type and subscribes u
  assert.equal(request.data.kind,'calendar');
  assert.equal(request.data.url,'https://example.com/school');
  assert.equal(model.sources[0].kind,'calendar');
+});
+
+test('imports create a semester from recognition and only update the same original',()=>{
+ const vm=require('node:vm'),fs=require('node:fs');
+ const model={calendar:[],timetable:[],events:[],sources:[],references:[],referenceFiles:[]};
+ const root={};
+ vm.runInNewContext(fs.readFileSync(require.resolve('../web/academic-references.js'),'utf8'),{
+  window:root,document:{addEventListener(){}},crypto:require('node:crypto').webcrypto
+ });
+ const stage=(letter,semester,filename='课表.png')=>root.AcademicReferences.stageImport(model,'timetable',{
+  semester,references:[{id:letter.repeat(64),kind:'timetable',filename}],rows:[{course:'ADS102'}]
+ },[{file:'dGVzdA=='}],filename);
+ const fall=stage('a','2026-1'),third=stage('b','2026-3'),unknown=stage('c','');
+ assert.equal(fall.semester,'2026-1');
+ assert.equal(third.semester,'2026-3');
+ assert.equal(unknown.semester,undefined);
+ assert.equal(model.timetable.length,3);
+ const resolved=stage('c','2026-3','另存为课表.png');
+ assert.equal(resolved.id,unknown.id);
+ assert.equal(resolved.semester,'2026-3');
+ assert.equal(model.sources.length,3);
+ assert.equal(model.timetable.length,3);
+ assert.equal(model.references.length,3);
 });

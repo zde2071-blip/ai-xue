@@ -20,7 +20,7 @@
  }
  const settingsCategories=[['calendar','校历'],['timetable','课表'],['exam','考试信息']];
  const categoryForMode=mode=>mode==='calendar'||mode==='exam'?mode:'timetable';
- if(typeof module!=='undefined'&&module.exports){module.exports={draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,submenuMarkup,actionMenuMarkup,defaultTypeFor,suggestDefault};return;}
+ if(typeof module!=='undefined'&&module.exports){module.exports={draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,pageNavigationMarkup,actionMenuMarkup,defaultTypeFor,suggestDefault};return;}
  let installed=false,recognizer=null;
  const V={mode:'calendar',stage:'learning_prompt',owner:null,data:null,selected:'concepts',draft:null,saving:false,loading:false,error:'',notice:'',aiOpen:false,chats:{},undo:null};
  const typeRules={settings:null,draft:null};
@@ -47,14 +47,12 @@
     ${active===id?'aria-current="true"':''}>${label}</button>`).join('')}
   </nav></aside>`;
  }
- function submenuMarkup(mode,sources){
-  const category=categoryForMode(mode);
-  const label=settingsCategories.find(([id])=>id===category)[1];
-  const items=category==='calendar'?[['calendar','校历总览']]:category==='exam'?[['exam','考试总览']]:[['timetable','课表'],['rules','课堂分类'],['prompts','讲解与笔记']];
-  return `<aside class="study-settings-subnav" id="calendar-submenu"><nav aria-label="${label}三级菜单">
-   <ul class="settings-subnav-pages">${items.map(([id,label])=>`<li><button type="button" data-settings-action="mode" data-mode="${id}" ${mode===id?'aria-current="page"':''}>${label}</button></li>`).join('')}</ul>
-   ${category==='calendar'?`<section class="settings-subnav-sources" aria-labelledby="calendar-source-title"><h2 id="calendar-source-title">来源</h2>${sources||'<p>暂无来源</p>'}</section>`:''}
-  </nav></aside>`;
+ function pageNavigationMarkup(mode){
+  if(categoryForMode(mode)!=='timetable')return '';
+  const items=[['timetable','课表总览'],['rules','课堂分类'],['prompts','讲解与笔记']];
+  return `<nav class="timetable-page-navigation" aria-label="课表页面">
+   ${items.map(([id,label])=>`<button type="button" data-settings-action="mode" data-mode="${id}" ${mode===id?'aria-current="page"':''}>${label}</button>`).join('')}
+  </nav>`;
  }
  function promptPage(){
   if(!V.data||!V.draft)return '';
@@ -89,10 +87,11 @@
  function page(){
   if(!V.data||!V.draft)return '';
   const calendar=calendarSurface(V.mode);
-  const navigation=navigationMarkup(V.mode);
-  const submenu=submenuMarkup(V.mode,V.mode==='calendar'?root.AcademicCalendar.sourceList('calendar',calendar):'');
-  return `<section class="study-settings-shell">${navigation}${submenu}
-   <div class="template-page study-settings-content ${calendar?'calendar-settings-content':''}">${calendar?root.StudySchedule.markup(V.mode):V.mode==='rules'?rulesPage():promptPage()}</div>
+  const tabs=pageNavigationMarkup(V.mode);
+  const content=calendar?root.StudySchedule.markup(V.mode,tabs):
+   `<header class="timetable-settings-header"><div class="calendar-navigation-row"><div class="calendar-period"><h1>课表</h1></div></div>${tabs}</header>${V.mode==='rules'?rulesPage():promptPage()}`;
+  return `<section class="study-settings-shell">${navigationMarkup(V.mode)}
+   <div class="template-page study-settings-content ${calendar?'calendar-settings-content':'timetable-settings-content'}">${content}</div>
   </section>`;
  }
  function paint(){
@@ -172,10 +171,8 @@
    if(settingsAction==='category'){
     if(category!==V.mode&&!await open(category))return;
     document.querySelector(`[data-settings-action="category"][data-category="${category}"]`)?.focus();
-   }else if(settingsAction==='open-source'){
-    if(await open(categoryForMode(V.mode)))root.AcademicCalendar.openSourceSettings(node.dataset.sourceId,node.dataset.isSource==='true');
    }else if(settingsAction==='mode'&&mode!==V.mode){
-    if(await open(mode))document.querySelector(`#calendar-submenu [data-mode="${mode}"]`)?.focus();
+    if(await open(mode))document.querySelector(`.timetable-page-navigation [data-mode="${mode}"]`)?.focus();
    }
   },true);
   document.addEventListener('pointerdown',event=>{document.querySelectorAll('.settings-action-menu[open]').forEach(menu=>{if(!menu.contains(event.target))menu.removeAttribute('open');});},true);

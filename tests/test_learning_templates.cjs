@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,submenuMarkup,actionMenuMarkup,defaultTypeFor,suggestDefault}=require('../web/learning-templates.js');
+const {draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,pageNavigationMarkup,actionMenuMarkup,defaultTypeFor,suggestDefault}=require('../web/learning-templates.js');
 const sample={id:'concepts',name:'知识点总结',prompt:'自由写下我的要求\n不要分字段。'};
 test('old prompts open in two independent drafts and only the active prompt is shown',()=>{
  const draft=draftOf(sample);
@@ -25,12 +25,12 @@ test('calendar categories control separate timetable, school and exam sidebars',
  assert.match(categories,/data-category="timetable"\s+aria-current="true">课表/);
  assert.match(categories,/data-category="calendar"\s*>校历/);
  assert.doesNotMatch(categories,/日历|课堂分类|来源|aria-expanded|<svg/);
- const timetable=submenuMarkup('rules','<button>第一份课表</button><button>第二份课表</button>');
- assert.match(timetable,/study-settings-subnav.*id="calendar-submenu"/);
+ const timetable=pageNavigationMarkup('rules');
+ assert.match(timetable,/class="timetable-page-navigation"/);
  assert.match(timetable,/data-mode="rules" aria-current="page">课堂分类/);
- assert.match(timetable,/>课表<.*课堂分类.*讲解与笔记/);
- assert.doesNotMatch(timetable,/周课表|data-mode="courses"|来源/);
- assert.match(submenuMarkup('calendar','<button>校历原件</button>'),/来源.*校历原件/);
+ assert.match(timetable,/>课表总览<.*课堂分类.*讲解与笔记/);
+ assert.doesNotMatch(timetable,/aside|周课表|data-mode="courses"|来源/);
+ assert.equal(pageNavigationMarkup('calendar'),'');
  assert.match(navigationMarkup('exam'),/data-category="exam"\s+aria-current="true"/);
- assert.match(submenuMarkup('exam',''),/考试信息三级菜单[\s\S]*考试总览/);
+ assert.equal(pageNavigationMarkup('exam'),'');
 });
