@@ -109,3 +109,20 @@
  .study-settings-shell > .study-settings-content { height: 100%; }
  .timetable-page-navigation { gap: 12px; }
 }
+
+/* A single scheme toolbar, with the two independent prompts inside the editor. */
+.prompt-toolbar{justify-content:space-between;flex-wrap:wrap;gap:12px;border:0;padding:4px 0 16px}
+.template-picker-label{display:flex;align-items:center;gap:10px;font-size:13px;color:#777;min-width:0;white-space:nowrap;flex:none}
+.template-picker-label select{width:160px;flex:none}
+.prompt-toolbar .timetable-template-picker{flex-wrap:wrap}
+.prompt-toolbar .timetable-template-picker button,.template-ai-toggle{display:inline-flex;align-items:center;gap:6px;width:auto;padding:0 10px;min-height:34px;white-space:nowrap;font-size:12px}
+.template-ai-toggle svg{width:14px;height:14px}
+.template-editor-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.template-editor-header .template-stage-switch{margin:0}
+.template-editor-header>span{font-size:12px;color:#999}
+#learning-template-form{border:1px solid #e8e8e8;border-radius:10px;padding:20px 22px;background:#fff}
+.template-prompt-flow{min-height:330px}
+.template-prompt-size,.template-prompt{font-size:14px;line-height:1.9}
+.template-workspace{padding-bottom:24px}
+.template-workspace.with-ai{gap:20px}
+@media(max-width:760px){#learning-template-form{padding:15px}.template-editor-header{gap:10px}.template-editor-header>span{font-size:11px}.template-workspace.with-ai{gap:20px}.template-picker-label select{max-width:160px}.prompt-toolbar{gap:8px}}

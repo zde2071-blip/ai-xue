@@ -43,7 +43,7 @@
  }
  function originalLinks(M,source){
   if(source?.type!=='import')return '';
-  let label='原始文件';
+  const label='原件';
   const refs=M.references||[];
   let originals=refs.filter(ref=>source.reference_ids?.includes(ref.id));
   if(!originals.length){
@@ -52,7 +52,7 @@
    originals=archived.filter(ref=>ref.filename.replace(/\.[^.]+$/,'')===source.name||ref.filename===source.handbook?.filename);
    const peers=(M.sources||[]).filter(row=>row.kind===source.kind&&row.type==='import'&&!row.reference_ids?.length);
    if(!originals.length&&archived.length===1&&peers.length===1&&!source.handbook){
-    originals=archived;label='同分类归档原件';
+    originals=archived;
    }
   }
   if(!originals.length)return '';

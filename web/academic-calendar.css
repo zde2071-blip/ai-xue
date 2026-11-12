@@ -197,3 +197,18 @@
  .calendar-view-actions .timetable-semester-picker { max-width: 46vw; }
  .academic-calendar[aria-label="课表"] .calendar-add-button { padding-inline: 8px; }
 }
+
+/* The selected sidebar item already names the page. */
+.academic-calendar .calendar-navigation-row{min-height:0;padding:8px 28px 18px;gap:12px;flex-wrap:nowrap}
+.academic-documents{flex:none;margin:14px 28px 18px;display:grid;gap:12px;min-width:0}
+.academic-document{display:flex;align-items:center;flex-wrap:wrap;gap:8px 22px;min-width:0;font-size:12px;color:#777}
+.academic-document-name{display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:100%;padding:3px 0;text-align:left;overflow-wrap:anywhere;color:#666}
+.academic-document-name svg{width:14px;height:14px;flex:none;color:#999}
+.academic-document .calendar-originals{display:flex;align-items:center;gap:8px;min-width:0;margin:0;padding:0;border:0;max-width:100%}
+.academic-document .calendar-originals ul{margin:0;padding:0;list-style:none;min-width:0}
+.academic-document .calendar-originals a{display:flex;align-items:center;gap:6px;color:#777;text-decoration:none;min-width:0}
+.academic-document .calendar-originals a:hover{color:#222;text-decoration:underline}
+.academic-document .calendar-originals a span{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.academic-document .calendar-originals svg{width:13px;height:13px;flex:none}
+.calendar-source-settings .calendar-originals{margin-top:20px}
+@media(max-width:800px){.academic-calendar .calendar-navigation-row{padding:4px 16px 16px;flex-wrap:wrap}.academic-documents{margin:12px 16px 16px}.academic-document .calendar-originals a span{max-width:50vw}}

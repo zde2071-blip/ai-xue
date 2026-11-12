@@ -21,7 +21,13 @@ if "$STUDY_PYTHON" tools/local_service.py --check --port "$STUDY_PORT"; then
   open "$STUDY_URL"
   exit 0
 fi
-STUDY_SERVICE="gui/$(id -u)/local.ai-xue.timetable-rules"
+STUDY_DOMAIN="gui/$(id -u)"
+STUDY_SERVICE="$STUDY_DOMAIN/local.ai-xue.timetable-rules"
+STUDY_PLIST="$HOME/Library/LaunchAgents/local.ai-xue.timetable-rules.plist"
+# A missing job must be registered again, not replaced by a Terminal-only process.
+if [[ "$STUDY_PORT" == 8767 && -f "$STUDY_PLIST" ]] && ! launchctl print "$STUDY_SERVICE" >/dev/null 2>&1; then
+  launchctl bootstrap "$STUDY_DOMAIN" "$STUDY_PLIST"
+fi
 if [[ "$STUDY_PORT" == 8767 ]] && launchctl print "$STUDY_SERVICE" >/dev/null 2>&1; then
   launchctl kickstart -k "$STUDY_SERVICE"
   for STUDY_ATTEMPT in {1..20}; do
@@ -45,3 +51,4 @@ else
   "$STUDY_PYTHON" tools/local_service.py --port "$STUDY_PORT"
 fi
 read -r "?服务已停止。按回车关闭"
+exit 1

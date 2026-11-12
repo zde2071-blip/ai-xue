@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def ready(port, *, check_state=True):
-    paths = ('/', '/app.js', '/api/state') if check_state else ('/', '/app.js')
+    paths = ('/', '/app.js', '/api/state', '/api/templates', '/api/calendar') if check_state else ('/', '/app.js')
     opener = build_opener(ProxyHandler({}))
     try:
         for path in paths:
@@ -31,7 +31,7 @@ def ready(port, *, check_state=True):
 def watch_health(service, stopped, *, interval=30):
     failures = 0
     while not stopped.wait(interval):
-        failures = 0 if ready(service.server_port, check_state=False) else failures + 1
+        failures = 0 if ready(service.server_port) else failures + 1
         if failures >= 2:
             print('Local page failed two health checks. Restarting the service.', file=sys.stderr, flush=True)
             service.shutdown()
@@ -41,7 +41,7 @@ def watch_health(service, stopped, *, interval=30):
 def restore_connection(app):
     source = os.environ.get('AI_XUE_CONNECTION_SOURCE')
     if not source:
-        return
+        return True
     scope = {}
     try:
         scope = runpy.run_path(source)
@@ -50,7 +50,9 @@ def restore_connection(app):
         learning = document['defaults'].get('learning')
         profile = next((row for row in document['services'] if learning and row['id'] == learning['id']), None)
         if not profile or profile['base'] != config['base'] or profile['provider'] != config['provider']:
-            return
+            return True
+        if app.ai_memory().get(profile['id'], {}).get('key'):
+            return True
         models = {choice['model'] for choice in document['defaults'].values() if choice and choice['id'] == profile['id']}
         for model in models:
             app.ai_services.chat_messages(
@@ -58,13 +60,30 @@ def restore_connection(app):
                 [{'role': 'user', 'content': 'Reply OK.'}], max_tokens=32,
             )
         with app.LOCK:
+            current = app.ai_document()
+            if current['defaults'].get('learning') != learning or next((row for row in current['services'] if row['id'] == profile['id']), None) != profile:
+                return True
+            if app.ai_memory().get(profile['id'], {}).get('key'):
+                return True
             app.ai_memory()[profile['id']] = {'key': config['key'], 'verified': models}
             app.sync_active_ai()
         print('Saved model connection restored.', flush=True)
+        return True
     except (Exception, SystemExit) as error:
         print('Model connection could not be restored: '+type(error).__name__, file=sys.stderr, flush=True)
+        return False
     finally:
         scope.clear()
+
+
+def restore_when_available(app, stopped):
+    delay = 5
+    while not stopped.is_set():
+        if restore_connection(app):
+            return
+        if stopped.wait(delay):
+            return
+        delay = min(delay * 2, 60)
 
 
 def serve(port):
@@ -74,7 +93,7 @@ def serve(port):
     stopped = threading.Event()
     with app.ThreadingHTTPServer(('127.0.0.1', port), app.Handler) as service:
         service.daemon_threads = True
-        threading.Thread(target=restore_connection, args=(app,), daemon=True).start()
+        threading.Thread(target=restore_when_available, args=(app, stopped), daemon=True).start()
         threading.Thread(target=watch_health, args=(service, stopped), daemon=True).start()
         print(f'AI Xue is listening on http://127.0.0.1:{port}', flush=True)
         try:

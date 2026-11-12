@@ -58,11 +58,11 @@
   if(!V.data||!V.draft)return '';
   const isNew=!V.selected;
   const templatePicker=`<div class="timetable-template-picker">
-   <select aria-label="讲解与笔记方案" data-template-picker ${working()?'disabled':''}>${isNew?`<option value="" selected>${escape(V.draft.name||'新模板')}</option>`:''}${choicesMarkup(V.data.templates,V.selected)}</select>
-   <button type="button" class="outline-button" data-template-action="new" aria-label="新建模板" title="新建模板">${icon('plus')}</button>
+   <label class="template-picker-label">方案<select aria-label="讲解与笔记方案" data-template-picker ${working()?'disabled':''}>${isNew?`<option value="" selected>${escape(V.draft.name||'新模板')}</option>`:''}${choicesMarkup(V.data.templates,V.selected)}</select></label>
+   <button type="button" class="outline-button" data-template-action="new" aria-label="新建模板" title="新建模板">${icon('plus')}新建</button>
   </div>`;
   const stageSwitch=`<div class="template-stage-switch" role="group" aria-label="Prompt 阶段">${Object.entries(stages).map(([key,label])=>`<button type="button" data-template-action="stage" data-stage="${key}" class="${V.stage===key?'selected':''}" aria-pressed="${V.stage===key}" ${working()||chat().recording?'disabled':''}>${label}</button>`).join('')}</div>`;
-  return `<div class="template-tabs-row">${templatePicker}<div class="settings-operation-group">${actionMenuMarkup('编辑',{label:'手动编辑',icon:'square-pen',attributes:'data-template-action="manual-edit"'},{label:'用 AI 整理',icon:'sparkles',attributes:'data-template-action="edit-ai"'},{glyph:icon,className:'prompt-edit-menu',triggerIcon:'square-pen'})}</div></div>${stageSwitch}<div class="template-workspace ${V.aiOpen?'with-ai':''}"><form id="learning-template-form" aria-busy="${V.saving}">${V.undo?'<div class="template-editor-tools"><button type="button" class="outline-button" data-template-action="undo">撤销应用</button></div>':''}<fieldset ${V.saving?'disabled':''}>${promptMarkup(V.draft,isNew,V.stage)}</fieldset><div class="template-save-area"><p id="template-error" class="template-error" role="alert" ${V.error?'':'hidden'}>${escape(V.error)}</p><p class="template-notice" role="status" ${V.notice?'':'hidden'}>${escape(V.notice)}</p><footer class="template-actions" ${dirty()?'':'hidden'}><button type="button" class="outline-button" data-template-action="cancel" ${V.saving?'disabled':''}>取消</button><button type="submit" class="primary" ${V.saving?'disabled':''}>${V.saving?'保存中…':'保存'}</button></footer></div></form>${V.aiOpen?panelMarkup():''}</div>`;
+  return `<div class="template-tabs-row prompt-toolbar">${templatePicker}<button type="button" class="outline-button template-ai-toggle" data-template-action="edit-ai">${icon('sparkles')}AI 整理</button></div><div class="template-workspace ${V.aiOpen?'with-ai':''}"><form id="learning-template-form" aria-busy="${V.saving}"><div class="template-editor-header">${stageSwitch}<span>直接编辑，保存后生效</span></div>${V.undo?'<div class="template-editor-tools"><button type="button" class="outline-button" data-template-action="undo">撤销应用</button></div>':''}<fieldset ${V.saving?'disabled':''}>${promptMarkup(V.draft,isNew,V.stage)}</fieldset><div class="template-save-area"><p id="template-error" class="template-error" role="alert" ${V.error?'':'hidden'}>${escape(V.error)}</p><p class="template-notice" role="status" ${V.notice?'':'hidden'}>${escape(V.notice)}</p><footer class="template-actions" ${dirty()?'':'hidden'}><button type="button" class="outline-button" data-template-action="cancel" ${V.saving?'disabled':''}>取消</button><button type="submit" class="primary" ${V.saving?'disabled':''}>${V.saving?'保存中…':'保存'}</button></footer></div></form>${V.aiOpen?panelMarkup():''}</div>`;
  }
  function rulesPage(){
   const rows=Object.entries(typeRules.draft).map(([name,kind],i)=>`<div class="template-rule-row"><label for="classroom-template-${i}">${escape(name)}</label><select id="classroom-template-${i}" class="learning-import-select" name="${escape(name)}">${choicesMarkup(typeRules.settings.note_types,kind)}</select></div>`).join('');
@@ -89,7 +89,7 @@
   const calendar=calendarSurface(V.mode);
   const tabs=pageNavigationMarkup(V.mode);
   const content=calendar?root.StudySchedule.markup(V.mode,tabs):
-   `<header class="timetable-settings-header"><div class="calendar-navigation-row"><div class="calendar-period"><h1>课表</h1></div></div>${tabs}</header>${V.mode==='rules'?rulesPage():promptPage()}`;
+   `<header class="timetable-settings-header">${tabs}</header>${V.mode==='rules'?rulesPage():promptPage()}`;
   return `<section class="study-settings-shell">${navigationMarkup(V.mode)}
    <div class="template-page study-settings-content ${calendar?'calendar-settings-content':'timetable-settings-content'}">${content}</div>
   </section>`;
