@@ -129,3 +129,7 @@
 .academic-switcher-menu footer button{justify-content:flex-start}
 .academic-switcher-menu :is(button,summary):focus-visible{outline:2px solid #70777c;outline-offset:-2px}
 @media(max-width:700px){.academic-switcher{max-width:190px;flex:1}.academic-organization{padding-left:0}}
+
+.exam-preparation-page{padding:28px;color:#404040}
+.exam-preparation-page h1{margin:0 0 24px;font-size:21px;font-weight:550}
+.exam-preparation-page p{font-size:13px;color:#888}
