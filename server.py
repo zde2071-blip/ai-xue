@@ -21,6 +21,8 @@ import os
 import re
 import sqlite3
 import threading
+import sys
+import traceback
 import uuid
 import ai_services
 from contextlib import closing
@@ -1309,6 +1311,13 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # No course text, credentials, or request bodies in logs.
 
+    def log_failure(self):
+        error_type, _, stack = sys.exc_info()
+        if error_type is None:
+            return
+        frames = ' > '.join(f'{Path(frame.filename).name}:{frame.lineno}' for frame in traceback.extract_tb(stack))
+        print(f'Local request failed ({error_type.__name__}) at {frames}', file=sys.stderr, flush=True)
+
     def respond(self, value, code=200, content_type='application/json; charset=utf-8', filename=None):
         raw = json.dumps(value, ensure_ascii=False).encode() if isinstance(value, (dict, list)) else value
         self.send_response(code)
@@ -1427,6 +1436,7 @@ class Handler(BaseHTTPRequestHandler):
         except Problem as error:
             self.respond({'error': str(error)}, error.status)
         except Exception:
+            self.log_failure()
             self.respond({'error': '读取失败，请检查本地文件。'}, 500)
 
     def do_POST(self):
@@ -1447,6 +1457,7 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, TypeError):
             self.respond({'error': '请求数据无效。'}, 400)
         except Exception:
+            self.log_failure()
             self.respond({'error': '操作未完成，原有学习记录仍保留。请重试或检查本地文件。'}, 500)
 
 
