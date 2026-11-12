@@ -212,3 +212,9 @@
 .academic-document .calendar-originals svg{width:13px;height:13px;flex:none}
 .calendar-source-settings .calendar-originals{margin-top:20px}
 @media(max-width:800px){.academic-calendar .calendar-navigation-row{padding:4px 16px 16px;flex-wrap:wrap}.academic-documents{margin:12px 16px 16px}.academic-document .calendar-originals a span{max-width:50vw}}
+
+.academic-period-control{flex-wrap:nowrap;gap:6px;min-width:0}
+.academic-period-settings{display:grid;place-items:center;flex:none;width:30px;height:30px;min-height:30px;padding:6px;color:#777;border-radius:6px}
+.academic-period-settings:hover{background:#f1f1f1;color:#333}
+.academic-period-settings svg{width:16px;height:16px}
+.calendar-source-settings .source-settings-value{white-space:normal;line-height:1.6}

@@ -407,6 +407,13 @@
  }
  function sourceSettingsMarkup(t,s){
   const e=s.sourceEditor;if(!e)return '';const d=e.draft;
+  if(d.kind==='calendar'||d.kind==='timetable'){
+   const school=d.kind==='calendar',label=school?'学年':'学期';
+   const period=school?`${schoolYearOf(s.cursor)}–${schoolYearOf(s.cursor)+1}`:semesterLabel(s.semester,t);
+   const sources=e.periodSources||[d];
+   const originals=sources.map(source=>root.AcademicReferences.originalLinks(t,source)).filter(Boolean).join('');
+   return `<div class="calendar-editor-shade"><section class="academic-reference-import calendar-source-settings" role="dialog" aria-modal="true" aria-label="${label}设置"><header><span>${label}设置</span><button type="button" class="icon-button" data-calendar-action="close-source-settings" aria-label="关闭${label}设置">${icon('x')}</button></header><div class="source-settings-field"><span>${label}</span><span class="source-settings-value">${esc(period)}</span></div>${originals||'<p class="subscription-hint">这份安排没有附带原件。</p>'}<footer><button type="button" class="primary" data-calendar-action="close-source-settings">完成</button></footer></section></div>`;
+  }
   const originals=root.AcademicReferences.originalLinks(t,d);
   const subscription=d.type==='subscription'&&/^https?:\/\//i.test(d.url||'')?`<div class="calendar-originals"><span>原件</span><a href="${esc(d.url)}" target="_blank" rel="noopener">打开订阅文件${icon('external-link')}</a></div>`:'';
   return `<div class="calendar-editor-shade"><section class="academic-reference-import calendar-source-settings" role="dialog" aria-modal="true" aria-label="资料详情"><header><span>资料详情</span><button type="button" class="icon-button" data-calendar-action="close-source-settings" aria-label="关闭资料详情" ${e.busy?'disabled':''}>${icon('x')}</button></header><form id="calendar-source-settings-form"><fieldset ${e.busy?'disabled':''}>${e.isSource?`<label class="source-settings-field"><span>名称</span><input name="name" value="${esc(d.name)}" maxlength="150" required></label>`:''}${originals||subscription||'<p class="subscription-hint">这份安排没有附带原件。</p>'}</fieldset><p class="error-message" role="alert" ${e.error?'':'hidden'}>${esc(e.error)}</p><footer><button type="button" class="outline-button source-settings-delete" data-calendar-action="delete-source" title="删除这份资料及其中的安排，保存后生效" ${e.busy?'disabled':''}>${icon('trash-2')}删除资料</button><button type="button" class="outline-button" data-calendar-action="close-source-settings" ${e.busy?'disabled':''}>取消</button><button type="submit" class="primary" ${e.busy?'disabled':''}>完成</button></footer></form></section></div>`;
@@ -460,9 +467,19 @@
   s.sourceEditor=null;
   if(!await root.StudySchedule.save({quiet:true})){Object.assign(t,before);e.error=t.error||'保存失败，请重试。';t.error='';s.sourceEditor=e;redraw();return;}redraw();toast('已保存');
  }
- function referenceDocuments(t,kind,s){
-  const sources=(t.sources||[]).filter(source=>source.kind===kind&&source.visible!==false&&
-   (kind!=='timetable'||timetableGroup(t,{source_id:source.id})===s.semester));
+ function periodSources(t,kind,s){
+  const ids=kind==='calendar'?new Set((schoolYearRows(t).get(schoolYearOf(s.cursor))||[]).map(row=>row.source_id)):null;
+  return (t.sources||[]).filter(source=>source.kind===kind&&source.visible!==false&&
+   (kind==='calendar'?ids.has(source.id):timetableGroup(t,{source_id:source.id})===s.semester));
+ }
+ function periodSettingsButton(t,kind,s){
+  if(!periodSources(t,kind,s).length)return '';
+  const label=kind==='calendar'?'学年设置':'学期设置';
+  return `<button type="button" class="icon-button academic-period-settings" data-calendar-action="period-settings" aria-label="${label}" title="${label}">${icon('settings-2')}</button>`;
+ }
+ function referenceDocuments(t,kind){
+  if(kind!=='exam')return '';
+  const sources=(t.sources||[]).filter(source=>source.kind===kind&&source.visible!==false);
   if(!sources.length)return '';
   return `<div class="academic-documents" aria-label="已添加资料">${sources.map(source=>`<div class="academic-document">
    <button type="button" class="academic-document-name" data-calendar-action="source-settings" data-is-source="true" data-source-id="${esc(source.id)}" title="修改名称或查看原件">${esc(source.name)}${icon('ellipsis')}</button>
@@ -488,7 +505,7 @@
   if(years.length&&!years.includes(year)){year=years[0];s.cursor=year+'-09-01';}
   const picker=school?schoolYearPicker(years,year):timetable?semesterPicker(t,s):'';
   return `<section class="academic-calendar" aria-label="${school?'校历':timetable?'课表':'考试信息'}"><div class="calendar-body"><div class="calendar-main">
-   <div class="calendar-navigation-row"><div class="calendar-view-actions">${picker}</div><div class="calendar-view-actions">${root.AcademicReferences.addButton(kind)}</div></div>
+   <div class="calendar-navigation-row"><div class="calendar-view-actions academic-period-control">${picker}${school||timetable?periodSettingsButton(t,kind,s):''}</div><div class="calendar-view-actions">${root.AcademicReferences.addButton(kind)}</div></div>
    ${navigation}${referenceDocuments(t,kind,s)}${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${school?schoolMarkup(t,s,sections.get(year)):timetable?timetableMarkup(t,s):examMarkup(t)}</div>${editorMarkup(t,s)}</div></div></div>
    ${importPanel}${sourceSettingsMarkup(t,s)}</section>`;
  }
@@ -555,6 +572,11 @@
    if(s.editor?.dirty&&!['close-editor','delete','existing-choice'].includes(action)){s.error='请先完成或取消当前编辑。';redraw();return;}
 
    if(action==='existing-choice'){if(s.editor){s.editor.draft['_custom_'+node.dataset.field]=false;redraw();}return;}
+   if(action==='period-settings'){
+    if(s.editor){root.StudySchedule.reportError('请先完成或取消安排编辑。');return;}
+    const sources=periodSources(t,s.scope,s);if(!sources.length)return;
+    s.sourceEditor={draft:{kind:s.scope},periodSources:sources,busy:false};redraw();return;
+   }
    if(action==='manage-timetable-import'){s.editor=null;openSourceSettings(node.dataset.sourceId,true);return;}
    if(action==='source-settings'){openSourceSettings(node.dataset.sourceId,node.dataset.isSource==='true');return;}
    if(action==='delete-source'){const e=s.sourceEditor;if(e&&!e.busy){removeCalendarSource(t,e.id,e.isSource);s.sourceEditor=null;t.importUI||={};t.importUI.notice='';redraw();toast('已删除，保存后生效');}return;}
