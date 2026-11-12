@@ -108,3 +108,13 @@ class CalendarStoreTest(unittest.TestCase):
             with self.assertRaises(app.Problem):self.save(doc,colors=colors)
         with self.assertRaises(app.Problem):self.save(doc,events=[{'id':'bad-color','title':'考试','kind':'exam','date':'2026-11-06','color':'javascript:bad'}])
         self.assertEqual(self.store.path.read_bytes(),before)
+
+    def test_explicit_school_year_and_third_semester_persist_with_version_checks(self):
+        doc=self.store.document()
+        sources=[{'id':'school','kind':'calendar','name':'school','type':'import','school_year':2027}, {'id':'classes','kind':'timetable','name':'classes','type':'import','semester':'2027-3'}]
+        saved=self.save(doc,sources=sources)
+        self.assertEqual(saved['sources'][0]['school_year'],2027)
+        self.assertEqual(self.store.document()['sources'][1]['semester'],'2027-3')
+        with self.assertRaises(app.Problem):self.save(doc,sources=sources)
+        for value in [True,'2027',9999]:
+            with self.assertRaises(app.Problem):self.save(saved,sources=[{**sources[0],'school_year':value}])

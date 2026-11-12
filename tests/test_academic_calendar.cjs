@@ -207,3 +207,8 @@ test('undated imported timetables stay separate and cannot leak into the learnin
  assert.deepEqual(C.timetableEntries(doc,day,'all','import:b').map(row=>row.title),['BBB101']);
  assert.deepEqual(C.learningWeek(doc,day).days[0].classes.map(row=>row.course),['CCC101']);
 });
+
+test('explicit calendar school year changes its grouping without changing dated records',()=>{
+ const doc={sources:[{id:'school',kind:'calendar',school_year:2027}],calendar:[{source_id:'school',kind:'teaching',week:1,start:'2026-09-07',end:'2026-09-13'}]};
+ assert.deepEqual(C.schoolYears(doc),[2027]);assert.equal(C.schoolYearRows(doc).get(2027)[0].start,'2026-09-07');
+});

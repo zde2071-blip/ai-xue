@@ -95,7 +95,11 @@ class Calendar:
             try:
                 item.update(academic_import.row_color({'color':row.get('color','')}))
                 if source_type=='subscription':item['url']=calendar_subscription.subscription_url(row.get('url'))
-                if kind=='timetable' and source_type=='import':item.update(semester_metadata(row))
+                if kind=='calendar' and 'school_year' in row:
+                    year=row['school_year']
+                    if type(year) is not int or not 1000<=year<=9998:raise ValueError('请填写有效的起止学年。')
+                    item['school_year']=year
+                if kind=='timetable':item.update(semester_metadata(row))
                 originals=row.get('reference_ids',[])
                 if not isinstance(originals,list) or len(originals)>MAX_REFERENCES or any(not isinstance(ref,str) or ref not in reference_ids for ref in originals):
                     raise ValueError('日历来源引用了不存在的原始文件。')

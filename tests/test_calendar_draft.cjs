@@ -36,3 +36,18 @@ test('source settings Done persists once and a version conflict preserves the ed
  edit('新名称');await done();assert.equal(writes,1);assert.equal(stored.sources[0].name,'新名称');assert.equal(root.StudySchedule.dirty(),false);assert.equal(m.calendarView.sourceEditor,null);
  stored.etag='v1';await root.StudySchedule.prepare();const current=root.StudySchedule.manager();current.calendarView={sourceEditor:{id:'image',isSource:true,busy:false,draft:{...current.sources[0],name:'冲突编辑'},initialColor:'#808080'}};reject=true;await done();assert.equal(current.sources[0].name,'新名称');assert.equal(current.calendarView.sourceEditor.draft.name,'冲突编辑');assert.match(current.calendarView.sourceEditor.error,/其他位置/);assert.equal(stored.sources[0].name,'新名称');
 });
+
+test('period settings save once, update selected period, and preserve edits on conflict',async()=>{
+ let stored={calendar:[{source_id:'school',kind:'teaching',week:1,start:'2026-09-07',end:'2026-09-13'}],timetable:[],events:[],references:[],colors:{},sources:[{id:'school',kind:'calendar',type:'import',name:'school'},{id:'classes',kind:'timetable',type:'import',name:'classes',semester:'2026-1'}],etag:'v1'},writes=0,reject=false;
+ const listeners={},root={AcademicReferences:{pending:()=>false,busy:()=>false,validate(){}}};
+ const context={window:root,structuredClone,S:{user:{id:'owner'}},api:async(url,data)=>{if(data){writes++;if(reject)throw new Error('日历已在其他位置修改');stored={...structuredClone(data),etag:'v'+(writes+1)};}return structuredClone(stored);},render(){},toast(){},document:{querySelector:()=>null,querySelectorAll:()=>[],addEventListener:(type,fn)=>(listeners[type]||=[]).push(fn)}};
+ for(const name of ['study-schedule.js','academic-calendar.js'])vm.runInNewContext(fs.readFileSync(require.resolve('../web/'+name),'utf8'),context);
+ await root.StudySchedule.prepare();const m=root.StudySchedule.manager();
+ const done=()=>listeners.submit[0]({target:{id:'calendar-period-settings-form'},preventDefault(){},stopImmediatePropagation(){}});
+ function edit(id,values){const source=m.sources.find(s=>s.id===id);m.calendarView={scope:source.kind,cursor:'2026-09-01',semester:'2026-1',sourceEditor:{draft:{kind:source.kind},periodSources:[source],periodDraft:values}};}
+ edit('school',{start:2027,end:2028,term:1});await done();
+ assert.equal(writes,1);assert.equal(stored.sources[0].school_year,2027);assert.equal(stored.calendar[0].start,'2026-09-07');assert.equal(m.calendarView.cursor,'2027-09-01');assert.equal(root.StudySchedule.dirty(),false);
+ edit('classes',{start:2027,end:2028,term:3});await done();assert.equal(writes,2);assert.equal(stored.sources[1].semester,'2027-3');assert.equal(m.calendarView.semester,'2027-3');
+ edit('classes',{start:2028,end:2030,term:3});await done();assert.equal(writes,2);assert.ok(m.calendarView.sourceEditor.error);
+ edit('classes',{start:2028,end:2029,term:4});reject=true;await done();assert.equal(m.sources[1].semester,'2027-3');assert.equal(m.calendarView.sourceEditor.periodDraft.term,4);assert.match(m.calendarView.sourceEditor.error,/其他位置/);
+});
