@@ -159,6 +159,25 @@ class Details:
                 index['assets'].append({k:v for k,v in item.items() if k not in ('path','available','size')})
             self.call('write_json',self.h['VAULT']/'library.json',index)
             return self.get(item['id'])
+    def source_originals(self,c,note_id=None):
+        import original_inputs
+        source_id=c.get('origin_material_id') if c.get('source_ref') else 'source-'+c['id']
+        target='note-'+c['id']+'-'+note_id if note_id else source_id
+        item=self.call('find_library_item',target)
+        by_id={row['id']:row for row in self.call('library_items')};files=[]
+        for link in self.relations(item):
+            row=by_id.get(link['material_id'])
+            if not row or not row['available']:self.fail('关联原件不可用，请在详细信息中检查后重试。',409)
+            path=self.call('library_path',row['relative_path'])
+            try:
+                if path.stat().st_size>original_inputs.MAX_BYTES:self.fail('原件超过 15 MB，请缩小材料范围。',413)
+                raw=path.read_bytes();pages=link.get('pages','')
+                raw=original_inputs.select_pages(row['filename'],raw,pages)
+            except (OSError,ValueError):self.fail('无法读取关联原件或指定页码，请检查后重试。',409)
+            files.append({'filename':row['filename'],'raw':raw,'pages':pages})
+        if not files:self.fail('没有关联的课件原件，请在详细信息中添加原件。',409)
+        return files
+
     def source_context(self,c,note_id=None,limit=110000):
         """Read only linked originals; excerpts honor PDF/PPT page markers."""
         source_id=c.get('origin_material_id') if c.get('source_ref') else 'source-'+c['id']

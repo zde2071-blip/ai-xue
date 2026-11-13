@@ -3,7 +3,7 @@
 import json, re, ssl
 from urllib.request import Request, build_opener, HTTPSHandler, HTTPRedirectHandler
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse, urlencode
+from urllib.parse import urlparse, urlencode, quote
 try:
  import certifi
 except ImportError:
@@ -43,7 +43,8 @@ def validate(cfg,model=True):
 def request_json(cfg,path,payload=None):
  validate(cfg,model=False)
  headers={'Content-Type':'application/json'}
- if cfg['provider']=='claude':headers.update({'x-api-key':cfg['key'],'anthropic-version':'2023-06-01'})
+ if cfg.get('native_gemini'):headers['x-goog-api-key']=cfg['key']
+ elif cfg['provider']=='claude':headers.update({'x-api-key':cfg['key'],'anthropic-version':'2023-06-01'})
  else:headers['Authorization']='Bearer '+cfg['key']
  req=Request(cfg['base'].rstrip('/')+path,data=json.dumps(payload).encode() if payload is not None else None,headers=headers)
  try:
@@ -118,6 +119,9 @@ def complete(cfg,prompt,data,max_tokens=4096,images=None):
 
 def chat_messages(cfg,messages,max_tokens=6500,json_mode=False):
  validate(cfg)
+ has_files=any(isinstance(m.get('content'),list) and any(p.get('type')=='file' for p in m['content']) for m in messages)
+ if has_files and cfg['provider']=='openai':return responses_with_files(cfg,messages,max_tokens,json_mode)
+ if has_files and cfg['provider']=='gemini':return gemini_with_files(cfg,messages,max_tokens,json_mode)
  if cfg['provider']=='claude':
   system='\n'.join(m['content'] for m in messages if m['role']=='system')
   history=[]
@@ -132,6 +136,9 @@ def chat_messages(cfg,messages,max_tokens=6500,json_mode=False):
       if not re.fullmatch(r'data:image/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+',url):raise AIServiceError('图片内容无效，请重新选择。')
       header,encoded=url.split(',',1)
       blocks.append({'type':'image','source':{'type':'base64','media_type':header[5:].split(';')[0],'data':encoded}})
+     elif part.get('type')=='file':
+      file=part['file'];header,encoded=file['file_data'].split(',',1)
+      blocks.append({'type':'document','title':file['filename'],'source':{'type':'base64','media_type':header[5:].split(';')[0],'data':encoded}})
      else:blocks.append(part)
     row['content']=blocks
    history.append(row)
@@ -148,4 +155,53 @@ def chat_messages(cfg,messages,max_tokens=6500,json_mode=False):
   except (KeyError,IndexError,AttributeError,TypeError):raise AIServiceError('模型返回格式无法读取，请检查接口兼容性。') from None
   if choice.get('finish_reason')=='length':raise AIServiceError('回答达到输出上限，请缩小当前问题后重试。')
  if not isinstance(content,str) or not content.strip():raise AIServiceError('模型返回了空回答，请重试或更换模型。')
+ return content
+
+
+def responses_with_files(cfg,messages,max_tokens,json_mode):
+ history=[]
+ for message in messages:
+  content=message['content']
+  if isinstance(content,str):history.append(dict(message));continue
+  parts=[]
+  for part in content:
+   kind=part['type']
+   if kind=='text':parts.append({'type':'input_text','text':part['text']})
+   elif kind=='image_url':parts.append({'type':'input_image','image_url':part['image_url']['url']})
+   elif kind=='file':parts.append({'type':'input_file',**part['file']})
+   else:raise AIServiceError('原件输入类型不受支持。')
+  history.append({'role':message['role'],'content':parts})
+ payload={'model':cfg['model'],'input':history,'max_output_tokens':max_tokens,'store':False}
+ if json_mode:payload['text']={'format':{'type':'json_object'}}
+ result=request_json(cfg,'/responses',payload)
+ if result.get('status')=='incomplete':raise AIServiceError('原件阅读结果不完整，请缩小范围后重试。')
+ if result.get('status')=='failed' or result.get('error'):raise AIServiceError('模型未能处理原件，请检查文件和模型支持情况。')
+ content=''.join(part.get('text','') for item in result.get('output',[]) if item.get('type')=='message' for part in item.get('content',[]) if part.get('type')=='output_text')
+ if not content.strip():raise AIServiceError('模型没有返回原件阅读结果，请检查模型是否支持这种文件。')
+ return content
+
+
+def gemini_with_files(cfg,messages,max_tokens,json_mode):
+ # Google native document inputs; preserve a configured gateway's host and prefix.
+ if not cfg['base'].rstrip('/').endswith('/openai'):raise AIServiceError('Gemini 原件输入需要以 /openai 结尾的兼容接口基础地址。')
+ native={**cfg,'base':cfg['base'].rstrip('/')[:-7],'native_gemini':True}
+ system=[];history=[]
+ for message in messages:
+  if message['role']=='system':system.append({'text':message['content']});continue
+  content=message['content'];parts=[]
+  for part in ([{'type':'text','text':content}] if isinstance(content,str) else content):
+   if part['type']=='text':parts.append({'text':part['text']})
+   else:
+    url=part['file']['file_data'] if part['type']=='file' else part['image_url']['url']
+    header,encoded=url.split(',',1)
+    parts.append({'inline_data':{'mime_type':header[5:].split(';')[0],'data':encoded}})
+  history.append({'role':'model' if message['role']=='assistant' else 'user','parts':parts})
+ generation={'maxOutputTokens':max_tokens}
+ if json_mode:generation['responseMimeType']='application/json'
+ result=request_json(native,'/models/'+quote(cfg['model'],safe='')+':generateContent',{'systemInstruction':{'parts':system},'contents':history,'generationConfig':generation})
+ candidates=result.get('candidates') or []
+ if not candidates:raise AIServiceError('Gemini 未返回原件阅读结果。')
+ if candidates[0].get('finishReason') not in (None,'STOP'):raise AIServiceError('Gemini 原件阅读结果不完整，请缩小范围或检查文件。')
+ content=''.join(part.get('text','') for part in candidates[0].get('content',{}).get('parts',[]) if not part.get('thought'))
+ if not content.strip():raise AIServiceError('Gemini 未返回原件阅读结果。')
  return content

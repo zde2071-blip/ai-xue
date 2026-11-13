@@ -65,7 +65,7 @@ function sidebar(){
 function statusPanel(){
   const c=S.course;if(!c||!['overview','learn'].includes(S.view))return '';
   const pending=!!S.importPending||!!S.importError,waiting=S.busy||S.threadBusy||pending,planned=c.status==='planning';
-  return `<aside class="status-panel" aria-label="学习进度"><div class="status-heading"><h2>学习模块</h2></div>${pending?'<p class="muted">正在整理…</p>':`<nav class="status-outline" aria-label="学习目录">${c.blocks.map((b,i)=>`<div class="status-step ${c.completed.includes(b.id)?'done':''} ${b.id===c.active?'current':''}" ${b.id===c.active?'aria-current="step"':''}><span class="status-step-number">${c.completed.includes(b.id)?icon('check'):i+1}</span><span><strong>${esc(b.title)}</strong><small>${c.completed.includes(b.id)?'已完成':b.id===c.active&&!planned?'正在学习':'待学习'}</small></span></div>`).join('')}</nav><div class="status-course-actions"><button class="primary" data-action="${planned?'start':['paused','completed'].includes(c.status)?'resume-study':'complete'}" ${waiting?'disabled':''}>${planned?'开始学习':'继续'} ${icon('arrow-right')}</button>${c.session_blocks.length?`<button class="outline-button" data-action="finish" ${waiting?'disabled':''}>结束并整理笔记</button>`:''}</div>`}</aside>`;
+  return `<aside class="status-panel" aria-label="学习进度"><div class="status-heading"><h2>学习模块</h2></div>${pending?(S.importError?'<p class="muted">未生成学习目录</p>':'<p class="muted">正在整理…</p>'):`<nav class="status-outline" aria-label="学习目录">${c.blocks.map((b,i)=>`<div class="status-step ${c.completed.includes(b.id)?'done':''} ${b.id===c.active?'current':''}" ${b.id===c.active?'aria-current="step"':''}><span class="status-step-number">${c.completed.includes(b.id)?icon('check'):i+1}</span><span><strong>${esc(b.title)}</strong><small>${c.completed.includes(b.id)?'已完成':b.id===c.active&&!planned?'正在学习':'待学习'}</small></span></div>`).join('')}</nav><div class="status-course-actions"><button class="primary" data-action="${planned?'start':['paused','completed'].includes(c.status)?'resume-study':'complete'}" ${waiting?'disabled':''}>${planned?'开始学习':'继续'} ${icon('arrow-right')}</button>${c.session_blocks.length?`<button class="outline-button" data-action="finish" ${waiting?'disabled':''}>结束并整理笔记</button>`:''}</div>`}</aside>`;
 }
 
 function header(){
@@ -89,7 +89,7 @@ function studyMessage(m){
 function overview(){return learn();}
 function learn(){
   if(S.importPending)return `<article class="study-conversation import-waiting" aria-label="学习对话"><div role="status">${icon('loader-circle')}正在整理课件…</div></article>`;
-  if(S.importError)return `<article class="study-conversation import-waiting"><p role="alert">${esc(S.importError)}</p><button class="outline-button" data-action="unit-retry-import">重试</button></article>`;
+  if(S.importError)return `<article class="study-conversation import-waiting"><p role="alert">${esc(S.importError)}</p><div class="context-actions"><button class="outline-button" data-action="settings">AI 服务</button><button class="outline-button" data-action="unit-retry-import">重试</button></div></article>`;
   return `<article class="study-conversation" aria-label="学习对话">${studyMessages().map(studyMessage).join('')}${S.studyPending?`<div class="study-message study-user"><p>${esc(S.studyPending)}</p></div>`:''}${S.threadBusy?`<div class="study-message study-assistant study-waiting" role="status">${icon('loader-circle')}正在回答…</div>`:''}<div id="study-bottom"></div></article>`;
 }
 function composer(){
