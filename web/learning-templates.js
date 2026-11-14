@@ -88,10 +88,9 @@
   if(!V.data||!V.draft)return '';
   const calendar=calendarSurface(V.mode);
   const tabs=pageNavigationMarkup(V.mode);
-  const content=calendar?root.StudySchedule.markup(V.mode,tabs):
-   `<header class="timetable-settings-header">${tabs}</header>${V.mode==='rules'?rulesPage():promptPage()}`;
+  const content=calendar?root.StudySchedule.markup(V.mode):V.mode==='rules'?rulesPage():promptPage();
   return `<section class="study-settings-shell">${navigationMarkup(V.mode)}
-   <div class="template-page study-settings-content ${calendar?'calendar-settings-content':'timetable-settings-content'}">${content}</div>
+   <div class="template-page study-settings-content ${calendar?'calendar-settings-content':'timetable-settings-content'} ${tabs?'timetable-category':''}">${tabs?`<header class="timetable-settings-header">${tabs}</header><div class="timetable-settings-body ${calendar?'is-calendar':''}">${content}</div>`:content}</div>
   </section>`;
  }
  function paint(){

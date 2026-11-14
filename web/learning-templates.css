@@ -126,3 +126,16 @@
 .template-workspace{padding-bottom:24px}
 .template-workspace.with-ai{gap:20px}
 @media(max-width:760px){#learning-template-form{padding:15px}.template-editor-header{gap:10px}.template-editor-header>span{font-size:11px}.template-workspace.with-ai{gap:20px}.template-picker-label select{max-width:160px}.prompt-toolbar{gap:8px}}
+
+/* Keep the same tab header mounted above each timetable page's scrolling body. */
+.study-settings-shell > .study-settings-content.timetable-category{padding:0;overflow:hidden}
+.timetable-category > .timetable-settings-header{flex:none;margin:20px 28px 16px}
+.timetable-settings-body{flex:1;min-height:0;min-width:0;overflow:auto;padding:0 28px}
+.timetable-settings-body.is-calendar{display:flex;flex-direction:column;overflow:hidden;padding:0}
+.timetable-settings-body .template-tabs-row{margin-bottom:16px}
+.timetable-settings-body .calendar-navigation-row{padding-top:0}
+@media(max-width:850px){
+ .timetable-category > .timetable-settings-header{margin-inline:16px}
+ .timetable-settings-body{padding-inline:16px}
+ .timetable-settings-body .calendar-navigation-row{padding-inline:16px}
+}
