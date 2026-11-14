@@ -46,3 +46,19 @@ class ReadingMarks(unittest.TestCase):
         self.assertIn('A relation describes connections.', ask.call_args.args[0][0]['content'])
         self.assertIn('名词，关系', result['messages'][-1]['content'])
         self.assertIn(result['id'], app.get_note(self.c['id'], note['id'])['thread_ids'])
+
+    def test_formula_anchor_version_persists_and_does_not_clear_legacy_offsets(self):
+        target = self.c['blocks'][0]['id']
+        self.post('highlight', target=target, quote='old text', start=5, style='highlight')
+        self.post('highlight', target=target, quote='P(A)', start=5, anchor_version=2, style='highlight')
+        marks = app.get_course(self.c['id'])['highlights']
+        self.assertEqual([m['anchor_version'] for m in marks], [1, 2])
+        self.post('highlight', target=target, quote='P(A)', start=5, anchor_version=2, style='clear')
+        remaining = app.get_course(self.c['id'])['highlights']
+        self.assertEqual([m['quote'] for m in remaining], ['old text'])
+        self.post('highlight', target=target, quote='old text', start=100, anchor_version=2,
+                  style='clear', remove_ids=[remaining[0]['id']])
+        self.assertEqual(app.get_course(self.c['id'])['highlights'], [])
+        for version in (0, 3, True, '2'):
+            with self.assertRaises(app.Problem):
+                self.post('highlight', target=target, quote='x', anchor_version=version)

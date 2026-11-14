@@ -1234,20 +1234,23 @@ def route_post(path, data):
             start = data.get('start')
             if start is not None and (type(start) is not int or start < 0 or start > 1000000):
                 raise Problem('标记位置无效。')
+            anchor_version = data.get('anchor_version', 1)
+            if type(anchor_version) is not int or anchor_version not in (1, 2):
+                raise Problem('标记位置版本无效。')
             marks = c.setdefault('highlights', [])
             if style == 'remove':
                 c['highlights'] = [m for m in marks if not (m['target'] == target and m['id'] in data.get('remove_ids', []))]
             elif style == 'clear':
                 c['highlights'] = [m for m in marks if not (m['target'] == target and (
                     (m['id'] in data.get('remove_ids', []))
-                    or (start is not None and m.get('start') is not None and m['start'] < start + len(quote) and start < m['start'] + len(m['quote']))
+                    or (m.get('anchor_version', 1) == anchor_version and start is not None and m.get('start') is not None and m['start'] < start + len(quote) and start < m['start'] + len(m['quote']))
                     or (m.get('start') is None and (quote in m['quote'] or m['quote'] in quote))))]
             else:
-                existing = next((m for m in marks if m['target'] == target and m['quote'] == quote and m['style'] == style and m.get('start') == start), None)
+                existing = next((m for m in marks if m['target'] == target and m['quote'] == quote and m['style'] == style and m.get('start') == start and m.get('anchor_version', 1) == anchor_version), None)
                 if existing is None:
                     existing = {'id': uid(), 'target': target, 'quote': quote, 'style': style}
                     marks.append(existing)
-                existing.update({'color': color, 'start': start,
+                existing.update({'color': color, 'start': start, 'anchor_version': anchor_version,
                                  'comment': clean_text(data.get('comment', ''), 2000) if style == 'comment' else '',
                                  'before': str(data.get('before', ''))[-32:],
                                  'after': str(data.get('after', ''))[:32]})

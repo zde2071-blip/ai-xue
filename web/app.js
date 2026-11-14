@@ -446,8 +446,8 @@ async function openThread(id){let threads=S.note?.discussions;if(!threads?.some(
 const markColors={yellow:'黄色',green:'绿色',blue:'蓝色',pink:'粉色',purple:'紫色'};
 let selectionAnchor=null;
 function markRoot(){return S.view==='learn'?$('#lesson-body'):S.view==='note'?$('#note-body'):null;}
-function textMap(root){
-  const nodes=[];let text='';const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>!n.textContent||n.parentElement.closest('.katex,.annotation-badge,button')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+function textMap(root,legacy=false){
+  const nodes=[];let text='';const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>!n.textContent||n.parentElement.closest(legacy?'.katex,.annotation-badge,button':'.katex-mathml,.annotation-badge,button,svg')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
   let n;while((n=walker.nextNode())){nodes.push({node:n,start:text.length,end:text.length+n.textContent.length});text+=n.textContent;}
   return {nodes,text};
 }
@@ -460,7 +460,7 @@ function locateMark(text,mark){
 function applyMarks(){
   const root=markRoot(),target=S.view==='learn'?S.course?.active:S.note?.id;if(!root||!target||S.editing)return;
   for(const mark of S.course.highlights||[]){
-    if(mark.target!==target)continue;const map=textMap(root),start=locateMark(map.text,mark);if(start<0)continue;const end=start+mark.quote.length;
+    if(mark.target!==target)continue;const map=textMap(root,mark.anchor_version!==2),start=locateMark(map.text,mark);if(start<0)continue;const end=start+mark.quote.length;
     for(const item of map.nodes.filter(n=>n.end>start&&n.start<end).reverse()){
       const range=document.createRange();range.setStart(item.node,Math.max(0,start-item.start));range.setEnd(item.node,Math.min(item.node.length,end-item.start));
       const span=document.createElement('span');span.className=mark.style==='underline'?'study-underline underline-'+(mark.color||'black'):mark.style==='strike'?'study-strike':mark.style==='comment'?'study-comment':'study-mark color-'+(markColors[mark.color]?mark.color:'yellow');span.dataset.markId=mark.id;if(mark.style==='comment'){span.dataset.action='read-comment';span.dataset.id=mark.id;span.title=mark.comment;span.setAttribute('role','button');span.tabIndex=0;}range.surroundContents(span);
@@ -472,12 +472,23 @@ function captureAnchor(range,root){
   const first=selected[0],last=selected[selected.length-1];let start=first.start+(range.startContainer===first.node?range.startOffset:0),end=last.start+(range.endContainer===last.node?range.endOffset:last.node.length);
   const raw=map.text.slice(start,end),left=raw.length-raw.trimStart().length;start+=left;end=start+raw.trim().length;
   if(end<=start)return null;
-  return {start,quote:map.text.slice(start,end),before:map.text.slice(Math.max(0,start-32),start),after:map.text.slice(end,end+32)};
+  return {anchor_version:2,start,quote:map.text.slice(start,end),before:map.text.slice(Math.max(0,start-32),start),after:map.text.slice(end,end+32)};
 }
 async function addMark(style,color='yellow'){
   if(!selectionAnchor){toast('请先选中文字。');return;}
   const target=S.view==='learn'?S.course.active:S.note.id;
-  const text=textMap(markRoot()).text,remove_ids=(S.course.highlights||[]).filter(m=>{const at=locateMark(text,m);return m.target===target&&at>=0&&at<selectionAnchor.start+selectionAnchor.quote.length&&selectionAnchor.start<at+m.quote.length;}).map(m=>m.id);
+  const root=markRoot(),map=textMap(root);
+  const remove_ids=(S.course.highlights||[]).filter(m=>{
+    if(m.target!==target)return false;
+    const source=m.anchor_version===2?map:textMap(root,true),at=locateMark(source.text,m);
+    if(at<0)return false;
+    return source.nodes.some(n=>{
+      if(n.end<=at||n.start>=at+m.quote.length)return false;
+      const current=map.nodes.find(item=>item.node===n.node);if(!current)return false;
+      const start=current.start+Math.max(0,at-n.start),end=current.start+Math.min(n.end-n.start,at+m.quote.length-n.start);
+      return start<selectionAnchor.start+selectionAnchor.quote.length&&selectionAnchor.start<end;
+    });
+  }).map(m=>m.id);
   const c=await api(courseUrl('highlight'),{target,...selectionAnchor,style,color,remove_ids});
   updateCourse(c);selectionAnchor=null;$('#selection-tools').hidden=true;window.getSelection()?.removeAllRanges();render();
 }
@@ -709,7 +720,7 @@ function updateSelectionTools(e){
     const sel=window.getSelection(),text=sel?.toString().trim(),range=sel?.rangeCount?sel.getRangeAt(0):null;
     const parent=range?.commonAncestorContainer.nodeType===Node.TEXT_NODE?range.commonAncestorContainer.parentElement:range?.commonAncestorContainer;
     if(!text||!markRoot()?.contains(parent)||!parent?.closest('[data-selectable]')||S.editing||text.length>4000){$('#selection-tools').hidden=true;selectionAnchor=null;syncReadingTools();return;}
-    selectionAnchor=captureAnchor(range,markRoot());if(!selectionAnchor)return;savedSelection=text;S.selectedNoteBlock=parent.closest('[data-block]')?.dataset.block || null;
+    selectionAnchor=captureAnchor(range,markRoot());if(!selectionAnchor)return;savedSelection=selectionAnchor.quote;S.selectedNoteBlock=parent.closest('[data-block]')?.dataset.block || null;
     syncReadingTools();if(S.view==='note'&&window.StudyReview?.toolsVisible()){ $('#selection-tools').hidden=true;return;}
     const rect=range.getBoundingClientRect(),toolbar=$('#selection-tools');toolbar.innerHTML=selectionToolbar();
     toolbar.hidden=false;toolbar.classList.toggle('review-selection-tools',S.view==='note');const width=toolbar.offsetWidth,height=toolbar.offsetHeight;toolbar.style.top=Math.max(8,rect.top-height-10)+'px';toolbar.style.left=Math.max(8,Math.min(window.innerWidth-width-8,rect.left+rect.width/2-width/2))+'px';icons();syncReadingTools();
