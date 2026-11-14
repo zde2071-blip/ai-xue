@@ -22,17 +22,17 @@
  function validate(M){if(root.AcademicCalendar?.pending(M))throw new Error('请先完成或取消安排编辑。');if(state(M).open)throw new Error('请先完成或取消导入。');}
  function addButton(kind){return `<button type="button" class="outline-button calendar-add-button" aria-label="添加${names[kind]}" data-reference-action="add" data-kind="${kind}">${icon('plus')}<span>添加</span></button>`;}
  const modes={
-  ai:['sparkles','用 AI 导入','图片、PDF 或文字'],
+  ai:['sparkles','AI 导入','多份图片、PDF 或文档'],
   subscription:['link','订阅链接','学校提供的 iCalendar 地址'],
   manual:['pencil','手动添加','自己填写安排'],
   handbook:['book-open','从 Module Handbook 提取','核对手册里的考试与考核信息']
  };
  function addChooser(s){
   const label='添加'+names[s.kind];
-  const methods=s.kind==='calendar'?['ai','subscription','manual']:s.kind==='exam'?['manual','ai','handbook']:['ai','manual'];
+  const methods=['manual','ai'];
   return `<div class="calendar-editor-shade"><section class="academic-reference-import calendar-add-chooser" role="dialog" aria-modal="true" aria-label="${label}">
    <header><span>${label}</span><button type="button" class="icon-button" data-reference-action="cancel-import" aria-label="关闭添加">${icon('x')}</button></header>
-   <div class="calendar-add-methods" role="group" aria-label="添加方式">${methods.map(mode=>{const [glyph,title,description]=modes[mode];return `<button type="button" data-reference-action="choose-method" data-mode="${mode}">${icon(glyph)}<span><strong>${title}</strong><small>${description}</small></span>${icon('chevron-right')}</button>`;}).join('')}</div>
+   <div class="calendar-add-methods" role="group" aria-label="添加方式">${methods.map(mode=>{const [glyph,title,description]=modes[mode];return `<button type="button" data-reference-action="choose-method" data-mode="${mode}">${icon(glyph)}<span><strong>${title}</strong><small>${mode==='ai'&&s.kind==='exam'?'考试安排、老师通知、Module Handbook':description}</small></span>${icon('chevron-right')}</button>`;}).join('')}</div>
   </section></div>`;
  }
  function backButton(busy){return `<button type="button" class="text-button calendar-add-back" data-reference-action="back" ${busy?'disabled':''}>返回</button>`;}
@@ -96,7 +96,7 @@
 
   const panel=!s.open?'':s.mode==='choose'?addChooser(s):s.mode==='handbook'?handbookImport(M,s):s.mode==='subscription'?
    `<div class="calendar-editor-shade"><section class="academic-reference-import" role="dialog" aria-modal="true" aria-label="订阅${names[kind]}"><header><span>订阅${names[kind]}</span><button type="button" class="icon-button" data-reference-action="cancel-import" aria-label="关闭导入">${icon('x')}</button></header><label class="subscription-field">名称<input data-subscription-name value="${esc(s.name||'')}" placeholder="可留空" maxlength="150"></label><label class="subscription-field">订阅链接<input data-subscription-url value="${esc(s.url||'')}" placeholder="https:// 或 webcal://" type="text" autocomplete="off"></label><p class="subscription-hint">请粘贴能直接读取的 iCalendar 链接。${kind==='calendar'?'订阅按链接提供的日期显示。教学周可通过校历文件导入。':''}</p><p class="error-message" role="alert" ${s.error?'':'hidden'}>${esc(s.error)}</p><footer>${backButton(s.busy)}<button type="button" class="outline-button" data-reference-action="cancel-import">取消</button><button type="button" class="primary" data-reference-action="load-subscription">${s.busy?'正在读取…':'读取日历'}</button></footer></section></div>`:
-   `<div class="calendar-editor-shade"><section class="academic-reference-import" role="dialog" aria-modal="true" aria-label="用 AI 导入${names[kind]}"><header><span>用 AI 导入${names[kind]}</span><button type="button" class="icon-button" data-reference-action="cancel-import" aria-label="关闭导入" ${s.busy?'disabled':''}>${icon('x')}</button></header><label class="academic-reference-drop" data-reference-drop><input id="academic-reference-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.docx,.pptx,.md,.txt" hidden ${s.busy?'disabled':''}>${image?`<img src="data:${esc(file.mime)};base64,${file.file}" alt="待识别图片">`:icon('upload')}<span>${file?esc(file.filename):'选择文件，或粘贴图片'}</span></label><textarea data-reference-text aria-label="补充导入说明" rows="3" maxlength="30000" placeholder="补充说明，或粘贴文字…" ${s.busy?'disabled':''}>${esc(s.text)}</textarea><p class="error-message" role="alert" ${s.error?'':'hidden'}>${esc(s.error)}</p><footer>${backButton(s.busy)}<button type="button" class="outline-button" data-reference-action="cancel-import" ${s.busy?'disabled':''}>取消</button><button type="button" class="primary" data-reference-action="recognize" ${s.busy?'disabled':''}>${s.busy?'正在识别…':'识别'}</button></footer></section></div>`;
+   `<div class="calendar-editor-shade"><section class="academic-reference-import" role="dialog" aria-modal="true" aria-label="用 AI 导入${names[kind]}"><header><span>用 AI 导入${names[kind]}</span><button type="button" class="icon-button" data-reference-action="cancel-import" aria-label="关闭导入" ${s.busy?'disabled':''}>${icon('x')}</button></header><label class="academic-reference-drop" data-reference-drop><input id="academic-reference-file" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.docx,.pptx,.md,.txt" hidden ${s.busy?'disabled':''}>${image?`<img src="data:${esc(file.mime)};base64,${file.file}" alt="待识别图片">`:icon('upload')}<span>${s.files.length?'继续添加文件（已选 '+s.files.length+' 份）':'选择多个文件，或粘贴图片'}</span></label><ul class="reference-file-list">${s.files.map((f,i)=>`<li><span>${i+1}. ${esc(f.filename)}</span><button type="button" data-reference-action="remove-file" data-index="${i}" aria-label="移除 ${esc(f.filename)}">${icon('x')}</button></li>`).join('')}</ul><textarea data-reference-text aria-label="补充导入说明" rows="3" maxlength="30000" placeholder="补充说明，或粘贴文字…" ${s.busy?'disabled':''}>${esc(s.text)}</textarea><p class="error-message" role="alert" ${s.error?'':'hidden'}>${esc(s.error)}</p><footer>${backButton(s.busy)}<button type="button" class="outline-button" data-reference-action="cancel-import" ${s.busy?'disabled':''}>取消</button><button type="button" class="primary" data-reference-action="recognize" ${s.busy?'disabled':''}>${s.busy?'正在识别…':'识别'}</button></footer></section></div>`;
   const message=`<p class="academic-reference-message" role="status" ${s.notice?'':'hidden'}>${esc(s.notice)}</p>`;
   return `<section class="academic-references">${root.AcademicCalendar.markup(M,M,scope,{importPanel:panel,message,navigation})}</section>`;
  }
@@ -130,10 +130,11 @@
   const mode=s.mode;
   if(!s.open||!['ai','handbook'].includes(mode)||s.handbookResult)return;
   try{
-   if(files.length>1)throw new Error('请一次导入一份文件。');
-   const payload=await attachment(files[0],mode==='handbook');
+   if(files.length+s.files.length>10)throw new Error('每次最多导入 10 份文件。');
+   const payload=await Promise.all(files.map(file=>attachment(file,mode==='handbook')));
+   if([...s.files,...payload].reduce((n,f)=>n+f.file.length,0)>18*1024*1024)throw new Error('所选文件总量过大，请分批导入。');
    if(model()!==M||!s.open||s.mode!==mode)return;
-   Object.assign(s,{files:[payload],open:true,mode,error:''});
+   Object.assign(s,{files:[...s.files,...payload],open:true,mode,error:''});
    redraw();
   }catch(e){s.open=true;s.mode=mode;s.error=e.message;redraw();}
  }
@@ -154,6 +155,7 @@
   const id=existing?.id||crypto.randomUUID();
   const source={...existing,id,name:existing?.name||handbook?.course||filename?.replace(/\.[^.]+$/,'')||names[kind],kind,type:'import',visible:handbook?existing?.visible!==false:true};
   if(handbook)source.handbook=handbook;
+  if(result.assessments)source.assessments=result.assessments;
   if(kind==='timetable'&&/^[1-9]\d{3}-[1-9]\d?$/.test(result.semester||''))source.semester=result.semester;
   stageOriginals(M,files,result.references,source);
   M.sources=(M.sources||[]).filter(row=>row.id!==id).concat(source);
@@ -181,12 +183,12 @@
     if(model()===M&&owner===S.user?.id)s.handbookResult=result;
     return;
    }
-   const files=[...s.files];if(s.text.trim())files.push({filename:names[kind]+'-粘贴内容.txt',file:await toBase64(new Blob([s.text],{type:'text/plain'}))});
+   const files=[...s.files];if(s.text.trim()&&!files.length)files.push({filename:names[kind]+'-粘贴内容.txt',file:await toBase64(new Blob([s.text],{type:'text/plain'}))});
    if(!files.length)throw new Error('请选择文件、粘贴图片或文字。');
    s.busy=true;s.error='';s.notice='';redraw();
    const result=await api('/api/calendar/import',{kind,text:s.text,attachments:files});
    if(model()!==M||owner!==S.user?.id)return;
-   if(!result.rows.length){s.error=result.reply||'没有读到完整安排，请换清晰原图或补充说明。';return;}
+   if(!result.rows.length&&!result.assessments?.length){s.error=result.reply||'没有读到完整安排，请换清晰原图或补充说明。';return;}
    const source=stageImport(M,kind,result,files,s.files[0]?.filename);
    const placement=kind==='timetable'?timetablePlacement(source.semester):'';
    s.text='';s.files=[];s.open=false;
@@ -231,13 +233,14 @@
   if(action==='add'&&Object.hasOwn(names,button.dataset.kind))openImport('choose',button.dataset.kind);
   if(action==='choose-method'){
    const mode=button.dataset.mode;
-   if(mode==='manual'){s.open=false;root.AcademicCalendar.openManual(s.kind);}
+   if(mode==='manual'){s.open=false;if(s.kind==='exam'&&root.ExamPreparation)root.ExamPreparation.manualInCalendar(M);else root.AcademicCalendar.openManual(s.kind);}
    else openImport(mode,s.kind);
   }
   if(action==='back')openImport('choose',s.kind);
   if(action==='apply-handbook')applyHandbook(M,s);
   if(action==='load-subscription')await subscription();
   if(action==='cancel-import')cancel(s);
+  if(action==='remove-file'){s.files.splice(Number(button.dataset.index),1);redraw();}
   if(action==='recognize')await recognize();
  },true);
  document.addEventListener('input',event=>{if(model()&&event.target.hasAttribute('data-subscription-url'))state().url=event.target.value;if(model()&&event.target.hasAttribute('data-subscription-name'))state().name=event.target.value;if(model()&&event.target.hasAttribute('data-reference-text')){state().text=event.target.value;root.StudySchedule.refreshActions();}});

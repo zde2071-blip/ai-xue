@@ -106,6 +106,9 @@ class Calendar:
                 if originals:
                     if source_type!='import':raise ValueError('上传原件只能关联到导入来源。')
                     item['reference_ids']=list(dict.fromkeys(originals))
+                if 'assessments' in row:
+                    if kind!='exam':raise ValueError('考核信息只能放在考试信息中。')
+                    item['assessments']=academic_import.assessment_rows(row['assessments'])
                 if 'handbook' in row:
                     if kind!='exam' or source_type!='import':raise ValueError('Module Handbook 只能放在考试信息中。')
                     item['handbook']=academic_import.handbook_record(row['handbook'])

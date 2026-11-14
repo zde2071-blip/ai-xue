@@ -7,6 +7,7 @@ import material_metadata
 import resource_details
 import learning_units
 import learning_templates
+import preparation
 import academic_import
 import study_settings
 import calendar_store
@@ -1158,6 +1159,8 @@ def route_post(path, data):
         document=calendar_store.Calendar(globals()).save(data)
         return {**document,'course_choices':calendar_store.imported_courses(document)}
     if path == '/api/calendar/subscribe':return calendar_subscription.subscribe(globals(),data)
+    if path == '/api/preparation/exams':return preparation.Preparation(globals()).save_exams(data)
+    if path == '/api/preparation/materials':return preparation.Preparation(globals()).save_materials(data)
     if path == '/api/calendar/import':return academic_import.Importer(globals()).recognize(data)
     if path == '/api/context/academic':
         c=get_course(valid_id(data.get('course_id')));academic=academic_from_data(data)
@@ -1374,6 +1377,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(ai_state())
             if path == '/api/state':
                 return self.respond({**state(), 'user': workspace_profile()})
+            if path=='/api/preparation':return self.respond(preparation.Preparation(globals()).view())
+            prep_file=re.fullmatch(r'/api/preparation/files/([a-f0-9]{64})',path)
+            if prep_file:
+                resource,filename=preparation.Preparation(globals()).file(prep_file[1])
+                return self.respond(resource.read_bytes(),content_type=mimetypes.guess_type(filename)[0] or 'application/octet-stream',filename=filename)
             if path=='/api/calendar':
                 document=calendar_store.Calendar(globals()).document()
                 return self.respond({**document,'course_choices':calendar_store.imported_courses(document)})

@@ -1,0 +1,2 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const {code,when}=require('../web/exam-preparation.js');
+test('preparation groups equivalent course codes and preserves date ranges',()=>{for(const label of ['ADS102','ADS 102','ADS102 离散数学'])assert.equal(code(label),'ADS102');assert.equal(when({date:'2026-12-28',date_end:'2027-01-10'}),'2026-12-28 至 2027-01-10');assert.equal(when({timing:'Week 10 Tuesday'}),'Week 10 Tuesday');assert.equal(when({}),'日期待确认');});

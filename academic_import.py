@@ -150,6 +150,34 @@ def event_rows(values):
     return rows
 
 
+def assessment_rows(values):
+    """Keep undated assessments and explicit exam metadata, without invented dates."""
+    if not isinstance(values,list) or len(values)>300:
+        raise ValueError('考试信息最多支持 300 项。')
+    result=[]
+    for value in values:
+        if not isinstance(value,dict):raise ValueError('考试信息格式无效。')
+        row={key:text(value.get(key,''),limit) for key,limit in (
+            ('course',80),('title',150),('date',10),('date_end',10),('start',5),('end',5),
+            ('timing',300),('location',150),('duration',100),('question_types',500),
+            ('scope',1000),('weight',40),('category',40),('evidence',2000))}
+        match=re.match(r'^([A-Za-z]{2,6})\s*(\d{2,4})(?![A-Za-z0-9])',row['course'])
+        if match:row['course']=''.join(match.groups()).upper()
+        if not row['course'] or not row['title']:raise ValueError('请填写课程代码和考核名称。')
+        for key in ('date','date_end'):
+            if row[key]:
+                if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',row[key]):raise ValueError('请使用完整的年月日。')
+                date.fromisoformat(row[key])
+        if row['date_end'] and (not row['date'] or row['date_end']<row['date']):raise ValueError('考试日期范围无效。')
+        for key in ('start','end'):
+            if row[key] and not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d',row[key]):raise ValueError('考试时间无效。')
+        if row['start'] and row['end'] and row['start']>=row['end']:raise ValueError('结束时间应晚于开始时间。')
+        row['id']=value.get('id') or uuid.uuid4().hex
+        if not isinstance(row['id'],str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}',row['id']):raise ValueError('考试标识无效。')
+        result.append(row)
+    return result
+
+
 def handbook_record(value):
     if not isinstance(value,dict) or not isinstance(value.get('entries'),list) or not 1<=len(value['entries'])<=50:
         raise ValueError('Module Handbook 考试信息格式无效。')
@@ -204,7 +232,7 @@ class Importer:
         return self.h['VAULT'] / '学期参考'
 
     def files(self, values, *, extract=True):
-        limit=3 if extract else 15
+        limit=10 if extract else 15
         if not isinstance(values, list) or len(values)>limit:
             self.fail(f'每次最多处理 {limit} 份文件。')
         prepared = []
@@ -265,7 +293,7 @@ class Importer:
         sources['输入'] = request
         schema = {'rows': ([{'kind': 'teaching|break|exam|nonteaching', 'week': 1, 'start': '2026-09-07', 'end': '2026-09-13', 'label': '', 'source': '原件 source 或 输入', 'evidence': '逐字原文'}] if kind == 'calendar' else
                            [{'course': 'ADS102', 'class_type': 'Lecture', 'weekday': 1, 'time': '09:00–10:00 或原文节次', 'weeks': [1, 2], 'source': '原件 source 或 输入', 'evidence': '逐字原文'}]), 'reply': '需要补充的信息或简短说明'}
-        if kind=='exam':schema['rows']=[{'title':'考试名称','kind':'exam','date':'2026-12-01','start':'09:00','end':'11:00','location':'','source':'原件 source 或 输入','evidence':'逐字原文'}]
+        if kind=='exam':schema['rows']=[{'course':'课程代码','title':'考核名称','category':'exam / quiz / report / discussion / project / assessment','date':'明确日期 YYYY-MM-DD，否则空字符串','date_end':'日期范围结束，否则空字符串','start':'明确开始钟点，否则空字符串','end':'明确结束钟点，否则空字符串','timing':'原文周次或日期范围','location':'','duration':'','question_types':'','scope':'','weight':'','source':'原件 source 或 输入','evidence':'逐字原文'}]
         if kind=='calendar':schema['rows'][0]['evidence']='transcripts.text 中逐字相同的活动短语，例如 Week 4 或 Reading Week，不拼接七列日期'
         transcription = ('若有明确学年和学期的表头，先逐字转写表头。逐格记录星期列、课程代码、课程类型、Week 原文和起止时间，逐格另起一行'
                          if kind == 'timetable' else '逐行简记年月、日期范围和周次/活动')
@@ -274,7 +302,7 @@ class Importer:
         tasks={
             'calendar':'校历：逐行读取周次编号和起止日期。编号留空的停课周不能自动编成教学周，假期和考试不递增教学周。教学周使用完整周一至周日范围；短假期作为 break 独立日期段，可与教学周重叠。Week 0、迎新、Reading Week、Winter/Summer School 使用 nonteaching、week=null。考试期使用 exam、week=null，按图例只读取实际考试日期，不能把无色周末与假日扩展为考试。跨月跨年按原图行列与合并单元格读取，不按上传日期推算。',
             'timetable':'逐列查看星期表头，再逐一读取每个课程格，包括同一星期的并排分栏。每个格子单独生成一行；同一课程的不同课堂类型、时间或适用周次不得合并。只读取课程代码、课堂类型、适用教学周和每周星期及起止时间，忽略老师、地点、班组号。weekday 周一为1、周日为7。严格展开 Week 原文中的区间和逗号分隔周次；跨行的 Week 续行也要读完。跳过未列出的周次。weeks 为空只代表原文明确每周上课。按格内印刷钟点填写，不要按左侧半小时时间轴四舍五入，比如 10:50 不能变成 11:00。没有钟点则只保留原文节次。',
-            'exam':'考试信息：保留名称、具体日期、起止时间、地点，kind=exam。原件没有钟点则开始和结束时间均留空，不猜时间。'
+            'exam':'统一处理考试安排、老师通知和 Module Handbook。按课程提取所有考试及考核项目，保留考试时间、地点、题型、时长、范围、占比和原文依据。多张图片按上传顺序连读表头与续表，不把报告、讨论或项目叫成笔试。没有具体日期也必须保留；考试周范围放 timing，跨行合并单元格及连续色块必须检查覆盖的全部日期行，不能只取第一行；有可靠年份才填写 date/date_end，不能把考试周第一天当作具体考试日。用户输入的更正优先于图片原文，保留原文依据并在 timing 说明更正。teaching_calendar 是用户已保存的教学周日期，可用于定位年份和教学周，若多个学年匹配而没有明确学期则留空日期。没有的信息留空，不猜测。'
         }
         calendar_details = (
             '图片校历的 transcript 必须用原图语言转写活动名称，不重复逐格抄七列数字。每个清晰教学周和活动都需有对应行。'
@@ -285,7 +313,11 @@ class Importer:
                 '若有图片，先逐行转写 transcripts，再输出 rows。每行 evidence 复制对应 transcript 中一段连续原文。'
                 '文本导入逐字引用原文。source 原样复制 materials.source 或填写输入。依据不足则不生成该行，在 reply 简短说明。'
                 '只输出以下 JSON，reply 最多60字。'+json.dumps(schema,ensure_ascii=False))
-        payload=json.dumps({'text':request,'materials':materials},ensure_ascii=False)
+        context={}
+        if kind=='exam':
+            import calendar_store
+            context={'teaching_calendar':calendar_store.Calendar(self.h).document()['calendar']}
+        payload=json.dumps({'text':request,'materials':materials,**context},ensure_ascii=False)
         images=[row for row in prepared if row['mime']]
         if images:
             cfg=self.h['active_ai']()
@@ -312,6 +344,7 @@ class Importer:
         if not isinstance(answer, dict) or not isinstance(answer.get('rows'), list) or len(answer['rows']) > 300:
             self.fail('AI 返回格式有误，请重试。', 502)
         accepted, rejected = [], 0
+        assessments=[]
         image_sources={row['reference']['id']:row for row in images}
         def image_source(value):
             if not isinstance(value,str):return None
@@ -356,7 +389,14 @@ class Importer:
                 elif kind=='calendar':
                     cleaned=calendar_rows([row])[0]
                 else:
-                    cleaned=event_rows([{**row,'id':uuid.uuid4().hex,'kind':'exam'}])[0]
+                    if not row.get('course'):
+                        accepted.append(event_rows([{**row,'id':uuid.uuid4().hex,'kind':'exam'}])[0])
+                        continue
+                    assessment=assessment_rows([row])[0]
+                    assessments.append(assessment)
+                    if not assessment['date'] or assessment['date_end']:
+                        continue
+                    cleaned=event_rows([{**assessment,'title':assessment['course']+' · '+assessment['title'],'start':assessment['start'] if assessment['end'] else '', 'end':assessment['end'] if assessment['start'] else '', 'kind':'exam'}])[0]
                 accepted.append(cleaned)
             except ValueError:
                 rejected += 1
@@ -382,7 +422,8 @@ class Importer:
         semester = timetable_semester(*sources.values(), *(Path(row['reference']['filename']).stem for row in prepared)) if kind == 'timetable' else ''
         return {'kind': kind, 'rows': accepted, 'references': [row['reference'] for row in prepared], 'reply': reply,
                 'recognition_mode':'vision' if images else 'text','incomplete':bool(rejected or gaps),
-                **({'semester':semester} if kind=='timetable' else {})}
+                **({'semester':semester} if kind=='timetable' else {}),
+                **({'assessments':assessments} if kind=='exam' else {})}
 
     def recognize_handbook(self,data):
         calendar=self.h['calendar_store']

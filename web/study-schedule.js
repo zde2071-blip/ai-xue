@@ -30,7 +30,7 @@
   try{root.AcademicReferences.validate(M);M.saving=true;M.error='';if(!quiet)paint();const doc=await api('/api/calendar',saveDocument());if(owner!==S.user?.id)return false;Object.assign(M,activeDocument(doc),{referenceFiles:[]});M.baseline=snapshot(M);if(M.importUI)M.importUI.notice='';if(!quiet)toast('已保存');return true;}
   catch(error){reportError(error.message);return false;}finally{if(owner===S.user?.id){M.saving=false;if(!quiet)paint();}}
  }
- root.StudySchedule={prepare,save,markup,manager:()=>M,dirty,busy,canLeave,paint,refreshActions,reportError};
+ root.StudySchedule={prepare,save,document:saveDocument,markup,manager:()=>M,dirty,busy,canLeave,paint,refreshActions,reportError};
  document.addEventListener('click',async event=>{
   const node=event.target.closest('[data-schedule-action]');if(!node||!M||busy())return;event.preventDefault();event.stopImmediatePropagation();
   if(node.dataset.scheduleAction==='cancel'){await prepare({keepView:true});paint();return;}

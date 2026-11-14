@@ -67,7 +67,8 @@ test('the single add entry offers methods for the selected type and subscribes u
  assert.equal(manualKind,'timetable');
  await click('add',{kind:'calendar'});
  assert.match(root.AcademicReferences.markup(model,'calendar'),/aria-label="添加校历"/);
- assert.match(root.AcademicReferences.markup(model,'calendar'),/订阅链接/);
+ assert.doesNotMatch(root.AcademicReferences.markup(model,'calendar'),/订阅链接/);
+ const choices=root.AcademicReferences.markup(model,'calendar');assert(choices.indexOf('手动添加')<choices.indexOf('AI 导入'));
  await click('choose-method',{mode:'subscription'});
  model.importUI.url='webcal://example.com/school';
  await click('load-subscription');

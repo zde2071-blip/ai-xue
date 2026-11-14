@@ -34,3 +34,5 @@
 .calendar-add-methods strong { color: #333; font-size: 13px; font-weight: 550; }
 .calendar-add-methods small { color: #686868; font-size: 12px; }
 .academic-reference-import > footer .calendar-add-back { margin-right: auto; padding-left: 0; }
+
+.reference-file-list{padding:0;list-style:none;max-height:160px;overflow:auto}.reference-file-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}.reference-file-list span{overflow-wrap:anywhere}.reference-file-list button{flex:none}

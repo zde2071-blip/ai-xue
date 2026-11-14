@@ -358,12 +358,14 @@
   return `${importActions}<div class="semester-week settings-timetable-grid" style="min-width:${width}px;--timetable-columns:${columns}" aria-label="课表时间网格">${grid}</div>`;
  }
  function examMarkup(t){
-  const rows=examEntries(t);
+  const assessmentSources=(t.sources||[]).filter(source=>source.kind==='exam'&&source.assessments?.length);
+  const detailedIds=new Set(assessmentSources.flatMap(s=>s.assessments.map(r=>r.id)));
+  const rows=examEntries(t).filter(r=>!detailedIds.has(t.events[Number(r.key.split(':')[1])]?.id));
   const handbooks=(t.sources||[]).filter(source=>source.kind==='exam'&&source.handbook&&source.visible!==false);
-  return `<section class="exam-overview" aria-label="考试安排">
+  return `<section class="exam-overview" aria-label="考试安排">${assessmentSources.map(source=>`<section class="exam-handbook">${root.AcademicReferences.originalLinks(t,source)}${source.assessments.map(r=>`<article class="prep-exam"><strong>${esc(r.course)} · ${esc(r.title)}</strong><p>${esc(r.date?(r.date+(r.date_end?' 至 '+r.date_end:'')+(r.start?' '+r.start:'')):r.timing||'日期待确认')}${r.weight?' · '+esc(r.weight):''}</p><p>${esc([r.location,r.duration,r.question_types,r.scope].filter(Boolean).join(' · '))}</p></article>`).join('')}</section>`).join('')}
    ${rows.length?`<ul class="exam-events">${rows.map(row=>`<li><button type="button" data-calendar-action="edit" data-entry="${row.key}">
     <time datetime="${row.date}">${row.date}</time><strong>${esc(row.title)}</strong>
-    <span>${esc([row.time,row.subtitle].filter(Boolean).join(' · '))}</span></button></li>`).join('')}</ul>`:'<p class="exam-empty">暂无已确定日期的考试。</p>'}
+    <span>${esc([row.time,row.subtitle].filter(Boolean).join(' · '))}</span></button></li>`).join('')}</ul>`:assessmentSources.length?'':'<p class="exam-empty">暂无已确定日期的考试。</p>'}
    ${handbooks.map(source=>`<details class="exam-handbook"><summary>${esc(courseCode(source.handbook.course))} · Module Handbook</summary>
     ${root.AcademicReferences.originalLinks(t,source)}${root.AcademicReferences.handbookDetails(source.handbook,false)}</details>`).join('')}
   </section>`;
