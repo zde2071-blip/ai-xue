@@ -40,6 +40,25 @@ def semester_metadata(row):
     return {'semester': semester} if semester else {}
 
 
+def semester_periods(document):
+    """Semester boundaries come from saved Week 1 rows, not a two-term assumption."""
+    from datetime import date, timedelta
+    groups={}
+    sources={s['id']:s for s in document.get('sources',[]) if s['kind']=='calendar'}
+    for row in document.get('calendar',[]):
+        if row['kind']!='teaching' or row.get('week')!=1:continue
+        start=row['start'];source=sources.get(row.get('source_id'),{})
+        year=source.get('school_year') or int(start[:4])-(int(start[5:7])<8)
+        groups.setdefault((source.get('id',''),year),set()).add(start)
+    periods=[]
+    for (parent,year),dates in groups.items():
+        dates=sorted(dates)
+        for i,start in enumerate(dates):
+            end=(date.fromisoformat(dates[i+1])-timedelta(days=1)).isoformat() if i+1<len(dates) else f'{year+1}-08-31'
+            periods.append({'key':f'{year}-{i+1}','school_year':year,'term':i+1,'start':start,'end':end,'calendar_source_id':parent})
+    return periods
+
+
 def timetable_class_types(document):
     """Read explicit types from saved timetable rows, including manually entered classes."""
     sources = {source['id'] for source in document['sources'] if source['kind'] == 'timetable'}
@@ -99,7 +118,11 @@ class Calendar:
                     year=row['school_year']
                     if type(year) is not int or not 1000<=year<=9998:raise ValueError('请填写有效的起止学年。')
                     item['school_year']=year
-                if kind=='timetable':item.update(semester_metadata(row))
+                if kind in ('timetable','exam'):item.update(semester_metadata(row))
+                if row.get('calendar_source_id'):
+                    parent=row['calendar_source_id']
+                    if not any(s.get('id')==parent and s.get('kind')=='calendar' for s in sources):raise ValueError('所属校历不存在。')
+                    item['calendar_source_id']=parent
                 originals=row.get('reference_ids',[])
                 if not isinstance(originals,list) or len(originals)>MAX_REFERENCES or any(not isinstance(ref,str) or ref not in reference_ids for ref in originals):
                     raise ValueError('日历来源引用了不存在的原始文件。')
@@ -119,6 +142,10 @@ class Calendar:
         timetable_sources={row['id'] for row in clean['sources'] if row['kind']=='timetable'}
         for row in clean['events']:
             if row.get('source_id') in timetable_sources:row.pop('location',None)
+        periods=semester_periods(clean)
+        for source in clean['sources']:
+            if source['kind'] in ('timetable','exam') and source.get('calendar_source_id') and source.get('semester'):
+                if not any(p['key']==source['semester'] and p['calendar_source_id']==source['calendar_source_id'] for p in periods):self.fail('该学期不属于所选校历，请重新选择。')
         return clean
     def document(self):
         if self.path.exists():

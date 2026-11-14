@@ -25,7 +25,7 @@ class Preparation:
         for source in calendar['sources']:
             if source['kind']!='exam':continue
             refs=[ref for ref in calendar['references'] if ref['id'] in source.get('reference_ids',[])]
-            for row in source.get('assessments',[]):exams.append({**row,'source_id':source['id'],'originals':refs})
+            for row in source.get('assessments',[]):exams.append({**row,'source_id':source['id'],'semester':source.get('semester',''),'calendar_source_id':source.get('calendar_source_id',''),'originals':refs})
             if source.get('handbook'):
                 for i,row in enumerate(source['handbook']['entries']):
                     exams.append({'id':source['id']+'-'+str(i),'course':calendar_store.course_label(source['handbook']['course']),'title':row['name'],'timing':row['timing'],'weight':row['weight'],'evidence':row['evidence'],'originals':refs,'legacy':True})
@@ -42,7 +42,7 @@ class Preparation:
         for note in items:
             if note['kind']!='notes':continue
             originals[note['id']]=[{**link,'id':link['material_id'],'filename':by_id.get(link['material_id'],{}).get('filename',link.get('filename','原课件')),'available':bool(by_id.get(link['material_id'],{}).get('available'))} for link in details.relations(note,index)]
-        return {**data,'exams':exams,'note_originals':originals,'calendar_etag':calendar['etag']}
+        return {**data,'exams':exams,'note_originals':originals,'calendar_etag':calendar['etag'],'calendar':calendar,'semesters':calendar_store.semester_periods(calendar)}
     def save_exams(self,data):
         store=calendar_store.Calendar(self.h)
         with self.h['LOCK']:
@@ -64,6 +64,11 @@ class Preparation:
             if not source:
                 source={'id':uuid.uuid4().hex,'name':'考试信息','kind':'exam','type':'import','visible':True,'assessments':[]}
                 doc['sources'].append(source)
+            semester=data.get('semester',source.get('semester',''))
+            if semester:
+                period=next((p for p in calendar_store.semester_periods(doc) if p['key']==semester),None)
+                if not period:self.fail('请选择已添加校历中的学期。')
+                source.update(semester=semester,calendar_source_id=period['calendar_source_id'])
             previous={} if replacing else {r['id']:r for r in source.get('assessments',[])}
             previous.update({r['id']:r for r in rows});source['assessments']=list(previous.values())
             for item in prepared:
@@ -84,7 +89,10 @@ class Preparation:
         with self.h['LOCK']:
             doc=self.document()
             if data.get('etag')!=doc['etag']:self.fail('备考材料已更新，请重新打开后再保存。',409)
-            item=doc['courses'].setdefault(code,{'notes':[],'papers':[]})
+            semester=data.get('semester','')
+            if semester and not any(p['key']==semester for p in calendar_store.semester_periods(calendar_store.Calendar(self.h).document())):self.fail('请选择已有校历中的学期。')
+            courses=doc.setdefault('terms',{}).setdefault(semester,{}) if semester else doc['courses']
+            item=courses.setdefault(code,{'notes':[],'papers':[]})
             if data.get('action')=='notes':
                 ids=data.get('notes')
                 resources={r['id']:r for r in self.h['library_items']() if r['kind']=='notes'}
@@ -113,7 +121,9 @@ class Preparation:
             doc.pop('etag',None);self.h['write_json'](self.path,doc)
         return self.view()
     def file(self,key):
-        for course in self.document()['courses'].values():
+        doc=self.document()
+        courses=list(doc['courses'].values())+[course for term in doc.get('terms',{}).values() for course in term.values()]
+        for course in courses:
             for paper in course.get('papers',[]):
                 if paper['id']==key:
                     path=self.path.parent/'备考原件'/key

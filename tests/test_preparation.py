@@ -46,3 +46,19 @@ class PreparationTest(unittest.TestCase):
         self.assertEqual(len(second['exams']),1)
         self.assertEqual(second['exams'][0]['source_id'],first['exams'][0]['source_id'])
         self.assertEqual(Calendar(app.__dict__).document()['events'][0]['date'],'2026-11-21')
+
+    def test_exam_belongs_to_existing_calendar_semester(self):
+        store=Calendar(app.__dict__);doc=store.document()
+        doc.update(sources=[{'id':'school','name':'2026–2027','kind':'calendar','type':'import'}],calendar=[{'kind':'teaching','week':1,'start':'2026-09-14','end':'2026-09-20','source_id':'school'}])
+        store.save(doc)
+        data=self.store.save_exams({'etag':self.store.view()['calendar_etag'],'semester':'2026-1','assessments':[{'course':'ISA104','title':'Test'}]})
+        self.assertEqual(data['exams'][0]['semester'],'2026-1');self.assertEqual(data['exams'][0]['calendar_source_id'],'school')
+        with self.assertRaises(app.Problem):self.store.save_exams({'etag':data['calendar_etag'],'semester':'2026-3','assessments':[{'course':'ISA104','title':'Unknown term'}]})
+
+    def test_import_uses_dates_to_find_an_existing_semester(self):
+        store=Calendar(app.__dict__);doc=store.document()
+        doc.update(sources=[{'id':'school','name':'School','kind':'calendar','type':'import'}],calendar=[{'kind':'teaching','week':1,'start':'2026-09-14','end':'2026-09-20','source_id':'school'},{'kind':'teaching','week':1,'start':'2027-02-22','end':'2027-02-28','source_id':'school'}]);store.save(doc)
+        text='ISA104 Test 2027-04-20'
+        with patch.object(app,'ask',return_value={'rows':[{'course':'ISA104','title':'Test','date':'2027-04-20','source':'输入','evidence':text}]}):
+            result=app.academic_import.Importer(app.__dict__).recognize({'kind':'exam','text':text})
+        self.assertEqual(result['semester'],'2026-2')

@@ -156,7 +156,12 @@
   const source={...existing,id,name:existing?.name||handbook?.course||filename?.replace(/\.[^.]+$/,'')||names[kind],kind,type:'import',visible:handbook?existing?.visible!==false:true};
   if(handbook)source.handbook=handbook;
   if(result.assessments)source.assessments=result.assessments;
-  if(kind==='timetable'&&/^[1-9]\d{3}-[1-9]\d?$/.test(result.semester||''))source.semester=result.semester;
+  if(['timetable','exam'].includes(kind)&&/^[1-9]\d{3}-[1-9]\d?$/.test(result.semester||''))source.semester=result.semester;
+  if(['timetable','exam'].includes(kind)){
+   if(!source.semester&&/^[1-9]\d{3}-[1-9]\d?$/.test(M.calendarView?.semester||''))source.semester=M.calendarView.semester;
+   const period=root.ExamCalendar?.periods(M).find(p=>p.key===source.semester);
+   if(period)source.calendar_source_id=period.calendar_source_id;
+  }
   stageOriginals(M,files,result.references,source);
   M.sources=(M.sources||[]).filter(row=>row.id!==id).concat(source);
   if(existing)for(const field of handbook?['events']:['calendar','timetable','events'])M[field]=M[field].filter(row=>row.source_id!==id);

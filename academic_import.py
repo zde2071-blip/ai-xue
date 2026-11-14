@@ -419,10 +419,15 @@ class Importer:
                     gaps.append(end+' 至 '+row['start'])
                 end=max(end,row['end'])
         if gaps:reply=(reply+' 以下日期之间没有识别到安排，请核对原图：'+'；'.join(gaps[:3])+'。').strip()
-        semester = timetable_semester(*sources.values(), *(Path(row['reference']['filename']).stem for row in prepared)) if kind == 'timetable' else ''
+        semester = timetable_semester(*sources.values(), *(Path(row['reference']['filename']).stem for row in prepared)) if kind in ('timetable','exam') else ''
+        if kind=='exam' and not semester:
+            dated=[row for row in assessments if row['date']]
+            periods=calendar_store.semester_periods(calendar_store.Calendar(self.h).document())
+            matches=[p for p in periods if dated and all(p['start']<=row['date'] and (row['date_end'] or row['date'])<=p['end'] for row in dated)]
+            if len(matches)==1:semester=matches[0]['key']
         return {'kind': kind, 'rows': accepted, 'references': [row['reference'] for row in prepared], 'reply': reply,
                 'recognition_mode':'vision' if images else 'text','incomplete':bool(rejected or gaps),
-                **({'semester':semester} if kind=='timetable' else {}),
+                **({'semester':semester} if kind in ('timetable','exam') else {}),
                 **({'assessments':assessments} if kind=='exam' else {})}
 
     def recognize_handbook(self,data):

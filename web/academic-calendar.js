@@ -357,18 +357,11 @@
   });
   return `${importActions}<div class="semester-week settings-timetable-grid" style="min-width:${width}px;--timetable-columns:${columns}" aria-label="课表时间网格">${grid}</div>`;
  }
- function examMarkup(t){
-  const assessmentSources=(t.sources||[]).filter(source=>source.kind==='exam'&&source.assessments?.length);
-  const detailedIds=new Set(assessmentSources.flatMap(s=>s.assessments.map(r=>r.id)));
-  const rows=examEntries(t).filter(r=>!detailedIds.has(t.events[Number(r.key.split(':')[1])]?.id));
-  const handbooks=(t.sources||[]).filter(source=>source.kind==='exam'&&source.handbook&&source.visible!==false);
-  return `<section class="exam-overview" aria-label="考试安排">${assessmentSources.map(source=>`<section class="exam-handbook">${root.AcademicReferences.originalLinks(t,source)}${source.assessments.map(r=>`<article class="prep-exam"><strong>${esc(r.course)} · ${esc(r.title)}</strong><p>${esc(r.date?(r.date+(r.date_end?' 至 '+r.date_end:'')+(r.start?' '+r.start:'')):r.timing||'日期待确认')}${r.weight?' · '+esc(r.weight):''}</p><p>${esc([r.location,r.duration,r.question_types,r.scope].filter(Boolean).join(' · '))}</p></article>`).join('')}</section>`).join('')}
-   ${rows.length?`<ul class="exam-events">${rows.map(row=>`<li><button type="button" data-calendar-action="edit" data-entry="${row.key}">
-    <time datetime="${row.date}">${row.date}</time><strong>${esc(row.title)}</strong>
-    <span>${esc([row.time,row.subtitle].filter(Boolean).join(' · '))}</span></button></li>`).join('')}</ul>`:assessmentSources.length?'':'<p class="exam-empty">暂无已确定日期的考试。</p>'}
-   ${handbooks.map(source=>`<details class="exam-handbook"><summary>${esc(courseCode(source.handbook.course))} · Module Handbook</summary>
-    ${root.AcademicReferences.originalLinks(t,source)}${root.AcademicReferences.handbookDetails(source.handbook,false)}</details>`).join('')}
-  </section>`;
+ function examMarkup(t,s){return root.ExamCalendar.grid(t,s.semester);}
+ function examSemesterPicker(t,s){
+  const periods=root.ExamCalendar.periods(t),keys=periods.map(p=>p.key);
+  if(!keys.includes(s.semester))s.semester=(t.sources||[]).find(r=>r.kind==='exam'&&keys.includes(r.semester))?.semester||keys[0]||'';
+  return `<select aria-label="考试所属学期" data-timetable-semester>${periods.map(p=>`<option value="${p.key}" ${p.key===s.semester?'selected':''}>${esc(root.ExamCalendar.label(p.key))}</option>`).join('')}</select>`;
  }
  function semesterLabel(key,t){
   if(!key)return '未标注学期';
@@ -411,14 +404,14 @@
  }
  function sourceSettingsMarkup(t,s){
   const e=s.sourceEditor;if(!e)return '';const d=e.draft;
-  if(d.kind==='calendar'||d.kind==='timetable'){
+  if(['calendar','timetable','exam'].includes(d.kind)){
    const school=d.kind==='calendar',label=school?'学年':'学期';
    const originalYear=school?(d.school_year||schoolYearOf(s.cursor)):Number((d.semester||s.semester||'').split('-')[0])||schoolYearOf(s.cursor);
    const originalTerm=Number((d.semester||s.semester||'').split('-')[1])||1;
-   e.periodDraft||={start:originalYear,end:originalYear+1,term:originalTerm};
+   e.periodDraft||={start:originalYear,end:originalYear+1,term:originalTerm,semester:originalYear+'-'+originalTerm};
    const values=e.periodDraft,sources=e.periodSources||[d];
    const originals=sources.map(source=>root.AcademicReferences.originalLinks(t,source)).filter(Boolean).join('');
-   return `<div class="calendar-editor-shade"><section class="academic-reference-import calendar-source-settings" role="dialog" aria-modal="true" aria-label="${label}设置"><header><span>${label}设置</span><button type="button" class="icon-button" data-calendar-action="close-source-settings" aria-label="关闭${label}设置">${icon('x')}</button></header><form id="calendar-period-settings-form"><fieldset ${t.saving?'disabled':''}><div class="period-year-fields">${field('start','开始年份',values.start,'number','min="1000" max="9998" required')}${field('end','结束年份',values.end,'number','min="1001" max="9999" required')}</div>${school?'':field('term','学期',values.term,'number','min="1" max="99" required')}${originals||'<p class="subscription-hint">这份安排没有附带原件。</p>'}</fieldset><p class="error-message" role="alert" ${e.error?'':'hidden'}>${esc(e.error)}</p><footer><button type="button" class="outline-button" data-calendar-action="close-source-settings">取消</button><button type="submit" class="primary" ${t.saving?'disabled':''}>完成</button></footer></form></section></div>`;
+   return `<div class="calendar-editor-shade"><section class="academic-reference-import calendar-source-settings" role="dialog" aria-modal="true" aria-label="${label}设置"><header><span>${label}设置</span><button type="button" class="icon-button" data-calendar-action="close-source-settings" aria-label="关闭${label}设置">${icon('x')}</button></header><form id="calendar-period-settings-form"><fieldset ${t.saving?'disabled':''}>${school?`<div class="period-year-fields">${field('start','开始年份',values.start,'number','min="1000" max="9998" required')}${field('end','结束年份',values.end,'number','min="1001" max="9999" required')}</div>`:`<label class="field">所属学期<select name="semester" aria-label="所属学期">${root.ExamCalendar.periods(t).map(p=>`<option value="${p.key}" ${p.key===values.semester?'selected':''}>${esc(root.ExamCalendar.label(p.key))}</option>`).join('')}</select></label>`}${originals||'<p class="subscription-hint">这份安排没有附带原件。</p>'}</fieldset><p class="error-message" role="alert" ${e.error?'':'hidden'}>${esc(e.error)}</p><footer><button type="button" class="outline-button" data-calendar-action="close-source-settings">取消</button><button type="submit" class="primary" ${t.saving?'disabled':''}>完成</button></footer></form></section></div>`;
   }
   const originals=root.AcademicReferences.originalLinks(t,d);
   const subscription=d.type==='subscription'&&/^https?:\/\//i.test(d.url||'')?`<div class="calendar-originals"><span>原件</span><a href="${esc(d.url)}" target="_blank" rel="noopener">打开订阅文件${icon('external-link')}</a></div>`:'';
@@ -475,16 +468,16 @@
  }
  async function applyPeriodSettings(){
   const t=manager(),s=view(),e=s.sourceEditor;if(!e||t.saving)return;
-  const v=e.periodDraft,start=Number(v.start),end=Number(v.end),termNumber=Number(v.term),school=e.draft.kind==='calendar';
+  const v=e.periodDraft,school=e.draft.kind==='calendar',period=school?null:root.ExamCalendar.periods(t).find(p=>p.key===v.semester),start=school?Number(v.start):period?.school_year,end=school?Number(v.end):start+1,termNumber=school?Number(v.term):period?.term;
   if(!Number.isInteger(start)||start<1000||start>9998||end!==start+1||!school&&(!Number.isInteger(termNumber)||termNumber<1||termNumber>99)){
    e.error='请填写连续的起止年份'+(school?'。':'和有效的学期（1–99）。');redraw();return;
   }
   const before=structuredClone({sources:t.sources,timetable:t.timetable}),cursor=s.cursor,semester=s.semester;
   const ids=new Set((e.periodSources||[e.draft]).map(source=>source.id));
   for(const source of t.sources)if(ids.has(source.id)){
-   if(school)source.school_year=start;else source.semester=start+'-'+termNumber;
+   if(school)source.school_year=start;else{source.semester=start+'-'+termNumber;source.calendar_source_id=period.calendar_source_id;}
   }
-  if(school)s.cursor=start+'-09-01';else s.semester=start+'-'+termNumber;
+  if(school){for(const child of t.sources)if(ids.has(child.calendar_source_id)&&child.semester)child.semester=start+'-'+child.semester.split('-')[1];s.cursor=start+'-09-01';}else s.semester=start+'-'+termNumber;
   s.sourceEditor=null;
   if(!await root.StudySchedule.save({quiet:true})){
    Object.assign(t,before);s.cursor=cursor;s.semester=semester;e.error=t.error||'保存失败，请重试。';t.error='';s.sourceEditor=e;
@@ -501,14 +494,7 @@
   const label=kind==='calendar'?'学年设置':'学期设置';
   return `<button type="button" class="icon-button academic-period-settings" data-calendar-action="period-settings" aria-label="${label}" title="${label}">${icon('settings-2')}</button>`;
  }
- function referenceDocuments(t,kind){
-  if(kind!=='exam')return '';
-  const sources=(t.sources||[]).filter(source=>source.kind===kind&&source.visible!==false);
-  if(!sources.length)return '';
-  return `<div class="academic-documents" aria-label="已添加资料">${sources.map(source=>`<div class="academic-document">
-   <button type="button" class="academic-document-name" data-calendar-action="source-settings" data-is-source="true" data-source-id="${esc(source.id)}" title="修改名称或查看原件">${esc(source.name)}${icon('ellipsis')}</button>
-   ${root.AcademicReferences.originalLinks(t,source)}</div>`).join('')}</div>`;
- }
+ function referenceDocuments(){return '';}
  function schoolYearPicker(years,year){
   const label=n=>`${n}–${n+1}`;
   if(!years.length)return '';
@@ -527,10 +513,10 @@
   const sections=school?schoolYearRows(t):null,years=sections?[...sections.keys()].sort((a,b)=>b-a):[];
   let year=school?schoolYearOf(s.cursor):null;
   if(years.length&&!years.includes(year)){year=years[0];s.cursor=year+'-09-01';}
-  const picker=school?schoolYearPicker(years,year):timetable?semesterPicker(t,s):'';
+  const picker=school?schoolYearPicker(years,year):timetable?semesterPicker(t,s):examSemesterPicker(t,s);
   return `<section class="academic-calendar" aria-label="${school?'校历':timetable?'课表':'考试信息'}"><div class="calendar-body"><div class="calendar-main">
-   <div class="calendar-navigation-row"><div class="calendar-view-actions academic-period-control">${picker}${school||timetable?periodSettingsButton(t,kind,s):''}</div><div class="calendar-view-actions">${root.AcademicReferences.addButton(kind)}</div></div>
-   ${navigation}${referenceDocuments(t,kind,s)}${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${school?schoolMarkup(t,s,sections.get(year)):timetable?timetableMarkup(t,s):examMarkup(t)}</div>${editorMarkup(t,s)}</div></div></div>
+   <div class="calendar-navigation-row"><div class="calendar-view-actions academic-period-control">${picker}${periodSettingsButton(t,kind,s)}</div><div class="calendar-view-actions">${root.AcademicReferences.addButton(kind)}</div></div>
+   ${navigation}${referenceDocuments(t,kind,s)}${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${school?schoolMarkup(t,s,sections.get(year)):timetable?timetableMarkup(t,s):examMarkup(t,s)}</div>${editorMarkup(t,s)}</div></div></div>
    ${importPanel}${sourceSettingsMarkup(t,s)}</section>`;
  }
  function open(source,index,draft,original=null){const s=view();if(s.editor?.dirty){s.error='请先完成或取消当前编辑。';redraw();return;}s.error='';s.editor={source,index,draft:structuredClone(draft),dirty:false,original};redraw();document.querySelector('#calendar-event-form input')?.focus();}
