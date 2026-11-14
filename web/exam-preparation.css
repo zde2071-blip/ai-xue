@@ -12,3 +12,5 @@
 .exam-date-grid.is-empty{min-width:0}
 
 .prep-overview{display:flex;flex-direction:column;overflow:hidden}.prep-overview>.exam-grid-scroll{flex:1;min-height:0;max-height:none;margin:0}.prep-overview>.exam-undated{flex:none;margin:16px 0 0;max-height:25%;overflow:auto}
+
+.exam-current-week>th,.exam-current-week>td{box-shadow:inset 0 2px #548568}.exam-current-week>th{color:var(--schedule-event-ink)}.exam-current-label{display:block;font-size:11px;font-weight:500;margin:5px 0 2px;color:#548568}
