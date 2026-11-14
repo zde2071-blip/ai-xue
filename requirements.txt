@@ -10,3 +10,6 @@ certifi>=2025.1.31
 # Local reading translation (Argos/OPUS models)
 ctranslate2>=4.9,<5
 sentencepiece>=0.2.3,<0.3
+
+# Portable CPU speech; 2.x no longer links espeak-ng
+sherpa-onnx==2.0.1

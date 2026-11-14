@@ -1,15 +1,17 @@
-"""Local reading utilities: native macOS speech and Argos/CTranslate2 translation."""
+"""Local reading utilities: portable Kokoro speech and Argos/CTranslate2 translation."""
 import base64
-import os
+import io
+import wave
 import re
 import sqlite3
 from contextlib import closing
-import subprocess
-import tempfile
 import threading
 from pathlib import Path
 
-MODEL_ROOT = Path(os.environ.get('AI_XUE_TRANSLATION_MODELS', Path.home() / 'Library/Application Support/AI Xue/translation-models'))
+from reading_paths import MODEL_ROOT, SPEECH_ROOT
+
+_SPEECH = None
+_SPEECH_LOCK = threading.Lock()
 _MODELS = {}
 _LOCK = threading.Lock()
 
@@ -30,22 +32,50 @@ def selection(data, limit):
 def language(text):
     return 'zh' if re.search(r'[\u3400-\u9fff]', text) else 'en'
 
+def speech_model():
+    global _SPEECH
+    if _SPEECH is None:
+        try:
+            import sherpa_onnx
+        except ImportError:
+            raise ReadingError('语音组件尚未安装，请运行 python setup.py。') from None
+        folder = SPEECH_ROOT / 'kokoro-multi-lang-v1_0'
+        required = ('model.onnx', 'voices.bin', 'tokens.txt', 'lexicon-us-en.txt', 'lexicon-zh.txt')
+        if any(not (folder/name).is_file() for name in required):
+            raise ReadingError('中英语音包尚未安装，请运行 python setup.py。')
+        config = sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.OfflineTtsModelConfig(
+            kokoro=sherpa_onnx.OfflineTtsKokoroModelConfig(
+                model=str(folder/'model.onnx'), voices=str(folder/'voices.bin'),
+                tokens=str(folder/'tokens.txt'),
+                lexicon=','.join(str(folder/name) for name in required[3:])),
+            num_threads=2, debug=False, provider='cpu'), max_num_sentences=1)
+        if not config.validate():
+            raise ReadingError('语音包不完整，请重新安装阅读组件。')
+        _SPEECH = sherpa_onnx.OfflineTts(config)
+    return _SPEECH
+
 def pronounce(data):
     text = selection(data, 200)
     lang = language(text)
-    voice = 'Tingting' if lang == 'zh' else 'Samantha'
-    with tempfile.TemporaryDirectory(prefix='ai-xue-speech-') as folder:
-        folder = Path(folder)
-        (folder/'text.txt').write_text(text, encoding='utf-8')
-        try:
-            subprocess.run(['/usr/bin/say', '-v', voice, '-r', '170', '-f', str(folder/'text.txt'), '-o', str(folder/'speech.aiff')], check=True, capture_output=True, timeout=25)
-            subprocess.run(['/usr/bin/afconvert', '-f', 'WAVE', '-d', 'LEI16', str(folder/'speech.aiff'), str(folder/'speech.wav')], check=True, capture_output=True, timeout=10)
-            audio = (folder/'speech.wav').read_bytes()
-            if len(audio)<44:
-                raise ReadingError('未能生成语音，请重试。')
-        except (OSError, subprocess.SubprocessError):
-            raise ReadingError('系统语音暂不可用，请检查 macOS 的 Samantha 和 Tingting 语音。') from None
-    return {'audio':base64.b64encode(audio).decode('ascii'), 'mime':'audio/wav', 'language':lang, 'voice':voice}
+    voice, sid = ('zf_xiaobei', 45) if lang == 'zh' else ('af_heart', 3)
+    try:
+        import numpy as np
+        with _SPEECH_LOCK:
+            audio = speech_model().generate(text, sid=sid, speed=1.0)
+        if not len(audio.samples):
+            raise ReadingError('未能生成语音，请选择中英文单词或短句。')
+        output = io.BytesIO()
+        with wave.open(output, 'wb') as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(audio.sample_rate)
+            wav.writeframes((np.clip(audio.samples, -1, 1)*32767).astype('<i2').tobytes())
+    except ReadingError:
+        raise
+    except Exception:
+        raise ReadingError('语音生成失败，请检查阅读组件是否安装完整。') from None
+    return {'audio':base64.b64encode(output.getvalue()).decode('ascii'), 'mime':'audio/wav',
+            'language':lang, 'voice':voice, 'engine':'Kokoro / sherpa-onnx'}
 
 def model(source, target):
     key = (source, target)

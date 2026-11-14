@@ -13,17 +13,16 @@ AI 学是面向大学课程的本地自学助手。对照原始课件和 AI 逐�
 
 ## 在本机启动
 
-准备 Git 和 Python 3.11 或以上版本。在 macOS 或 Linux 的终端中运行：
+准备 Git 和 Python 3.11–3.14（64 位）。Windows、macOS、Linux 使用相同的安装入口：
 
 ```sh
 git clone https://github.com/zde2071-blip/ai-xue.git
 cd ai-xue
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python server.py
+python setup.py
+python start.py
 ```
 
-在浏览器打开 `http://127.0.0.1:8767/`，直接进入学习空间。macOS 安装依赖后也可以双击「启动学记.command」。前端资源已随仓库提供，日常启动无需 Node.js。要在学习页内预览 Word 或 PowerPoint 原件，请安装 LibreOffice。
+macOS/Linux 若命令为 `python3`，将上面的 `python` 替换为 `python3`。安装器创建独立环境、安装依赖并下载阅读资源；下载需要联网，失败会停止并显示原因，重新运行可继续已完成的部分。浏览器打开 `http://127.0.0.1:8767/`。前端资源已包含在仓库，无需 Node.js。Office 原件预览需要另外安装 LibreOffice。
 
 首次打开时，新手引导会先带你连接 AI 模型，再依次导入校历、课表和考试信息。可以在对话窗口发送附件、粘贴图片或输入校历、课表订阅链接，核对后再保存。以后也可以从左下角「个人设置 → 新手引导」打开。
 
@@ -49,14 +48,16 @@ node --test tests/*.cjs
 
 ## 发音与划词翻译
 
-发音在 macOS 本地生成音频：英文使用 Samantha，中文使用 Tingting；不再从浏览器语音列表随意选择声音。需要 macOS 的 `say` 和 `afconvert`。
+发音使用 [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) 中英文模型和 [sherpa-onnx 2.0.1](https://github.com/k2-fsa/sherpa-onnx)，在 CPU 上生成音频；浏览器只负责播放。英文声音 af_heart，中文 zf_xiaobei。没有调用 macOS `say`，也不依赖用户电脑上的系统声音。
 
-单词和已收录短语查询 [ECDICT](https://github.com/skywind3000/ECDICT) 英汉词典；其余中英短句使用 [Argos Translate](https://github.com/argosopentech/argos-translate) 的 OPUS-MT 1.9 模型，通过 [CTranslate2](https://github.com/OpenNMT/CTranslate2) 在 CPU 上翻译。无需 AI API Key，不发送课件，不创建学习对话。机器翻译不保证专业术语和歧义词在所有上下文中准确。
+单词及已收录短语查询 [ECDICT](https://github.com/skywind3000/ECDICT)；其余中英短句使用 Argos 发布的 OPUS-MT 模型，通过 CTranslate2 和 SentencePiece 推理。翻译结果下方显示实际来源。不调用通用 LLM，不需要 AI Key。
 
-安装 Python 依赖后，首次运行：
+`python setup.py` 自动安装这两类资源。已有 Python 环境也可单独运行 `python tools/install_reading_tools.py`。模型首次下载约 500 MB，安装后阅读工具不向第三方发送选中文字。若部署到服务器，选中文字由浏览器发送到自己的服务器进行处理。
 
-```sh
-python tools/install_reading_tools.py
-```
+资源与用户知识库分开保存：macOS 为 `~/Library/Application Support/AI Xue`，Windows 为 `%LOCALAPPDATA%/AI Xue`，Linux 为 `$XDG_DATA_HOME/ai-xue`（默认 `~/.local/share/ai-xue`）。可统一设置 `AI_XUE_DATA_HOME`，或分别设置 `AI_XUE_TRANSLATION_MODELS` / `AI_XUE_SPEECH_MODELS`。安装器和服务必须使用同一组路径。模型下载进行 SHA-256 校验，保留模型许可证，不提交到 Git。
 
-安装工具下载并校验双向模型及词典，存入 `~/Library/Application Support/AI Xue/translation-models`；之后发音、查词和翻译无需联网。模型原作者为 Jörg Tiedemann、Santhosh Thottingal，原始 OPUS 模型采用 CC-BY 4.0，安装时保留原 README；ECDICT 采用 MIT，安装时保留许可证。资源不写入知识库、不提交到 Git。可通过 `AI_XUE_TRANSLATION_MODELS` 指定已有资源目录。
+第三方项目、作者和许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。机器翻译和语音对专业词、数字及混合文本仍有准确性限制。
+
+## 部署范围
+
+阅读服务在后端运行，接口不依赖 macOS，可用于后续网站部署。当前应用仍是单用户版本，默认只监听本机；尚未实现公共网站所需的用户数据隔离和访问控制，不能把现有知识库直接公开为多人网站。本次未发布公网服务。跨平台安装入口已加入，Windows/Linux 整机运行仍需对应系统验证。

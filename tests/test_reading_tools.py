@@ -1,4 +1,5 @@
 import json
+from contextlib import closing
 import sqlite3
 import tempfile
 import unittest
@@ -16,9 +17,10 @@ class ReadingToolsTest(unittest.TestCase):
 
     def test_dictionary_never_loads_a_translation_model(self):
         with tempfile.TemporaryDirectory() as temp:
-            with sqlite3.connect(Path(temp)/'ecdict.sqlite3') as db:
+            with closing(sqlite3.connect(Path(temp)/'ecdict.sqlite3')) as db:
                 db.execute('CREATE TABLE entries(word TEXT PRIMARY KEY,translation TEXT)')
                 db.execute('INSERT INTO entries VALUES (?,?)',('intersection','n. 交集；交叉点'))
+                db.commit()
             with patch.object(tools,'MODEL_ROOT',Path(temp)),patch.object(tools,'model',side_effect=AssertionError('must not run')):
                 result=tools.translate({'text':'Intersection'})
             self.assertTrue(result['dictionary']);self.assertIn('交集',result['text'])
@@ -34,17 +36,31 @@ class ReadingToolsTest(unittest.TestCase):
         with patch.object(tools,'model',return_value=(Engine(),Tokenizer())):
             self.assertEqual(tools.translate({'text':'一个集合'})['text'],'A set')
 
-    def test_native_voice_is_explicit_and_text_is_not_a_shell_argument(self):
-        for text,voice in [('Hello','Samantha'),('你好','Tingting')]:
-            calls=[]
-            def run(args,**kwargs):
-                calls.append(args)
-                if args[0]=='/usr/bin/say':
-                    self.assertEqual(Path(args[args.index('-f')+1]).read_text(),text)
-                else:Path(args[-1]).write_bytes(b'RIFF'+b'\0'*100)
-            with patch.object(tools.subprocess,'run',side_effect=run):result=tools.pronounce({'text':text})
-            self.assertEqual(result['voice'],voice);self.assertEqual(calls[0][2],voice)
-            self.assertNotIn(text,calls[0]);self.assertEqual(result['mime'],'audio/wav')
+    def test_portable_speech_returns_valid_pcm_and_explicit_voice(self):
+        import base64, io, wave
+        import numpy as np
+        for text,voice,sid in [('Hello','af_heart',3),('你好','zf_xiaobei',45)]:
+            engine=SimpleNamespace(generate=lambda value,**kw: SimpleNamespace(samples=np.array([0.0,0.5,-0.5]),sample_rate=24000))
+            with patch.object(tools,'speech_model',return_value=engine):
+                result=tools.pronounce({'text':text})
+            self.assertEqual(result['voice'],voice)
+            with wave.open(io.BytesIO(base64.b64decode(result['audio']))) as wav:
+                self.assertEqual(wav.getframerate(),24000)
+                self.assertEqual(wav.getnframes(),3)
+                self.assertEqual(wav.getsampwidth(),2)
+
+    def test_missing_speech_assets_give_install_instruction(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(tools,'SPEECH_ROOT',Path(temp)), patch.object(tools,'_SPEECH',None):
+            with self.assertRaisesRegex(tools.ReadingError,'setup.py'):
+                tools.speech_model()
+
+    def test_platform_paths_and_explicit_override(self):
+        import reading_paths
+        for platform,part in [('darwin','Library'),('win32','AI Xue'),('linux','ai-xue')]:
+            with patch.dict(reading_paths.os.environ,{},clear=True), patch.object(reading_paths.sys,'platform',platform):
+                self.assertIn(part,str(reading_paths.data_root()))
+        with patch.dict(reading_paths.os.environ,{'AI_XUE_DATA_HOME':'/tmp/ai-xue-assets'}):
+            self.assertEqual(str(reading_paths.data_root()),'/tmp/ai-xue-assets')
 
     def test_reading_routes_need_no_ai_connection(self):
         import server
