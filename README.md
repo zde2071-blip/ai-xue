@@ -45,3 +45,18 @@ node --test tests/*.cjs
 ```
 
 遇到问题可以在 [Issues](https://github.com/zde2071-blip/ai-xue/issues) 说明复现步骤、操作系统和浏览器。提交截图或样例前请移除私人课件、日历订阅链接和凭据。
+
+
+## 发音与划词翻译
+
+发音在 macOS 本地生成音频：英文使用 Samantha，中文使用 Tingting；不再从浏览器语音列表随意选择声音。需要 macOS 的 `say` 和 `afconvert`。
+
+单词和已收录短语查询 [ECDICT](https://github.com/skywind3000/ECDICT) 英汉词典；其余中英短句使用 [Argos Translate](https://github.com/argosopentech/argos-translate) 的 OPUS-MT 1.9 模型，通过 [CTranslate2](https://github.com/OpenNMT/CTranslate2) 在 CPU 上翻译。无需 AI API Key，不发送课件，不创建学习对话。机器翻译不保证专业术语和歧义词在所有上下文中准确。
+
+安装 Python 依赖后，首次运行：
+
+```sh
+python tools/install_reading_tools.py
+```
+
+安装工具下载并校验双向模型及词典，存入 `~/Library/Application Support/AI Xue/translation-models`；之后发音、查词和翻译无需联网。模型原作者为 Jörg Tiedemann、Santhosh Thottingal，原始 OPUS 模型采用 CC-BY 4.0，安装时保留原 README；ECDICT 采用 MIT，安装时保留许可证。资源不写入知识库、不提交到 Git。可通过 `AI_XUE_TRANSLATION_MODELS` 指定已有资源目录。

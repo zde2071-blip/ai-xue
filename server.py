@@ -2,6 +2,7 @@
 """学记一体 · local, file-first learning workspace."""
 import subprocess
 import tempfile
+import reading_tools
 import material_metadata
 import resource_details
 import learning_units
@@ -1111,6 +1112,11 @@ def file_store():return file_operations.Files(globals())
 def details_store():return resource_details.Details(globals())
 
 def route_post(path, data):
+    if path in ('/api/reading/pronounce', '/api/reading/translate'):
+        try:
+            return (reading_tools.pronounce if path.endswith('/pronounce') else reading_tools.translate)(data)
+        except reading_tools.ReadingError as error:
+            raise Problem(str(error)) from None
     if path == '/api/workspace/profile':return save_workspace_profile(data)
     global KEY, PROVIDER, VERIFIED
     details_match=re.fullmatch(r'/api/library/([\w-]+)/details',path)
@@ -1342,7 +1348,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         is_preview=bool(re.fullmatch(r'/api/courses/[\w-]+/source-preview',urlparse(getattr(self,'path','')).path))
         self.send_header('X-Frame-Options', 'SAMEORIGIN' if is_preview else 'DENY')
-        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; frame-ancestors "+("'self'" if is_preview else "'none'")+"; base-uri 'none'; form-action 'self'")
+        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'self' blob:; frame-ancestors "+("'self'" if is_preview else "'none'")+"; base-uri 'none'; form-action 'self'")
         self.end_headers()
         self.wfile.write(raw)
 

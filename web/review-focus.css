@@ -104,3 +104,5 @@
  .review-active .reading-tool-group{flex:none}
  .review-active .reading-toolbar button{white-space:nowrap}
 }
+
+.reading-translation-result{white-space:pre-wrap;line-height:1.8;overflow-wrap:anywhere}

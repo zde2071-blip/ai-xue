@@ -85,7 +85,7 @@
      if(button.dataset.mode==='edit'){
       R.tools=false;R.left=false;R.draft=null;selectionAnchor=null;
       document.querySelector('#selection-tools')?.setAttribute('hidden','');
-      window.getSelection()?.removeAllRanges();window.speechSynthesis?.cancel();beginEditing();
+      window.getSelection()?.removeAllRanges();stopPronunciation();beginEditing();
      }else{
       if(S.editing&&!await saveEditingNote())return;
       S.editing=false;R.tools=true;render();

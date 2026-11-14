@@ -352,6 +352,7 @@ async function openBlock(id){
 }
 
 async function openNote(cid,nid){
+  stopPronunciation();
   if(!canLeave()||S.busy)return;rememberBrowserScroll();saveBrowser();closeDrawer();
   await task('正在打开笔记…',async()=>{S.note=await api(`/api/courses/${cid}/notes/${nid}`);updateCourse(S.courses.find(c=>c.id===cid));S.view='note';S.editing=false;});resetScroll();
 }
@@ -376,7 +377,7 @@ function serviceModelName(p,m){return p.model_names?.[m]||m;}
 function defaultModelOptions(scope){const chosen=accountAI.defaults[scope];return `${scope==='translation'?`<option value="" ${!chosen?'selected':''}>跟随学习模型</option>`:''}${!accountAI.services.length&&scope==='learning'?'<option value="">尚未连接服务</option>':''}${accountAI.services.map(p=>`<optgroup label="${esc(p.name)}">${p.models.map(m=>`<option value="${esc(p.id+'|'+m)}" ${chosen?.id===p.id&&chosen?.model===m?'selected':''}>${esc(serviceModelName(p,m))}</option>`).join('')}</optgroup>`).join('')}`;}
 function providerMark(provider){return {deepseek:'DS',openai:'GPT',qwen:'Q',zhipu:'GLM',doubao:'豆',kimi:'K',gemini:'G',claude:'C'}[provider]||'AI';}
 function accountAIHome(){return `<div class="settings-section-head settings-page-title ai-reference-heading"><h2>AI 服务</h2><button class="outline-button settings-add-button" data-action="ai-add">${icon('plus')}添加服务</button></div><h3 class="ai-list-label">我的模型</h3><div class="ai-service-list">${accountAI.services.map(p=>`<button class="ai-service-row" data-action="ai-edit" data-id="${esc(p.id)}"><span class="ai-service-mark">${providerMark(p.provider)}</span><span class="ai-service-copy"><strong>${esc(p.name)}</strong><small>${p.models.length>2?'已启用 '+p.models.length+' 个模型':p.models.map(m=>esc(serviceModelName(p,m))).join(' · ')}</small></span><span class="service-status ${p.connected?'is-connected':''}">${p.connected?'✓ 已连接':'未连接'}</span>${icon('chevron-right')}</button>`).join('')||'<p class="ai-empty-copy">还没有添加服务</p>'}</div><div id="modal-error" class="error-message" role="status"></div>`;}
-function aiDefaultsContent(){return `<details class="ai-default-settings"><summary>默认模型</summary><div class="settings-model-row"><label for="ai-learning-default">学习</label><select id="ai-learning-default" aria-label="学习默认模型">${defaultModelOptions('learning')}</select></div><div class="settings-model-row"><label for="ai-translation-default">翻译</label><select id="ai-translation-default" aria-label="翻译默认模型">${defaultModelOptions('translation')}</select></div></details>`;}
+function aiDefaultsContent(){return `<details class="ai-default-settings"><summary>默认模型</summary><div class="settings-model-row"><label for="ai-learning-default">学习</label><select id="ai-learning-default" aria-label="学习默认模型">${defaultModelOptions('learning')}</select></div></details>`;}
 function renderAccount(){
  if(accountTab==='ai'&&aiEdit){modalContent(`<span class="ai-title-mark">${providerMark(aiEdit.provider)}</span><span>${aiEdit.id?esc(aiEdit.name):'添加服务'}</span>`,aiEditorContent());modal.classList.add('ai-service-dialog');modal.setAttribute('aria-label',aiEdit.id?'编辑 AI 服务':'添加服务');return;}
  modalContent('个人设置',`<div class="account-settings"><nav class="account-settings-nav" aria-label="个人设置栏目"><div class="account-nav-title">个人设置</div><button data-action="account-profile" class="${accountTab==='profile'?'active':''}" ${accountTab==='profile'?'aria-current="page"':''}>${icon('user-round')}个人资料</button><button data-action="account-ai" class="${accountTab==='ai'?'active':''}" ${accountTab==='ai'?'aria-current="page"':''}>${icon('sparkles')}AI 服务</button><div class="settings-account-identity"><span class="profile-avatar">${avatarMarkup(S.profile)}</span><span><strong>${esc(S.profile.name||'本机用户')}</strong><small>本机工作区</small></span></div></nav><section class="account-settings-content">${accountTab==='profile'?accountProfileForm():aiEdit?aiEditorContent():accountAIHome()}</section></div>`);
@@ -522,7 +523,7 @@ async function addMark(style,color='yellow'){
 }
 let underlineColor='black',readingColor='yellow',readingSize=16,readingFindIndex=-1,readingComment=null;
 function readingToolbar(){return `<div class="reading-toolbar" role="toolbar" aria-label="阅读工具"><div class="reading-tool-group"><button data-action="highlight" data-requires-selection title="高亮" aria-label="高亮" disabled>${icon('highlighter')}<span class="tool-color color-${readingColor}"></span></button><div class="reading-palette">${Object.entries(markColors).map(([key,label])=>`<button class="color-swatch color-${key} ${readingColor===key?'chosen':''}" data-action="choose-highlight" data-color="${key}" title="${label}高亮" aria-label="${label}高亮"></button>`).join('')}</div></div><div class="reading-tool-group"><button data-action="underline" data-requires-selection title="下划线" aria-label="下划线" disabled>${icon('underline')}</button>${Object.entries({black:'黑色',blue:'蓝色',red:'红色'}).map(([key,label])=>`<button class="ink-swatch ink-${key} ${underlineColor===key?'chosen':''}" data-action="choose-underline" data-color="${key}" title="${label}下划线" aria-label="${label}下划线"></button>`).join('')}<button data-action="strike" data-requires-selection title="删除线" aria-label="删除线" disabled>${icon('strikethrough')}</button><button data-action="clear-mark" data-requires-selection title="清除标记" aria-label="清除标记" disabled>${icon('eraser')}</button></div><div class="reading-tool-group"><button data-action="reading-comment" data-requires-selection disabled>${icon('message-square')}批注</button><button data-action="pronounce" data-requires-selection disabled>${icon('volume-2')}发音</button><button data-action="translate" data-requires-selection disabled>${icon('languages')}翻译</button><button data-action="ask-selection" data-requires-selection disabled>${icon('message-circle')}追问</button></div><div class="reading-tool-group reading-display"><button data-action="reading-find" title="查找正文 · ⌘F" aria-label="查找正文">${icon('search')}</button><button data-action="reading-smaller" title="缩小字号" aria-label="缩小字号">A−</button><button data-action="reading-larger" title="放大字号" aria-label="放大字号">A＋</button></div><div class="reading-find" hidden><input id="reading-find-input" aria-label="查找正文内容" placeholder="查找正文"><span id="reading-find-count"></span><button data-action="reading-find-prev" aria-label="上一个结果">${icon('chevron-up')}</button><button data-action="reading-find-next" aria-label="下一个结果">${icon('chevron-down')}</button><button data-action="reading-find-close" aria-label="关闭查找">${icon('x')}</button></div></div>`;}
-function syncReadingTools(){ $$('.reading-toolbar [data-requires-selection]').forEach(b=>b.disabled=!selectionAnchor&&!(b.dataset.action==='pronounce'&&window.speechSynthesis?.speaking)); }
+function syncReadingTools(){ $$('.reading-toolbar [data-requires-selection]').forEach(b=>b.disabled=!selectionAnchor&&!(b.dataset.action==='pronounce'&&(readingSpeechBusy||readingAudio&&!readingAudio.paused))); }
 function showReadingComment(mark){
   readingComment=mark?{...mark}:{...selectionAnchor,target:S.view==='learn'?S.course.active:S.note.id};if(!readingComment.quote)return;
   modalContent('批注',`<form id="reading-comment-form"><blockquote class="comment-quote">${esc(readingComment.quote)}</blockquote><label class="field"><textarea name="comment" aria-label="批注内容" maxlength="2000" required placeholder="写下你的理解或疑问…">${esc(mark?.comment||'')}</textarea></label><div id="modal-error" class="error-message"></div><div class="modal-actions">${mark?'<button class="text-button" type="button" data-action="remove-reading-comment">删除批注</button>':''}<button class="primary" type="submit">保存</button></div></form>`);
@@ -533,15 +534,29 @@ function findReading(direction=1){
  readingFindIndex=hits.length?(readingFindIndex+direction+hits.length)%hits.length:-1;$('#reading-find-count').textContent=hits.length?`${readingFindIndex+1} / ${hits.length}`:'无结果';if(!hits.length)return;
  const start=hits[readingFindIndex],end=start+query.length,first=map.nodes.find(n=>n.end>start),last=map.nodes.find(n=>n.end>=end);const range=document.createRange();range.setStart(first.node,start-first.start);range.setEnd(last.node,end-last.start);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);first.node.parentElement.scrollIntoView({block:'center',behavior:'smooth'});
 }
-function pronounceSelection(){
- const text=savedSelection?.trim();if(!text){toast('请先选中英文单词或短句。');return;}if(text.length>200){toast('发音请选取 200 字以内的单词或短句。');return;}
- if(!('speechSynthesis' in window)){toast('当前浏览器不支持系统朗读。');return;}
- if(window.speechSynthesis.speaking){window.speechSynthesis.cancel();return;}
- window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);utterance.lang='en-US';utterance.rate=.85;
- const voices=window.speechSynthesis.getVoices().filter(v=>/^en[-_]/i.test(v.lang));utterance.voice=voices.find(v=>v.localService)||voices[0]||null;
- const speechButtons=()=>$$('[data-action="pronounce"]');const reset=()=>speechButtons().forEach(b=>{b.innerHTML=icon('volume-2')+'发音';icons();});
- utterance.onstart=()=>{speechButtons().forEach(b=>b.innerHTML=icon('square')+'停止发音');icons();};utterance.onend=reset;
- utterance.onerror=event=>{reset();if(!['interrupted','canceled'].includes(event.error))toast('语音暂不可用，请检查系统英文语音。');};window.speechSynthesis.speak(utterance);
+let readingAudio=null,readingAudioURL=null,readingSpeechBusy=false,readingSpeechTicket=0;
+function stopPronunciation(){
+ readingSpeechTicket++;readingSpeechBusy=false;if(readingAudio){readingAudio.pause();readingAudio=null;}if(readingAudioURL){URL.revokeObjectURL(readingAudioURL);readingAudioURL=null;}
+ $$('[data-action="pronounce"]').forEach(b=>{b.innerHTML=icon('volume-2')+'发音';});icons();syncReadingTools();
+}
+async function pronounceSelection(){
+ if(readingSpeechBusy||readingAudio&&!readingAudio.paused){stopPronunciation();return;}
+ const text=savedSelection?.trim();if(!text){toast('请先选中单词或句子。');return;}if(text.length>200){toast('发音请选取 200 字以内的单词或短句。');return;}
+ const ticket=++readingSpeechTicket;readingSpeechBusy=true;
+ $$('[data-action="pronounce"]').forEach(b=>b.innerHTML=icon('square')+'停止发音');icons();syncReadingTools();
+ try{
+  const result=await api('/api/reading/pronounce',{text});if(ticket!==readingSpeechTicket)return;
+  readingAudioURL=URL.createObjectURL(new Blob([Uint8Array.from(atob(result.audio),c=>c.charCodeAt(0))],{type:result.mime}));readingAudio=new Audio(readingAudioURL);readingAudio.onended=()=>{if(ticket===readingSpeechTicket)stopPronunciation();};
+  readingAudio.onerror=()=>{if(ticket===readingSpeechTicket){stopPronunciation();toast('语音播放失败，请重试。');}};
+  await readingAudio.play();if(ticket===readingSpeechTicket)readingSpeechBusy=false;
+ }catch(e){if(ticket===readingSpeechTicket){stopPronunciation();toast(e.message);}}
+}
+async function translateSelection(){
+ const text=savedSelection?.trim();if(!text){toast('请先选中文字。');return;}
+ modalContent('翻译',`<blockquote class="comment-quote">${esc(text)}</blockquote><p id="reading-translation-direction" class="muted"></p><p id="reading-translation-result" class="reading-translation-result" role="status">正在翻译…</p>`);
+ const resultNode=$('#reading-translation-result'),direction=$('#reading-translation-direction');
+ try{const result=await api('/api/reading/translate',{text});if(!resultNode.isConnected)return;direction.textContent=result.dictionary?'英汉词典':result.source==='en'?'英文 → 中文':'中文 → 英文';resultNode.textContent=result.text;}
+ catch(e){if(resultNode.isConnected)resultNode.textContent=e.message;}
 }
 
 function selectionToolbar(){return `<div class="mark-palette" aria-label="高亮颜色">${Object.entries(markColors).map(([key,label])=>`<button class="color-swatch color-${key}" data-action="highlight" data-color="${key}" title="${label}高亮" aria-label="${label}高亮"></button>`).join('')}</div><button data-action="underline" title="下划线">${icon('underline')}</button><button data-action="clear-mark" title="清除所选文字的标记" aria-label="清除标记">${icon('eraser')}</button><button data-action="ask-selection">${icon('message-circle')}追问</button><button data-action="translate">${icon('languages')}翻译</button><button data-action="pronounce">${icon('volume-2')}发音</button>`;}
@@ -629,7 +644,7 @@ document.addEventListener('click',async e=>{
       const blob=new Blob([S.note.content],{type:'text/markdown;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=S.note.title.replace(/[\\/:*?"<>|]/g,'-')+'.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     }
     else if(action==='ask-selection'){if(S.view==='learn'){S.studyQuote=savedSelection;S.studyQuoteBlock=S.selectedNoteBlock||S.course.active;$('#selection-tools').hidden=true;window.getSelection()?.removeAllRanges();render();$('#main-question textarea')?.focus();}else openDiscussion(savedSelection);}
-    else if(action==='translate'){if(!(S.settings.translation_connected??S.settings.connected)){toast('连接 AI 后即可翻译选中的单词或句子。');await showSettings();return;}if(S.view==='learn'){S.studyQuote=savedSelection;S.studyQuoteBlock=S.selectedNoteBlock||S.course.active;$('#selection-tools').hidden=true;window.getSelection()?.removeAllRanges();await sendStudyQuestion('请结合上下文翻译选中的单词或句子；如果是英文单词，请给出词性、中文释义和本句中的含义。','translation');}else{openDiscussion(savedSelection);await sendQuestion('请结合上下文翻译选中的单词或句子；如果是英文单词，请给出词性、中文释义和本句中的含义。','translation');}}
+    else if(action==='translate'){await translateSelection();}
     else if(action==='highlight'||action==='underline'||action==='strike')await addMark(action,button.dataset.color||(action==='highlight'?readingColor:underlineColor));
     else if(action==='choose-highlight'||action==='choose-underline'){
       const isHighlight=action==='choose-highlight';if(isHighlight)readingColor=button.dataset.color;else underlineColor=button.dataset.color;
@@ -738,7 +753,7 @@ document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='f'&&S.view==='note'&&!S.editing){e.preventDefault();$('.reading-find').hidden=false;$('#reading-find-input').focus();}
   if(e.target.id==='reading-find-input'&&e.key==='Enter'){e.preventDefault();findReading(e.shiftKey?-1:1);}
   if(e.target.matches('.study-comment')&&['Enter',' '].includes(e.key)){e.preventDefault();window.getSelection()?.removeAllRanges();e.target.click();}
-  if(e.key==='Escape'){closeAccountMenu();closeDrawer();$('#selection-tools').hidden=true;window.speechSynthesis?.cancel();if($('.reading-find'))$('.reading-find').hidden=true;}
+  if(e.key==='Escape'){closeAccountMenu();closeDrawer();$('#selection-tools').hidden=true;stopPronunciation();if($('.reading-find'))$('.reading-find').hidden=true;}
   if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&e.target.matches('#main-question textarea,#thread-question')){e.preventDefault();e.target.closest('form').requestSubmit();}
 });
 modal.addEventListener('cancel',e=>{if(modal.dataset.working)e.preventDefault();else if(modal.classList.contains('ai-service-dialog')){e.preventDefault();aiEdit=null;renderAccount();}});
@@ -772,7 +787,6 @@ async function refreshExternal(){
 }
 async function init(){
   if(window.StudyDemo?.active){const data=window.StudyDemo.state();Object.assign(S,data);Object.assign(B,data.browser);restoreBrowser();S.view='library';if(B.week!=='all'&&!B.paths[S.libraryCourse])B.paths[S.libraryCourse]=[String(B.week)];S.course=S.courses.find(c=>c.id===S.libraryCourse)||S.courses[0];render();return;}
-  window.speechSynthesis?.getVoices();
   try{
     const data=await api('/api/state');Object.assign(S,data);S.profile={name:S.user.name,avatar:S.user.avatar};await window.StudyTemplates?.prepare();S.course=S.courses.find(c=>c.id===localStorage.getItem('study-course-'+S.user.id))||S.courses[0];restoreBrowser();S.view='library';render();notePoll=setInterval(refreshExternal,4000);await window.StudyOnboarding?.open({automatic:true});
   }catch(e){$('#app').innerHTML=`<div class="boot"><h2>学习空间暂时没能打开</h2><p>${esc(e.message)}</p><a href="/">重新打开</a></div>`;}
