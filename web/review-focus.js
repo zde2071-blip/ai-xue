@@ -6,7 +6,7 @@
   const R={key:'',tools:false,left:false,selected:'',draft:null,error:''};
   const prefs={left:260,right:340};let layoutUser='',drag=null;
   const reviewing=()=>['note','unit-review'].includes(S.view);
-  function touch(){loadPrefs();const key=S.course?.id+'/'+(S.note?.id||'empty');if(R.key!==key){R.key=key;R.tools=false;R.left=false;R.selected='';R.draft=null;R.error='';}}
+  function touch(){loadPrefs();const key=S.course?.id+'/'+(S.note?.id||'empty');if(R.key!==key){R.key=key;R.tools=true;R.left=false;R.selected='';R.draft=null;R.error='';}}
   function loadPrefs(){const user=S.user?.id||'local';if(layoutUser===user)return;layoutUser=user;Object.assign(prefs,{left:260,right:340});try{const saved=JSON.parse(localStorage.getItem('study-review-layout-'+user)||'{}');for(const [key,min,max] of [['left',200,600],['right',240,640]]){if(Number.isFinite(saved[key]))prefs[key]=Math.min(max,Math.max(min,saved[key]));}}catch{}readingSize=16;}
   function savePrefs(){try{localStorage.setItem('study-review-layout-'+layoutUser,JSON.stringify(prefs));}catch{}}
   function applyPrefs(){const available=document.querySelector('.main')?.clientWidth||window.innerWidth;if(window.innerWidth>850){const limit=Math.max(440,available-340);let excess=(R.left?prefs.left:0)+(document.body.classList.contains('discussion-open')?prefs.right:0)-limit;if(excess>0&&document.body.classList.contains('discussion-open')){const cut=Math.min(excess,prefs.right-240);prefs.right-=cut;excess-=cut;}if(excess>0&&R.left)prefs.left=Math.max(200,prefs.left-excess);}const style=document.body.style;style.setProperty('--review-left',prefs.left+'px');style.setProperty('--review-right',prefs.right+'px');document.querySelector('#note-body')?.style.setProperty('--reading-size','16px');readingSize=16;document.querySelectorAll('[data-review-resize]').forEach(el=>el.setAttribute('aria-valuenow',prefs[el.dataset.reviewResize]));}
@@ -17,11 +17,11 @@
   header=function(){
    if(!reviewing()){R.key='';R.tools=false;R.left=false;R.draft=null;return base.header();}
    touch();const c=S.course,waiting=S.busy||S.threadBusy,hasNote=!!S.note,editing=!!S.editing,aiOpen=!!document.body?.classList?.contains('discussion-open');
-   const items=[menuItem('tools',R.tools?'收起阅读工具':'阅读工具','highlighter',!hasNote||editing),menuItem('find','查找正文','search',!hasNote||editing),menuItem('edit','编辑笔记','square-pen',!hasNote||editing||waiting),'<div class="review-menu-divider" role="separator"></div>',menuItem('source','原始材料','file-text',!S.resources.some(r=>r.id==='source-'+c.id)),menuItem('tags','标签与详细信息','tag',editing||waiting),menuItem('export','导出 Markdown','download',!hasNote||editing)].join('');
-   return `<header class="review-focus-header"><span class="review-document-title">${esc([c.tags?.course||c.course_label,S.note?.title||c.title].filter(Boolean).join(' / '))}</span><div class="review-header-actions">${!editing?`<button class="icon-button ${R.left?'selected':''}" data-action="review-panel" aria-label="批注" aria-expanded="${R.left}" title="批注" ${!hasNote?'disabled':''}>${icon('message-square-text')}</button>`:''}${editing?`<button class="icon-button" data-action="read-note" aria-label="完成编辑" title="完成编辑">${icon('check')}</button>`:`<button class="icon-button ${aiOpen?'selected':''}" data-action="review-ai" aria-label="AI 对话" aria-expanded="${aiOpen}" title="${aiOpen?'收起 AI 对话':'AI 对话'}" ${waiting||!hasNote?'disabled':''}>${icon('sparkles')}</button>`}<details class="review-menu"><summary class="icon-button" role="button" aria-label="更多工具" aria-haspopup="menu" aria-expanded="false" title="更多">${icon('ellipsis')}</summary><div class="review-menu-content" role="menu" aria-label="笔记工具">${items}</div></details></div></header>`;
+   const items=[menuItem('find','查找正文','search',!hasNote||editing),'<div class="review-menu-divider" role="separator"></div>',menuItem('source','原始材料','file-text',!S.resources.some(r=>r.id==='source-'+c.id)),menuItem('tags','标签与详细信息','tag',editing||waiting),menuItem('export','导出 Markdown','download',!hasNote||editing)].join('');
+   return `<header class="review-focus-header"><span class="review-document-title">${esc([c.tags?.course||c.course_label,S.note?.title||c.title].filter(Boolean).join(' / '))}</span><div class="review-header-actions"><button class="icon-button ${R.left?'selected':''}" data-action="review-panel" aria-label="批注" aria-expanded="${R.left}" title="批注" ${!hasNote||editing?'disabled':''}>${icon('message-square-text')}</button><button class="icon-button ${aiOpen?'selected':''}" data-action="review-ai" aria-label="AI 对话" aria-expanded="${aiOpen}" title="${aiOpen?'收起 AI 对话':'AI 对话'}" ${waiting||!hasNote||editing?'disabled':''}>${icon('sparkles')}</button><div class="review-mode-switch" role="group" aria-label="笔记模式"><button type="button" class="icon-button" data-action="review-mode" data-mode="edit" aria-label="编辑" title="编辑" aria-pressed="${editing}" ${!hasNote||waiting?'disabled':''}>${icon('square-pen')}</button><button type="button" class="icon-button" data-action="review-mode" data-mode="read" aria-label="阅读" title="阅读" aria-pressed="${!editing}" ${!hasNote||waiting?'disabled':''}>${icon('book-open')}</button></div><details class="review-menu"><summary class="icon-button" role="button" aria-label="更多工具" aria-haspopup="menu" aria-expanded="false" title="更多">${icon('ellipsis')}</summary><div class="review-menu-content" role="menu" aria-label="笔记工具">${items}</div></details></div></header>`;
   };
   function reviewToolbar(){return base.readingToolbar().replace(/<button data-action="(?:reading-comment|ask-selection)"[\s\S]*?<\/button>/g,'');}
-  readingToolbar=function(){if(reviewing()){touch();if(!R.tools)return '';}return S.view==='note'?reviewToolbar().replace(/<button data-action="reading-(?:smaller|larger)"[\s\S]*?<\/button>/g,''):base.readingToolbar();};
+  readingToolbar=function(){if(reviewing()){touch();if(S.editing||!R.tools)return '';}return S.view==='note'?reviewToolbar().replace(/<button data-action="reading-(?:smaller|larger)"[\s\S]*?<\/button>/g,''):base.readingToolbar();};
   selectionToolbar=function(){
    if(S.view!=='note')return base.selectionToolbar();
    return reviewToolbar().replace(/<div class="reading-tool-group reading-display">[\s\S]*?<\/div>/,'').replace(/<div class="reading-find"[\s\S]*?<\/div>/,'');
@@ -76,10 +76,22 @@
    if(S.view!=='note')return;
    const button=event.target.closest('[data-action]');if(!button)return;
    const action=button.dataset.action;
-   if(!['review-ai','review-panel','review-close-panel','review-comment','review-thread','review-continue','review-cancel-comment','review-delete-comment','block-annotations','note-threads'].includes(action))return;
+   if(!['review-mode','review-ai','review-panel','review-close-panel','review-comment','review-thread','review-continue','review-cancel-comment','review-delete-comment','block-annotations','note-threads'].includes(action))return;
    event.preventDefault();event.stopImmediatePropagation();
+   if(button.disabled)return;
    try{
-    if(action==='review-ai'){if(S.threadBusy)return;if(document.body.classList.contains('discussion-open'))closeDrawer();else{S.selectedNoteBlock=null;openDiscussion();}}
+    if(action==='review-mode'){
+     if(S.busy||S.threadBusy||!S.note)return;
+     if(button.dataset.mode==='edit'){
+      R.tools=false;R.left=false;R.draft=null;selectionAnchor=null;
+      document.querySelector('#selection-tools')?.setAttribute('hidden','');
+      window.getSelection()?.removeAllRanges();window.speechSynthesis?.cancel();beginEditing();
+     }else{
+      if(S.editing&&!await saveEditingNote())return;
+      S.editing=false;R.tools=true;render();
+     }
+    }
+    else if(action==='review-ai'){if(S.threadBusy)return;if(document.body.classList.contains('discussion-open'))closeDrawer();else{S.selectedNoteBlock=null;openDiscussion();}}
     else if(action==='review-panel'){R.left=!R.left;render();}
     else if(action==='review-close-panel'){R.left=false;render();}
     else if(action==='review-comment'){editComment(comments().find(m=>m.id===button.dataset.id));}
@@ -115,9 +127,7 @@
    event.preventDefault();event.stopImmediatePropagation();closeMenu();
    if(button.disabled)return;
    try{switch(button.dataset.command){
-    case 'tools':R.tools=!R.tools;render();break;
     case 'find':showFind();break;
-    case 'edit':R.left=false;R.draft=null;beginEditing();break;
     case 'source':await root.StudyUnits.showSource();break;
     case 'tags':await root.StudyUnits.showTags();break;
     case 'export':{const blob=new Blob([S.note.content],{type:'text/markdown;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=S.note.title.replace(/[\\/:*?"<>|]/g,'-')+'.md';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break;}

@@ -93,3 +93,16 @@
 .review-panel-button:hover{background:#f4f5f6;color:#434b50}
 .review-panel-button.selected{background:#edf0f2;color:#37434b}
 @media(max-width:700px){.review-panel-button{padding:0 8px;font-size:11px}}
+
+.review-mode-switch{display:flex;gap:2px;padding:2px;border-radius:8px;background:#f4f5f6}
+.review-mode-switch .icon-button[aria-pressed="true"]{background:#fff;color:#333;box-shadow:0 1px 3px #00000010}
+
+@media(max-width:700px){
+ .review-active .review-reading-layout{flex-direction:column}
+ .review-active .review-reading-layout>.review-file-tree{width:100%;height:auto;flex:0 0 160px;max-height:25vh;border-right:0;border-bottom:1px solid #e5e5e5}
+ .review-active .review-document-pane{min-height:0}
+ .review-active .review-document-title{flex:1}
+ .review-active .review-header-actions{flex:none}
+ .review-active .reading-tool-group{flex:none}
+ .review-active .reading-toolbar button{white-space:nowrap}
+}

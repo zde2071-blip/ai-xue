@@ -88,7 +88,7 @@
 .template-stage-switch button{min-height:32px;padding:5px 13px;border-radius:5px;color:#626262;white-space:nowrap;font-size:13px;line-height:20px}
 .template-stage-switch button.selected{background:#fff;color:#252525;box-shadow:0 1px 2px #00000012}
 .study-settings-content:has(.template-workspace){overflow-y:auto}
-#template-type-rules { width: min(100%,600px); min-height: 0; overflow-y: auto; padding-bottom: 20px; }
+#template-type-rules { width: 100%; min-height: 0; overflow-y: auto; padding-bottom: 20px; }
 #template-type-rules fieldset { min-width: 0; margin: 0 0 16px; padding: 0; border: 0; }
 .template-rule-head,.template-rule-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: center; gap: 16px; }
 .template-rule-head { padding: 9px 0; border-bottom: 1px solid #e8e8e8; color: #666; font-size: 12px; }
@@ -128,14 +128,12 @@
 @media(max-width:760px){#learning-template-form{padding:15px}.template-editor-header{gap:10px}.template-editor-header>span{font-size:11px}.template-workspace.with-ai{gap:20px}.template-picker-label select{max-width:160px}.prompt-toolbar{gap:8px}}
 
 /* Keep the same tab header mounted above each timetable page's scrolling body. */
-.study-settings-shell > .study-settings-content.timetable-category{padding:0;overflow:hidden}
-.timetable-category > .timetable-settings-header{flex:none;margin:20px 28px 16px}
-.timetable-settings-body{flex:1;min-height:0;min-width:0;overflow:auto;padding:0 28px}
+.study-settings-shell > .study-settings-content.timetable-category{--timetable-gutter:28px;padding:0;overflow:hidden}
+.timetable-category > .timetable-settings-header{flex:none;margin:20px var(--timetable-gutter) 16px}
+.timetable-settings-body{flex:1;min-height:0;min-width:0;overflow:auto;margin-inline:var(--timetable-gutter);padding:0}
 .timetable-settings-body.is-calendar{display:flex;flex-direction:column;overflow:hidden;padding:0}
 .timetable-settings-body .template-tabs-row{margin-bottom:16px}
-.timetable-settings-body .calendar-navigation-row{padding-top:0}
+.timetable-settings-body .academic-calendar .calendar-navigation-row{padding-top:0;padding-inline:0}
 @media(max-width:850px){
- .timetable-category > .timetable-settings-header{margin-inline:16px}
- .timetable-settings-body{padding-inline:16px}
- .timetable-settings-body .calendar-navigation-row{padding-inline:16px}
+ .study-settings-shell > .study-settings-content.timetable-category{--timetable-gutter:16px}
 }

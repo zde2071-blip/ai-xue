@@ -457,10 +457,21 @@ function locateMark(text,mark){
   const matched=hits.filter(i=>(!mark.before||text.slice(Math.max(0,i-mark.before.length),i)===mark.before)&&(!mark.after||text.slice(i+mark.quote.length,i+mark.quote.length+mark.after.length)===mark.after));
   return matched.length===1?matched[0]:hits.length===1?hits[0]:-1;
 }
+// Resolve older text-only anchors into today's visible text, including intervening math.
+function markBounds(root,mark,map){
+  const source=mark.anchor_version===2?map:textMap(root,true),start=locateMark(source.text,mark);
+  if(start<0)return null;
+  const end=start+mark.quote.length;
+  if(mark.anchor_version===2)return {start,end};
+  const first=source.nodes.find(n=>n.end>start),last=source.nodes.find(n=>n.end>=end);
+  if(!first||!last)return null;
+  const a=map.nodes.find(n=>n.node===first.node),b=map.nodes.find(n=>n.node===last.node);
+  return a&&b?{start:a.start+start-first.start,end:b.start+end-last.start}:null;
+}
 function applyMarks(){
   const root=markRoot(),target=S.view==='learn'?S.course?.active:S.note?.id;if(!root||!target||S.editing)return;
   for(const mark of S.course.highlights||[]){
-    if(mark.target!==target)continue;const map=textMap(root,mark.anchor_version!==2),start=locateMark(map.text,mark);if(start<0)continue;const end=start+mark.quote.length;
+    if(mark.target!==target)continue;const map=textMap(root),bounds=markBounds(root,mark,map);if(!bounds)continue;const {start,end}=bounds;
     for(const item of map.nodes.filter(n=>n.end>start&&n.start<end).reverse()){
       const range=document.createRange();range.setStart(item.node,Math.max(0,start-item.start));range.setEnd(item.node,Math.min(item.node.length,end-item.start));
       const span=document.createElement('span');span.className=mark.style==='underline'?'study-underline underline-'+(mark.color||'black'):mark.style==='strike'?'study-strike':mark.style==='comment'?'study-comment':'study-mark color-'+(markColors[mark.color]?mark.color:'yellow');span.dataset.markId=mark.id;if(mark.style==='comment'){span.dataset.action='read-comment';span.dataset.id=mark.id;span.title=mark.comment;span.setAttribute('role','button');span.tabIndex=0;}range.surroundContents(span);
@@ -480,14 +491,8 @@ async function addMark(style,color='yellow'){
   const root=markRoot(),map=textMap(root);
   const remove_ids=(S.course.highlights||[]).filter(m=>{
     if(m.target!==target)return false;
-    const source=m.anchor_version===2?map:textMap(root,true),at=locateMark(source.text,m);
-    if(at<0)return false;
-    return source.nodes.some(n=>{
-      if(n.end<=at||n.start>=at+m.quote.length)return false;
-      const current=map.nodes.find(item=>item.node===n.node);if(!current)return false;
-      const start=current.start+Math.max(0,at-n.start),end=current.start+Math.min(n.end-n.start,at+m.quote.length-n.start);
-      return start<selectionAnchor.start+selectionAnchor.quote.length&&selectionAnchor.start<end;
-    });
+    const bounds=markBounds(root,m,map);
+    return bounds&&bounds.start<selectionAnchor.start+selectionAnchor.quote.length&&selectionAnchor.start<bounds.end;
   }).map(m=>m.id);
   const c=await api(courseUrl('highlight'),{target,...selectionAnchor,style,color,remove_ids});
   updateCourse(c);selectionAnchor=null;$('#selection-tools').hidden=true;window.getSelection()?.removeAllRanges();render();

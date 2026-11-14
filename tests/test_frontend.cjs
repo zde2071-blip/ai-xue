@@ -71,3 +71,14 @@ test('reversing dimension order retains all original resource ids',()=>{browserS
 test('cross-week materials appear in either week without physical duplicates',()=>{browserSetup();vm.runInContext(`S.resources[0].weeks=[3,4];B.paths.math=['4']`,context);assert.equal(vm.runInContext('browserData().rows[0].id',context),'m3');assert.equal(vm.runInContext(`groupedResources(S.resources.filter(r=>r.course_id==='math'),['week']).groups.find(g=>g.value===4).count`,context),1);});
 test('classification preferences and path restore across reload',()=>{browserSetup();vm.runInContext(`B.groupOrder=['chapter','type'];B.paths.math=['第二章'];saveBrowser();B.groupOrder=[];B.paths={};restoreBrowser()`,context);assert.equal(vm.runInContext(`navigationOrder().join(',')`,context),'chapter,type');assert.equal(vm.runInContext('B.paths.math[0]',context),'第二章');});
 test('selected file exposes only essential actions until details are opened',()=>{browserSetup();const h=vm.runInContext(`B.files.math='m3';browserResourceDetails(S.resources[0])`,context);assert.match(h,/详细信息/);assert.doesNotMatch(h,/browser-file-meta|metadata_sources|课堂类型|教学周|生成笔记/);});
+
+test('legacy text-only highlights include formulas between their original endpoints',()=>{
+ const result=vm.runInContext(`(()=>{
+  const old=textMap,a={},formula={},b={};
+  const legacy={text:'设 ，。',nodes:[{node:a,start:0,end:2},{node:b,start:2,end:4}]};
+  const current={text:'设 A={1,2,3}，。',nodes:[{node:a,start:0,end:2},{node:formula,start:2,end:11},{node:b,start:11,end:13}]};
+  textMap=()=>legacy;
+  try{return [markBounds({}, {quote:'设 ，。',start:0},current),markBounds({}, {quote:'设',start:0},current),markBounds({}, {quote:'A={1,2,3}',start:2,anchor_version:2},current)];}finally{textMap=old;}
+ })()`,context);
+ assert.deepEqual(JSON.parse(JSON.stringify(result)),[{start:0,end:13},{start:0,end:1},{start:2,end:11}]);
+});
