@@ -7,11 +7,11 @@
  let D=null,loading=false,error='',selected='',semester='',dialog=null,saving=false;
  const E=v=>esc(v),I=v=>icon(v);
  async function load(){if(loading)return;loading=true;try{D=await api('/api/preparation');error='';}catch(e){error=e.message;}finally{loading=false;render();requestAnimationFrame(focusCalendar);}}
- function focusCalendar(){const box=document.querySelector('.prep-page .exam-grid-scroll');if(!box)return;const day=root.AcademicCalendar.today(),row=[...box.querySelectorAll('[data-exam-week-start]')].find(r=>r.dataset.examWeekStart<=day&&r.dataset.examWeekEnd>=day);if(row)box.scrollTop+=row.getBoundingClientRect().top-box.getBoundingClientRect().top-52;}
+ function focusCalendar(){root.ExamCalendar.updateCurrentLine();const box=document.querySelector('.prep-page .exam-grid-scroll');if(!box)return;const day=root.AcademicCalendar.today(),row=[...box.querySelectorAll('[data-exam-week-start]')].find(r=>r.dataset.examWeekStart<=day&&r.dataset.examWeekEnd>=day);if(row)box.scrollTop+=row.getBoundingClientRect().top-box.getBoundingClientRect().top-52;}
  function notes(){const owners=new Map((S.courses||[]).map(c=>[c.id,c]));return (S.resources||[]).filter(r=>r.kind==='notes').map(r=>{const c=owners.get(r.unit_id||r.course_id)||{},tags=r.tags||c.tags;return {...r,code:code(tags?.course||c.course_label||r.course_title),weeks:[...new Set([...(tags?.weeks||r.weeks||[]),...(r.sessions||c.sessions||[]).map(s=>s.week).filter(Number.isInteger)])]};});}
  function originals(refs){return refs?.length?`<div class="prep-originals">原件：${refs.map(r=>`<a href="/api/academic-references/${E(r.id)}" target="_blank" rel="noopener">${E(r.filename)}</a>`).join('')}</div>`:'';}
  function examRow(r){return `<article class="prep-exam"><div class="prep-exam-heading"><div><strong>${E(r.title)}</strong><span>${E(when(r))}${r.weight?' · '+E(r.weight):''}</span></div></div><dl>${[['location','地点'],['duration','时长'],['question_types','题型'],['scope','考试范围']].map(([k,l])=>`<div><dt>${l}</dt><dd>${E(r[k]||'待补充')}</dd></div>`).join('')}</dl>${r.evidence?`<details><summary>原文依据</summary><p>${E(r.evidence)}</p></details>`:''}</article>`;}
- function markup(){if(!D&&!loading&&!error)queueMicrotask(load);if(!D)return `<section class="prep-page"><p>${E(error||'正在读取…')}</p>${error?'<button data-prep="reload">重试</button>':''}</section>`;
+ function markup(){requestAnimationFrame(()=>root.ExamCalendar.updateCurrentLine());if(!D&&!loading&&!error)queueMicrotask(load);if(!D)return `<section class="prep-page"><p>${E(error||'正在读取…')}</p>${error?'<button data-prep="reload">重试</button>':''}</section>`;
  const periods=D.semesters||[];if(!periods.some(p=>p.key===semester))semester=periods.find(p=>p.start<=root.AcademicCalendar.today()&&p.end>=root.AcademicCalendar.today())?.key||D.exams.find(r=>periods.some(p=>p.key===r.semester))?.semester||periods[0]?.key||'';
  const exams=(D.exams||[]).filter(r=>!semester||r.semester===semester);
  const head=selected?`<header class="prep-header"><div><button class="text-button" data-prep="back">← 全部课程</button><h1>${E(selected)}</h1></div></header>`:'';
@@ -69,5 +69,7 @@
  document.addEventListener('paste',event=>{if(!dialog||dialog.rows||dialog.busy||!event.target.closest('#modal'))return;const files=[...(event.clipboardData?.files||[])];if(files.length){event.preventDefault();choose(files);}});
  document.querySelector('#modal').addEventListener('close',()=>{dialog=null;});
  document.addEventListener('click',async event=>{const button=event.target.closest('[data-exam-detail]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();await load();await act('edit',{dataset:{id:button.dataset.examDetail}});},true);
+ root.addEventListener('resize',()=>root.ExamCalendar.updateCurrentLine());
+ setInterval(()=>root.ExamCalendar.updateCurrentLine(),60000);
  root.ExamPreparation={markup,enter(){selected='';semester=root.StudySchedule.manager()?.calendarView?.semester||'';render();return load();},manualInCalendar(manager){dialog={mode:'manual',rows:[{course:'',title:''}],files:[],manager};drawDialog();}};
 })(typeof window==='undefined'?{}:window);

@@ -13,4 +13,4 @@
 
 .prep-overview{display:flex;flex-direction:column;overflow:hidden}.prep-overview>.exam-grid-scroll{flex:1;min-height:0;max-height:none;margin:0}.prep-overview>.exam-undated{flex:none;margin:16px 0 0;max-height:25%;overflow:auto}
 
-.exam-current-week>th,.exam-current-week>td{box-shadow:inset 0 2px #548568}.exam-current-week>th{color:var(--schedule-event-ink)}.exam-current-label{display:block;font-size:11px;font-weight:500;margin:5px 0 2px;color:#548568}
+.exam-grid-surface{position:relative;min-width:850px;width:100%}.exam-grid-surface:has(.is-empty){min-width:0}.exam-grid-surface>.exam-date-grid{width:100%}.exam-now-line{position:absolute;left:0;height:2px;background:#548568;z-index:1;pointer-events:none}.exam-now-line[hidden]{display:none}
