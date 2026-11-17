@@ -396,7 +396,7 @@
   };
   let body='';
   const contentCategory=editorCategory(t,e.source,r);
-  const category=`<div class="calendar-editor-category">${contentCategory==='timetable'?esc(semesterLabel(s.semester,t)):contentCategory==='calendar'?'校历':'考试信息'}</div>`;
+  const category=`<div class="calendar-editor-category">${contentCategory==='timetable'?esc(semesterLabel(s.semester,t)):contentCategory==='calendar'?'校历':'考试'}</div>`;
   if(e.source==='timetable')body=choice('course','课程代码',courseCode(r.course),[...new Map((t.timetable||[]).filter(row=>timetableGroup(t,row)===s.semester&&belongsTo(t,row,'timetable','timetable')).map(row=>[courseCode(row.course).toLowerCase(),courseCode(row.course)])).values()])+choice('class_type','课程类型',r.class_type,[...(t.timetable||[]).filter(row=>belongsTo(t,row,'timetable','timetable')).map(row=>row.class_type)])+`<div class="calendar-editor-pair">${select('weekday','星期',dayNames.map((n,i)=>[i+1,n]),r.weekday)}${field('weeks','教学周',r._weeksText??root.AcademicReferences.formatWeeks(r.weeks),'text','placeholder="每周，如 1–6, 8–16"')}</div>`+field('time','时间 / 节次',r.time,'text','placeholder="09:00–10:00 或第1–2节" maxlength="80" required');
   else if(e.source==='calendar')body=`<div class="calendar-editor-pair">${select('kind','类型',[['teaching','教学周'],['break','假期'],['exam','考试周'],['nonteaching','其他安排']],r.kind)}${r.kind==='teaching'?field('week','教学周',r.week,'number','min="1" max="60"'):''}</div><div class="calendar-editor-pair">${field('start','开始日期',r.start,'date','required')}${field('end','结束日期',r.end,'date','required')}</div>`+field('label','备注',r.label,'text','maxlength="80"');
   else body=field('title',contentCategory==='timetable'?'课程':'名称',r.title,'text','maxlength="150" required')+`<input type="hidden" name="kind" value="${r.kind||'exam'}">${field('date','日期',r.date,'date','required')}<div class="calendar-editor-pair">${field('start','开始时间',r.start,'time')}${field('end','结束时间',r.end,'time')}</div>`+(contentCategory==='timetable'?'':field('location','地点',r.location,'text','maxlength="120"'));
@@ -514,7 +514,7 @@
   let year=school?schoolYearOf(s.cursor):null;
   if(years.length&&!years.includes(year)){year=years[0];s.cursor=year+'-09-01';}
   const picker=school?schoolYearPicker(years,year):timetable?semesterPicker(t,s):examSemesterPicker(t,s);
-  return `<section class="academic-calendar" aria-label="${school?'校历':timetable?'课表':'考试信息'}"><div class="calendar-body"><div class="calendar-main">
+  return `<section class="academic-calendar" aria-label="${school?'校历':timetable?'课表':'考试'}"><div class="calendar-body"><div class="calendar-main">
    <div class="calendar-navigation-row"><div class="calendar-view-actions academic-period-control">${picker}${periodSettingsButton(t,kind,s)}</div><div class="calendar-view-actions">${root.AcademicReferences.addButton(kind)}</div></div>
    ${navigation}${referenceDocuments(t,kind,s)}${message}<div class="calendar-workspace ${s.editor?'has-editor':''}"><div class="calendar-canvas">${school?schoolMarkup(t,s,sections.get(year)):timetable?timetableMarkup(t,s):examMarkup(t,s)}</div>${editorMarkup(t,s)}</div></div></div>
    ${importPanel}${sourceSettingsMarkup(t,s)}</section>`;

@@ -18,7 +18,7 @@
  function actionMenuMarkup(label,manual,ai,{glyph=()=>'',className='',ariaLabel=label,triggerIcon='plus'}={}){
   return `<details class="settings-action-menu ${className}"><summary class="outline-button" aria-label="${escape(ariaLabel)}">${glyph(triggerIcon)}<span>${escape(label)}</span>${glyph('chevron-down')}</summary><div class="settings-action-options">${[manual,ai].map(item=>`<button type="button" aria-label="${escape(item.label)}" ${item.attributes}>${glyph(item.icon)}<span>${escape(item.label)}</span></button>`).join('')}</div></details>`;
  }
- const settingsCategories=[['calendar','校历'],['timetable','课表'],['exam','考试信息']];
+ const settingsCategories=[['calendar','校历'],['timetable','课表'],['exam','考试']];
  const categoryForMode=mode=>mode==='calendar'||mode==='exam'?mode:'timetable';
  if(typeof module!=='undefined'&&module.exports){module.exports={draftOf,changed,promptMarkup,choicesMarkup,historyFor,navigationMarkup,pageNavigationMarkup,actionMenuMarkup,defaultTypeFor,suggestDefault};return;}
  let installed=false,recognizer=null;
@@ -44,7 +44,7 @@
   const active=categoryForMode(mode);
   return `<aside class="study-settings-nav"><nav aria-label="二级菜单">
    ${settingsCategories.map(([id,label])=>`<button type="button" data-settings-action="category" data-category="${id}"
-    ${active===id?'aria-current="true"':''}>${glyph(({calendar:'calendar-days',timetable:'calendar-range',exam:'clipboard-list',templates:'files',learning:'book-open',notes:'notebook-pen'})[id]||'sliders-horizontal')}<span>${label}</span></button>`).join('')}
+    ${active===id?'aria-current="true"':''}>${glyph(({calendar:'calendar-days',timetable:'table-2',exam:'file-pen-line',templates:'files',learning:'book-open',notes:'notebook-pen'})[id]||'sliders-horizontal')}<span>${label}</span></button>`).join('')}
   </nav></aside>`;
  }
  function pageNavigationMarkup(mode){
