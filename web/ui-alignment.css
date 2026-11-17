@@ -1,9 +1,9 @@
 /* Shared alignment for the active application surfaces. */
 :root{--ui-gutter:24px;--ui-control:36px;--ui-form-control:40px;--ui-header:64px;--ui-icon:32px;--study-inset:36px;--study-width:850px}
-/* Collapsed tool rail; pointer hover and keyboard focus reveal names below. */
-.navigation-rail,.navigation-rail:hover,.navigation-rail:has(button:focus-visible){width:68px;min-width:68px;overflow:visible;box-shadow:none;transition:none}
-.navigation-rail .sidebar-nav>button,.navigation-rail .profile-button{position:relative;width:44px;height:44px;min-height:44px;justify-content:center;padding:0;gap:0}
-.navigation-rail .sidebar-nav>button>span,.navigation-rail .rail-account-label{display:none!important}
+/* Icons stay anchored while the rail reveals names over the content. */
+.navigation-rail,.navigation-rail:hover,.navigation-rail:has(button:focus-visible){width:68px;min-width:68px;overflow:hidden;box-shadow:none;transition:width .18s ease,box-shadow .18s ease}
+.navigation-rail .sidebar-nav>button,.navigation-rail .profile-button{position:relative;width:100%;height:44px;min-height:44px;justify-content:flex-start;padding:0 11px;gap:14px}
+.navigation-rail .sidebar-nav>button>span,.navigation-rail .rail-account-label{display:block!important;flex:0 0 auto;opacity:0;white-space:nowrap;transition:opacity .12s ease}
 /* One top edge and control rhythm across the main browsing surfaces. */
 .classified-toolbar,.learning-home-toolbar{min-height:var(--ui-header);padding-left:var(--ui-gutter);padding-right:var(--ui-gutter)}
 .classified-toolbar{gap:12px 16px}
@@ -157,4 +157,6 @@ dialog .modal-actions>.primary,dialog .modal-actions>.outline-button,dialog .mod
 @media(max-width:700px){:root{--ui-gutter:16px;--ui-header:56px;--study-inset:20px}.navigation-rail,.navigation-rail:hover,.navigation-rail:has(button:focus-visible){width:56px;min-width:56px}.classified-toolbar{min-height:56px}.classified-organization{padding-left:0}.unit-title-row{padding:8px 0}.unit-parts{gap:12px}.reading-toolbar{gap:8px}.status-open .status-panel{padding:0 16px 24px}.learning-import .learning-choose{padding:8px 12px}.learning-home-content{width:calc(100% - 32px)}.ai-service-dialog .model-test-field,.ai-service-dialog .ai-default-settings .settings-model-row{grid-template-columns:minmax(75px,1fr) minmax(0,2fr)}}
 @media(max-width:520px){.study-settings-content{padding-left:14px;padding-right:14px}.settings-fields-bar>nav{gap:14px}.template-ai{width:100%;min-width:0}.account-settings-content .settings-page-title{gap:12px;flex-wrap:wrap}.account-settings-content .settings-section-head .primary{font-size:12px}.ai-service-dialog .ai-service-actions{justify-content:flex-end;flex-wrap:wrap}.ai-service-dialog .ai-default-settings .settings-model-row,.ai-service-dialog .model-test-field{grid-template-columns:1fr}.ai-service-dialog .ai-save-actions{gap:12px}}
 
-@media(hover:hover){.navigation-rail:hover,.navigation-rail:has(button:focus-visible){width:204px;box-shadow:8px 0 20px #00000008;overflow:hidden}.navigation-rail:hover .sidebar-nav>button,.navigation-rail:has(button:focus-visible) .sidebar-nav>button,.navigation-rail:hover .profile-button,.navigation-rail:has(button:focus-visible) .profile-button{width:100%;justify-content:flex-start;padding:0 11px;gap:14px}.navigation-rail:hover .sidebar-nav>button>span,.navigation-rail:has(button:focus-visible) .sidebar-nav>button>span,.navigation-rail:hover .rail-account-label,.navigation-rail:has(button:focus-visible) .rail-account-label{display:block!important;opacity:1}}
+@media(hover:hover){.navigation-rail:hover,.navigation-rail:has(button:focus-visible){width:204px;box-shadow:8px 0 20px #00000008}.navigation-rail:hover .sidebar-nav>button>span,.navigation-rail:has(button:focus-visible) .sidebar-nav>button>span,.navigation-rail:hover .rail-account-label,.navigation-rail:has(button:focus-visible) .rail-account-label{opacity:1}}
+@media(max-width:700px) and (hover:hover){.navigation-rail:hover,.navigation-rail:has(button:focus-visible){width:184px}}
+@media(prefers-reduced-motion:reduce){.navigation-rail,.navigation-rail .sidebar-nav>button>span,.navigation-rail .rail-account-label{transition:none}}
