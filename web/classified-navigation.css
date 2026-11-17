@@ -133,3 +133,5 @@
 .exam-preparation-page{padding:28px;color:#404040}
 .exam-preparation-page h1{margin:0 0 24px;font-size:21px;font-weight:550}
 .exam-preparation-page p{font-size:13px;color:#888}
+
+.study-settings-nav nav>button{display:flex;align-items:center;gap:10px}.study-settings-nav nav>button>svg{width:18px;height:18px;flex:none;color:#7b8588}

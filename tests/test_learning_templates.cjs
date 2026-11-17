@@ -22,8 +22,8 @@ test('import selects the configured template and preserves an explicit manual ch
 test('calendar categories control separate timetable, school and exam sidebars',()=>{
  const categories=navigationMarkup('rules');
  assert.match(categories,/aria-label="二级菜单"/);
- assert.match(categories,/data-category="timetable"\s+aria-current="true">课表/);
- assert.match(categories,/data-category="calendar"\s*>校历/);
+ assert.match(categories,/data-category="timetable"\s+aria-current="true">.*<span>课表/);
+ assert.match(categories,/data-category="calendar"\s*>.*<span>校历/);
  assert.doesNotMatch(categories,/日历|课堂分类|来源|aria-expanded|<svg/);
  const timetable=pageNavigationMarkup('rules');
  assert.match(timetable,/class="timetable-page-navigation"/);

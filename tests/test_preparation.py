@@ -62,3 +62,26 @@ class PreparationTest(unittest.TestCase):
         with patch.object(app,'ask',return_value={'rows':[{'course':'ISA104','title':'Test','date':'2027-04-20','source':'输入','evidence':text}]}):
             result=app.academic_import.Importer(app.__dict__).recognize({'kind':'exam','text':text})
         self.assertEqual(result['semester'],'2026-2')
+
+    def workspace_fixture(self):
+        return self.store.save_exams({'etag':self.store.view()['calendar_etag'],'assessments':[{'course':'ISA104','title':'Test A','weight':'35%'},{'course':'ISA104','title':'Test B'}]})['exams']
+    def test_workspace_is_per_exam_and_conflicts_preserve_existing_records(self):
+        a,b=self.workspace_fixture()
+        saved=self.store.save_workspace({'exam_id':a['id'],'etag':self.store.document()['etag'],'action':'materials','kind':'notice','attachments':[{'filename':'email.txt','file':base64.b64encode(b'Bring ID. 15 marks theory, 20 marks coding.').decode()}]})
+        self.assertNotIn(b['id'],saved['workspaces']);before=self.store.path.read_bytes()
+        with self.assertRaises(app.Problem):self.store.save_workspace({'exam_id':a['id'],'etag':'old','action':'analysis','analysis':{}})
+        self.assertEqual(before,self.store.path.read_bytes())
+        context=self.store.context(a['id']);self.assertEqual(len(context['materials']),1)
+        result=self.store.save_workspace({'exam_id':a['id'],'etag':saved['etag'],'action':'analysis','analysis':{'total':'35 marks','scores':[{'title':'Theory','points':'15','children':[{'title':'Sets','points':'5','evidence':'email.txt'}]}]}})
+        self.assertEqual(result['workspaces'][a['id']]['analysis']['scores'][0]['children'][0]['points'],'5')
+        self.assertEqual(self.store.workspace_exam(a['id'])['weight'],'35%')
+    def test_ai_analysis_is_draft_and_feedback_updates_one_attempt(self):
+        a,b=self.workspace_fixture();etag=self.store.document()['etag']
+        with patch.object(app,'ask',return_value={'total':'','requirements':'Bring ID','scores':[]}):draft=self.store.analyze({'exam_id':a['id'],'etag':etag})
+        self.assertFalse(self.store.path.exists());self.assertEqual(draft['analysis']['requirements'],'Bring ID')
+        data=self.store.save_workspace({'exam_id':a['id'],'etag':etag,'action':'practice','practice':{'question':'What is a set?','answer':'A collection'}})
+        attempt=data['workspaces'][a['id']]['practice'][0]
+        with patch.object(app,'ask',return_value={'feedback':'Clarify distinct elements','next':'Define the empty set'}):data=self.store.feedback({'exam_id':a['id'],'etag':data['etag'],'practice_id':attempt['id']})
+        self.assertEqual(len(data['workspaces'][a['id']]['practice']),1)
+        self.assertEqual(data['workspaces'][a['id']]['practice'][0]['next'],'Define the empty set')
+        self.assertNotIn(b['id'],data['workspaces'])

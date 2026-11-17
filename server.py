@@ -1159,6 +1159,10 @@ def route_post(path, data):
         document=calendar_store.Calendar(globals()).save(data)
         return {**document,'course_choices':calendar_store.imported_courses(document)}
     if path == '/api/calendar/subscribe':return calendar_subscription.subscribe(globals(),data)
+    if path == '/api/preparation/workspace':return preparation.Preparation(globals()).save_workspace(data)
+    if path == '/api/preparation/feedback':return preparation.Preparation(globals()).feedback(data)
+    if path == '/api/preparation/analyze':return preparation.Preparation(globals()).analyze(data)
+    if path == '/api/preparation/context':return preparation.Preparation(globals()).context(data.get('exam_id'))
     if path == '/api/preparation/exams':return preparation.Preparation(globals()).save_exams(data)
     if path == '/api/preparation/materials':return preparation.Preparation(globals()).save_materials(data)
     if path == '/api/calendar/import':return academic_import.Importer(globals()).recognize(data)

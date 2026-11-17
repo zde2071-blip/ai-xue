@@ -160,7 +160,7 @@ def assessment_rows(values):
         row={key:text(value.get(key,''),limit) for key,limit in (
             ('course',80),('title',150),('date',10),('date_end',10),('start',5),('end',5),
             ('timing',300),('location',150),('duration',100),('question_types',500),
-            ('scope',1000),('weight',40),('category',40),('evidence',2000))}
+            ('scope',1000),('requirements',2000),('weight',40),('category',40),('evidence',2000))}
         match=re.match(r'^([A-Za-z]{2,6})\s*(\d{2,4})(?![A-Za-z0-9])',row['course'])
         if match:row['course']=''.join(match.groups()).upper()
         if not row['course'] or not row['title']:raise ValueError('请填写课程代码和考核名称。')
