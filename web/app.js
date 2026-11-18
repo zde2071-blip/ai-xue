@@ -11,17 +11,8 @@ const modal = $('#modal');
 
 function icons(){ if(window.lucide) lucide.createIcons({attrs:{'aria-hidden':'true'}}); }
 function toast(text){ const el=$('#toast');el.textContent=text;el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),4500); }
-function md(text){
-  const math=[];
-  const source=String(text || '').replace(/\$\$([\s\S]*?)\$\$|(?<!\\)\$([^$\n]+?)\$/g,(whole,block,inline)=>{
-    const index=math.length; math.push({body:block ?? inline,display:block!==undefined});return `STUDYMATHPLACEHOLDER${index}END`;
-  });
-  let html=DOMPurify.sanitize(marked.parse(source,{breaks:false}),{USE_PROFILES:{html:true},FORBID_TAGS:['style','iframe','form','input','button'],FORBID_ATTR:['style']});
-  html=html.replace(/STUDYMATHPLACEHOLDER(\d+)END/g,(whole,i)=>{
-    try{return katex.renderToString(math[i].body,{displayMode:math[i].display,throwOnError:false,trust:false,strict:'ignore'});}catch{return esc(math[i].body);}
-  });
-  return html;
-}
+function md(text,documentPath=''){return StudyMarkdown.render(text,{documentPath});}
+function noteMarkdownPath(){return `课程/${S.course.id}/笔记/${S.note.id}.md`;}
 async function api(path,data){
   if(S.demonstration)return window.StudyDemo.request(path,data);
   let res;
@@ -84,7 +75,7 @@ function studyMessages(){return S.conversation.length?S.conversation:initialConv
 function studyMessage(m){
   const block=S.course.blocks.find(b=>b.id===m.block_id),isLesson=m.kind==='lesson';
   if(m.role==='user')return `<div class="study-message study-user" data-message-id="${esc(m.id)}">${m.kind==='source'?`<div class="study-file">${icon('file-text')}<span>${esc(m.content)}</span></div><p>帮我梳理这份课件，再一块一块讲。</p>`:`${m.quote?`<blockquote>${esc(m.quote)}</blockquote>`:''}<p>${esc(m.content)}</p>`}</div>`;
-  return `<section class="study-message study-assistant" data-message-id="${esc(m.id)}" ${isLesson?`id="turn-${esc(m.block_id)}"`:''} data-block="${esc(m.block_id||'')}"><div class="study-speaker">学记${isLesson&&block?`<span>第 ${S.course.blocks.indexOf(block)+1} 块 · ${esc(block.title)}</span>`:m.kind==='overview'?'<span>课程总览</span>':''}</div><div ${isLesson&&m.block_id===S.course.active?'id="lesson-body"':''} class="markdown" data-selectable="lesson">${md(m.content)}</div></section>`;
+  return `<section class="study-message study-assistant" data-message-id="${esc(m.id)}" ${isLesson?`id="turn-${esc(m.block_id)}"`:''} data-block="${esc(m.block_id||'')}"><div class="study-speaker">学记${isLesson&&block?`<span>第 ${S.course.blocks.indexOf(block)+1} 块 · ${esc(block.title)}</span>`:m.kind==='overview'?'<span>课程总览</span>':''}</div><div ${isLesson&&m.block_id===S.course.active?'id="lesson-body"':''} class="markdown" data-selectable="lesson">${md(m.content, `课程/${S.course.id}/讲解/${m.block_id || "总览"}.md`)}</div></section>`;
 }
 function overview(){return learn();}
 function learn(){
@@ -277,14 +268,14 @@ async function openResource(id){
   const r=S.resources.find(r=>r.id===id);if(!r?.available){toast('文件已移走，请检查存放位置。');return;}
   if(r.note_id){await openNote(r.course_id,r.note_id);return;}
   const result=await api('/api/library/'+encodeURIComponent(id));
-  modalContent(r.title,`<div class="resource-preview">${result.text!==null?`<div class="markdown">${md(result.text)}</div>`:''}<a class="outline-button" href="/api/library/${encodeURIComponent(id)}/file" target="_blank" rel="noopener">打开原文件 ${icon('arrow-up-right')}</a><details class="or-paste"><summary>存放位置</summary><p class="resource-path">${esc(r.path)}</p></details></div>`);
+  modalContent(r.title,`<div class="resource-preview">${result.text!==null?`<div class="markdown">${md(result.text,result.relative_path)}</div>`:''}<a class="outline-button" href="/api/library/${encodeURIComponent(id)}/file" target="_blank" rel="noopener">打开原文件 ${icon('arrow-up-right')}</a><details class="or-paste"><summary>存放位置</summary><p class="resource-path">${esc(r.path)}</p></details></div>`);
 }
 let editorSource=false,saveTimer,savePromise=null,saveBlocked=false,saveError='',noteEditor=null,editorSnapshot=null;
 function splitEditor(content){const prefix=content.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0]||'';return {prefix,parts:[content.slice(prefix.length)]};}
 function prepareEditor(){if(editorSnapshot?.state.doc.toString()!==(S.editDraft??S.note.content))editorSnapshot=null;}
 function mountEditor(){
   if(!S.editing||S.view!=='note')return;
-  noteEditor=StudyEditor.create({parent:$('#continuous-editor'),content:S.editDraft,source:editorSource,state:editorSnapshot?.id===S.note.id?editorSnapshot.state:null,render:md,onChange:recordEdit});noteEditor.noteId=S.note.id;
+  noteEditor=StudyEditor.create({parent:$('#continuous-editor'),content:S.editDraft,source:editorSource,state:editorSnapshot?.id===S.note.id?editorSnapshot.state:null,render:text=>md(text,noteMarkdownPath()),onChange:recordEdit});noteEditor.noteId=S.note.id;
 }
 function recordEdit(content){
   S.editDraft=content;S.dirty=content!==S.note.content;editorStatus(S.dirty?'未保存':'已保存');
@@ -315,9 +306,10 @@ function showNoteThreads(){
 function notePage(){
   const n=S.note;if(!n)return '';
   if(S.editing)return `<div class="page editor-page"><div id="continuous-editor"></div><div class="editor-status"><span id="draft-status">${S.dirty?'未保存':'已保存'}</span><button class="text-button" data-action="editor-mode">${editorSource?'源码':'实时预览'} ${icon('chevrons-up-down')}</button></div><div id="edit-notice">${saveErrorNotice()}</div></div>`;
-  const clean=n.content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/,''),pieces=clean.split(/<!-- block:([\w-]+) -->/);
-  let html=`<div class="markdown">${md(pieces[0])}</div>`;
-  for(let i=1;i<pieces.length;i+=2){const bid=pieces[i],threads=n.discussions.filter(t=>t.block_id===bid&&t.anchor_status!=='unlocated');html+=`<section class="note-section" data-block="${bid}"><div class="markdown" data-selectable="note">${md(pieces[i+1]||'')}</div>${threads.length?`<button class="annotation-badge" data-action="block-annotations" data-id="${bid}" title="${esc(threads.map(t=>t.title).join('；'))}" aria-label="查看学习旁注">${icon('message-square')}</button>`:''}</section>`;}
+  const clean=n.content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/,'');
+  const pieces=StudyMarkdown.render(clean,{documentPath:noteMarkdownPath(),sections:true}).split(/<div class="markdown-section-marker">([\w-]+)<\/div>/);
+  let html=`<div class="markdown">${pieces[0]}</div>`;
+  for(let i=1;i<pieces.length;i+=2){const bid=pieces[i],threads=n.discussions.filter(t=>t.block_id===bid&&t.anchor_status!=='unlocated');html+=`<section class="note-section" data-block="${bid}"><div class="markdown" data-selectable="note">${pieces[i+1]||''}</div>${threads.length?`<button class="annotation-badge" data-action="block-annotations" data-id="${bid}" title="${esc(threads.map(t=>t.title).join('；'))}" aria-label="查看学习旁注">${icon('message-square')}</button>`:''}</section>`;}
   return `<article class="page note-page"><div class="note-metadata"><span>${esc(n.course_title)}</span><span>${dateText(n.created_at)}</span><button class="text-button" data-action="note-threads">${icon('message-square')}旁注</button></div><div id="note-body" data-selectable="note">${html}</div></article>`;
 }
 function render(){
@@ -332,7 +324,7 @@ function render(){
   if(!hadLearningHome&&$('#learning-current-week'))window.StudyLearningHome?.mount();
   if(input&&$('#main-question textarea')&&!S.threadBusy)$('#main-question textarea').value=S.studyDraft||input;
   $('.content-scroll').scrollTop=scroll;$$('[data-browser-scroll]').forEach(el=>el.scrollTop=B.scroll[el.dataset.browserScroll]||0);icons();applyMarks();mountEditor();if($('#note-body'))$('#note-body').style.setProperty('--reading-size',readingSize+'px');syncReadingTools();
-  $$('.markdown a').forEach(a=>{a.target='_blank';a.rel='noopener noreferrer';});
+  StudyMarkdown.mount($('#app'));
 }
 
 function resetScroll(){requestAnimationFrame(()=>{const el=$('.content-scroll');if(el)el.scrollTop=0;});}
@@ -357,13 +349,30 @@ async function openNote(cid,nid){
   await task('正在打开笔记…',async()=>{S.note=await api(`/api/courses/${cid}/notes/${nid}`);updateCourse(S.courses.find(c=>c.id===cid));S.view='note';S.editing=false;});resetScroll();
 }
 
-function modalContent(title,body){modal.classList.remove('ai-service-dialog');modal.setAttribute('aria-label',title);modal.classList.toggle('account-dialog',body.includes('class="account-settings"'));modal.innerHTML=`<div class="modal-head"><h2>${title}</h2><button class="icon-button" data-action="close-modal" aria-label="关闭">${icon('x')}</button></div><div class="modal-body">${body}</div>`;if(!modal.open)modal.showModal();icons();}
+function modalContent(title,body){modal.classList.remove('ai-service-dialog');modal.setAttribute('aria-label',title);modal.classList.toggle('account-dialog',body.includes('class="account-settings"'));modal.innerHTML=`<div class="modal-head"><h2>${title}</h2><button class="icon-button" data-action="close-modal" aria-label="关闭">${icon('x')}</button></div><div class="modal-body">${body}</div>`;if(!modal.open)modal.showModal();icons();StudyMarkdown.mount(modal);}
 function showImport(){
   if(S.busy)return;currentFile=null;
   modalContent('导入课件',`<p class="modal-description">导入后生成课程总览和学习分块。</p><form id="import-form"><label class="dropzone" id="dropzone">${icon('file-up')}<strong id="file-name">选择或拖入一份课件</strong><span>PDF / PPTX / Markdown / TXT · 最大 15 MB</span><input type="file" id="course-file" accept=".pdf,.pptx,.md,.txt" aria-label="选择课件"></label><details class="or-paste"><summary>粘贴文字</summary><label class="field"><textarea name="text" placeholder="粘贴学习资料…" aria-label="粘贴学习资料"></textarea></label></details><label class="field"><span class="field-label">资料标题 <span class="muted">（可选）</span></span><input name="title" placeholder="例如：离散数学 · 第三章"></label>${classificationFields()}<details class="or-paste" open><summary>课程位置</summary>${academicFields({stage:B.stage,year:B.year,semester:B.semester})}</details><details class="or-paste"><summary>学习方式</summary><label class="field"><textarea name="method" aria-label="学习方式">${esc(S.method)}</textarea></label></details>${!S.settings.connected?'<div class="inline-notice">请先连接 AI。<button class="text-button" type="button" data-action="settings">打开 AI 设置 →</button></div>':''}<p class="small muted">仅在使用 AI 时，将提取的文字发送至你配置的模型接口。暂不识别扫描件和图片内容。</p><div id="modal-error" class="error-message" role="alert"></div><div class="modal-actions"><button type="button" class="text-button" data-action="demo">示例课程</button><button type="submit" class="primary" ${!S.settings.connected?'disabled':''}>${icon('sparkles')}生成学习分块</button></div></form>`);
   const zone=$('#dropzone');zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag');});zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag');chooseFile(e.dataTransfer.files[0]);});
 }
 function chooseFile(file){if(!file)return;if(file.size>15*1024*1024){$('#modal-error').textContent='文件不能超过 15 MB。';return;}currentFile=file;$('#file-name').textContent=file.name;$('#modal-error').textContent='';}
+document.addEventListener('click',async event=>{
+  const link=event.target.closest?.('.markdown a.markdown-note-link');
+  if(!link||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+  const url=new URL(link.href,location.href);
+  if(url.origin!==location.origin||url.pathname!=='/api/markdown-file')return;
+  event.preventDefault();
+  url.searchParams.set('preview','1');
+  try{
+    const note=await api(url.pathname+url.search);
+    const text=note.text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/,'');
+    modalContent(esc(note.title),`<article class="markdown">${md(text,note.path)}</article>`);
+    if(url.hash){
+      const heading=decodeURIComponent(url.hash.slice(1)).replace(/\s+/g,'-').toLowerCase();
+      $$('.markdown :is(h1,h2,h3,h4,h5,h6)',modal).find(el=>el.textContent.trim().replace(/\s+/g,'-').toLowerCase()===heading)?.scrollIntoView();
+    }
+  }catch(error){toast(error.message);}
+});
 let accountAI=null,aiEdit=null,aiBusy=false,accountTab='ai';
 function closeAccountMenu(){const root=$('#account-menu-root');if(root)root.innerHTML='';$('.profile-button')?.setAttribute('aria-expanded','false');}
 function showAccountMenu(){

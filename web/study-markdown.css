@@ -1,0 +1,23 @@
+.markdown .markdown-table-scroll{max-width:100%;overflow-x:auto;margin:23px 0}
+.markdown .markdown-table-scroll table{margin:0}
+.markdown .markdown-table-scroll :is(th,td){min-width:75px;overflow-wrap:normal}
+.markdown img{height:auto;max-width:100%;vertical-align:middle}
+.markdown img[width]{max-width:100%}
+.markdown img[height]{height:revert}
+.markdown .markdown-diagram{display:block;margin:18px auto}
+.markdown .markdown-display-math{display:block;max-width:100%}
+.markdown .markdown-task-box{color:#526c5a}
+.markdown li:has(> .markdown-task-box),.markdown li:has(> p > .markdown-task-box){list-style:none}
+.markdown mark{color:inherit;background:#f8eba6;border-radius:2px}
+.markdown .markdown-callout{margin:18px 0;padding:12px 16px;border-left:3px solid #8caaa1;border-radius:4px;background:#eef5f2}
+.markdown .markdown-callout-title,.markdown .markdown-callout summary{font-weight:600}
+.markdown .markdown-callout summary{cursor:pointer}
+.markdown .markdown-callout > div > :first-child{margin-top:6px}
+.markdown .markdown-callout > div > :last-child{margin-bottom:0}
+.markdown :is(.markdown-callout-warning,.markdown-callout-caution,.markdown-callout-danger,.markdown-callout-important){border-color:#b99357;background:#faf4e8}
+.markdown .token:is(.comment,.prolog,.doctype,.cdata){color:#677078}
+.markdown .token:is(.keyword,.boolean,.atrule){color:#7e3f8b}
+.markdown .token:is(.number,.constant,.symbol){color:#8c4b29}
+.markdown .token:is(.string,.char,.attr-value,.regex){color:#336a4c}
+.markdown .token:is(.function,.class-name,.tag){color:#28578d}
+.markdown .token:is(.operator,.punctuation){color:#5f6269}

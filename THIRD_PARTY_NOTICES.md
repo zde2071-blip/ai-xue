@@ -14,3 +14,5 @@
 采用官方模型，不修改权重。语音安装只提取权重、声音、符号表、中英语音词典、README 与 LICENSE；sherpa-onnx 2.x 已移除 eSpeak-ng 依赖，不安装旧包中的 eSpeak 数据。翻译使用 Argos 发布的模型，通过 CTranslate2 直接推理，不安装或冒称使用完整 Argos 应用。
 
 Python 依赖的许可文件由其发行包附带。重新打包分发时应一并保留依赖、模型及词典的许可证和作者说明。前端既有依赖的许可证位于 `web/vendor/licenses/`。本清单不替代项目自身的授权条款。
+
+Markdown 的代码高亮使用 [PrismJS 1.30.0](https://github.com/PrismJS/prism/tree/v1.30.0)，脚注使用 [marked-footnote 1.4.0](https://github.com/bent10/marked-extensions/tree/main/packages/footnote)，图表使用 [Mermaid 12.3.0](https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4012.3.0)。三个项目均采用 MIT 许可。Mermaid 由安装器下载并保存在本机，渲染时在浏览器内运行。

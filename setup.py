@@ -12,4 +12,5 @@ if __name__ == '__main__':
     python = environment / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
     subprocess.run([str(python), '-m', 'pip', 'install', '-r', str(root/'requirements.txt')], check=True)
     subprocess.run([str(python), str(root/'tools/install_reading_tools.py')], check=True)
+    subprocess.run([str(python), str(root/'tools/install_markdown_diagrams.py')], check=True)
     print('安装完成。运行 python start.py，然后打开 http://127.0.0.1:8767/')

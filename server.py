@@ -14,6 +14,7 @@ import calendar_store
 import calendar_subscription
 import academic_organization
 import file_operations
+import markdown_files
 import base64
 import hashlib
 import io
@@ -32,7 +33,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse, unquote, quote
+from urllib.parse import urlparse, unquote, quote, parse_qs
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent
@@ -1355,7 +1356,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         is_preview=bool(re.fullmatch(r'/api/courses/[\w-]+/source-preview',urlparse(getattr(self,'path','')).path))
         self.send_header('X-Frame-Options', 'SAMEORIGIN' if is_preview else 'DENY')
-        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'self' blob:; frame-ancestors "+("'self'" if is_preview else "'none'")+"; base-uri 'none'; form-action 'self'")
+        if content_type == 'image/svg+xml' and urlparse(self.path).path == '/api/markdown-file':
+            self.send_header('Content-Security-Policy', "sandbox; default-src 'none'; style-src 'unsafe-inline'")
+        else:
+            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'self' blob:; frame-ancestors "+("'self'" if is_preview else "'none'")+"; base-uri 'none'; form-action 'self'")
         self.end_headers()
         self.wfile.write(raw)
 
@@ -1409,6 +1413,22 @@ class Handler(BaseHTTPRequestHandler):
             if unit_match:return self.respond(unit_store().item(get_course(unit_match[1]),True))
             if path == '/api/library':
                 return self.respond({'items': library_items(), 'vault': str(VAULT)})
+            if path == '/api/markdown-file':
+                params = parse_qs(urlparse(self.path).query)
+                def value(key):
+                    return params.get(key, [''])[0]
+                resource = markdown_files.resolve(
+                    VAULT, value('ref'), value('document'),
+                    wiki=value('wiki') == '1', image=value('image') == '1',
+                )
+                if not resource:
+                    raise Problem('在知识库中没有找到该附件。', 404)
+                if resource.stat().st_size > markdown_files.MAX_FILE_SIZE:
+                    raise Problem('附件超过 30 MB。', 413)
+                if value('preview') == '1' and resource.suffix.lower() in ('.md', '.txt'):
+                    return self.respond({'title': resource.stem, 'text': resource.read_text(encoding='utf-8-sig'),
+                                         'path': resource.relative_to(VAULT.resolve()).as_posix()})
+                return self.respond(resource.read_bytes(), content_type=markdown_files.FILE_TYPES[resource.suffix.lower()], filename=resource.name)
             details_match=re.fullmatch(r'/api/library/([\w-]+)/details',path)
             if details_match:return self.respond(details_store().get(details_match[1]))
             m = re.fullmatch(r'/api/library/([\w-]+)(/file)?', path)

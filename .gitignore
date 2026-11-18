@@ -22,3 +22,5 @@ __pycache__/
 /design/
 /验证记录.md
 /tools/ocr-runtime
+/web/vendor/mermaid-runtime.js
+/web/vendor/mermaid-runtime.version
