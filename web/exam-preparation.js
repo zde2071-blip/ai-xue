@@ -4,7 +4,7 @@
  const code=value=>String(value||'').trim().replace(/^([a-z]{2,6})\s*(\d{2,4})(?![a-z0-9]).*$/i,(_,a,b)=>(a+b).toUpperCase());
  const when=r=>r.date?(r.date_end?`${r.date} 至 ${r.date_end}`:[r.date,r.start].filter(Boolean).join(' ')):(r.timing||'日期待确认');
  if(typeof module!=='undefined'&&module.exports){module.exports={code,when};return;}
- let D=null,loading=false,error='',examId='',semester='',dialog=null,saving=false,tab='materials',paperSession=null,viewedAttempt='';
+ let D=null,loading=false,error='',examId='',semester='',dialog=null,saving=false,tab='materials',paperSession=null,viewedAttempt='',questionIndex=0;
  const E=v=>esc(v),I=v=>icon(v);
  async function load(){if(loading)return;loading=true;try{D=await api('/api/preparation');error='';}catch(e){error=e.message;}finally{loading=false;render();requestAnimationFrame(focusCalendar);}}
  function focusCalendar(){root.ExamCalendar.updateCurrentLine();const box=document.querySelector('.prep-page .exam-grid-scroll');if(!box)return;const day=root.AcademicCalendar.today(),row=[...box.querySelectorAll('[data-exam-week-start]')].find(r=>r.dataset.examWeekStart<=day&&r.dataset.examWeekEnd>=day);if(row)box.scrollTop+=row.getBoundingClientRect().top-box.getBoundingClientRect().top-52;}
@@ -74,7 +74,7 @@
   syncNotePicker(d);
  }
  function scoreRows(rows){
-  return rows.length?'<ul class="prep-scores">'+rows.map(row=>'<li><div><strong>'+E(row.title)+'</strong><span>'+E(row.points||'分值未注明')+'</span></div>'+
+  return rows.length?'<ul class="prep-scores">'+rows.map(row=>'<li><div><strong>'+E(row.title)+'</strong><span>'+E(row.points||'—')+'</span></div>'+
    (row.evidence?'<small>'+E(row.evidence)+'</small>':'')+scoreRows(row.children||[])+'</li>').join('')+'</ul>':'';
  }
  function generateButton(mode,label,available){
@@ -88,56 +88,104 @@
    ['时长',a.duration||fromCalendar(exam.duration)],
    ['要求与提醒',a.requirements||(exam.requirements?fromCalendar(exam.requirements):extracted?'无（外部材料未注明）':'未提供')],
   ];
-  return '<section class="prep-section"><header><h2>基本信息</h2>'+generateButton('exam',extracted?'重新提取':'从外部材料提取',workspace.materials?.length)+'</header>'+
-   (!workspace.materials?.length?'<p class="muted">添加外部材料后即可提取考试信息。</p>':'')+
+  return '<section class="prep-section"><header><h2>基本信息</h2>'+generateButton('exam',extracted?'重新提取':'提取信息',workspace.materials?.length)+'</header>'+
    '<dl class="prep-basic">'+fields.map(([label,value])=>'<div><dt>'+label+'</dt><dd>'+E(value)+'</dd></div>').join('')+'</dl>'+
    (a.evidence?'<details class="prep-evidence"><summary>查看来源依据</summary><p>'+E(a.evidence)+'</p></details>':'')+'</section>'+
    '<section class="prep-section"><header><h2>分值构成</h2></header><dl class="prep-basic"><div><dt>课程占比</dt><dd>'+E(a.weight||fromCalendar(exam.weight))+'</dd></div><div><dt>卷面总分</dt><dd>'+E(a.total||'未提供')+'</dd></div></dl>'+
-   (scoreRows(a.scores||[])||'<p class="muted">'+(extracted?'外部材料未注明具体分值。':'提取后在这里查看各题型或各部分的分值。')+'</p>')+'</section>';
+   scoreRows(a.scores||[])+'</section>';
  }
  function answerText(question,value){
   return Array.isArray(value)?value.map(index=>question.options[index]).join('、'):value;
  }
- function practiceQuestion(q,index){
-  const value=paperSession.answers[q.id];
-  const response=q.options.length?q.options.map((option,i)=>'<label class="prep-option"><input type="'+(q.type==='single'?'radio':'checkbox')+'" name="'+q.id+'" data-question="'+q.id+'" value="'+i+'" '+(value?.includes(i)?'checked':'')+'><span>'+String.fromCharCode(65+i)+'.</span>'+markdown(option)+'</label>').join(''):
-   q.type==='blank'?'<input type="text" class="prep-answer" data-question="'+q.id+'" aria-label="第 '+(index+1)+' 题答案" value="'+E(value||'')+'" maxlength="12000">':
-   '<textarea class="prep-answer" rows="4" data-question="'+q.id+'" aria-label="第 '+(index+1)+' 题答案" maxlength="12000">'+E(value||'')+'</textarea>';
-  return '<fieldset class="prep-question"><legend>第 '+(index+1)+' 题 · '+questionKinds[q.type]+'</legend>'+markdown(q.prompt)+response+'</fieldset>';
+ function questionState(value){
+  return Array.isArray(value)?value.length>0:typeof value==='string'&&value.trim().length>0;
+ }
+ function attemptScore(attempt){
+  return attempt.graded?'答对 '+attempt.correct+' / '+attempt.graded+' 题':'未自动判分';
+ }
+ function questionLayout(questions,answerFor,body){
+  const numbers=questions.map((q,i)=>{
+   const answered=questionState(answerFor(q));
+   return '<button type="button" class="prep-quiz-number'+(answered?' is-answered':'')+'" data-prep="question" data-index="'+i+'" data-question-number="'+E(q.id)+'" aria-label="第 '+(i+1)+' 题，'+(answered?'已答':'未答')+'" '+(i===questionIndex?'aria-current="step"':'')+' '+disabled()+'>'+ (i+1) +'</button>';
+  }).join('');
+  const answered=questions.filter(q=>questionState(answerFor(q))).length;
+  return '<div class="prep-quiz-layout"><aside class="prep-quiz-side" aria-label="题目导航"><p class="prep-quiz-progress" data-quiz-progress>已答 '+answered+' / '+questions.length+'</p>'+
+   '<div class="prep-quiz-numbers">'+numbers+'</div></aside>'+body+'</div>';
+ }
+ function updateQuestionProgress(question,answers){
+  const control=document.querySelector('[data-question-number="'+CSS.escape(question)+'"]');
+  if(!control)return;
+  const answered=questionState(answers[question]),controls=document.querySelectorAll('[data-question-number]');
+  control.classList.toggle('is-answered',answered);
+  control.setAttribute('aria-label','第 '+control.textContent+' 题，'+(answered?'已答':'未答'));
+  const count=[...controls].filter(button=>button.classList.contains('is-answered')).length;
+  document.querySelector('[data-quiz-progress]').textContent='已答 '+count+' / '+controls.length;
+ }
+ function questionFooter(count,action=''){
+  return '<footer class="prep-quiz-footer"><div class="prep-actions">'+
+   '<button type="button" class="outline-button" data-prep="question" data-index="'+(questionIndex-1)+'" '+(questionIndex===0||saving?'disabled':'')+'>上一题</button>'+
+   '<button type="button" class="outline-button" data-prep="question" data-index="'+(questionIndex+1)+'" '+(questionIndex===count-1||saving?'disabled':'')+'>下一题</button></div>'+action+'</footer>';
+ }
+ function paperHeader(title,score=''){
+  return '<header class="prep-paper-header"><div><h2>'+E(title)+'</h2>'+(score?'<small class="prep-quiz-score">'+E(score)+'</small>':'')+'</div><button type="button" class="text-button" data-prep="paper-list" '+disabled()+'>返回试卷</button></header>';
+ }
+ function questionHeading(q,status=''){
+  return '<h3 class="prep-question-heading" tabindex="-1">第 '+(questionIndex+1)+' 题 <span>'+E(questionKinds[q.type])+'</span>'+status+'</h3>';
+ }
+ function practiceQuestion(q){
+  const value=paperSession.answers[q.id],label='第 '+(questionIndex+1)+' 题答案';
+  const response=q.options.length?'<div class="prep-options" role="group" aria-label="'+label+'">'+q.options.map((option,i)=>
+   '<label class="prep-option"><input type="'+(q.type==='single'?'radio':'checkbox')+'" name="'+E(q.id)+'" data-question="'+E(q.id)+'" value="'+i+'" '+(value?.includes(i)?'checked':'')+' '+disabled()+'><span>'+String.fromCharCode(65+i)+'.</span>'+markdown(option)+'</label>').join('')+'</div>':
+   q.type==='blank'?'<input type="text" class="prep-answer" data-question="'+E(q.id)+'" aria-label="'+label+'" value="'+E(value||'')+'" maxlength="12000" '+disabled()+'>':
+   '<textarea class="prep-answer" rows="5" data-question="'+E(q.id)+'" aria-label="'+label+'" maxlength="12000" '+disabled()+'>'+E(value||'')+'</textarea>';
+  return '<section class="prep-question">'+questionHeading(q)+markdown(q.prompt)+response+'</section>';
+ }
+ function quizPanel(paper){
+  const q=paper.questions[questionIndex],submit='<button class="primary" type="submit" '+disabled()+'>'+(saving?'正在提交…':'提交试卷')+'</button>';
+  const body='<form id="prep-quiz" class="prep-quiz-main">'+practiceQuestion(q)+questionFooter(paper.questions.length,submit)+'</form>';
+  return '<section class="prep-section">'+paperHeader(paper.title)+questionLayout(paper.questions,q=>paperSession.answers[q.id],body)+'</section>';
  }
  function resultPanel(attempt,workspace){
-  const paper=workspace.mock_papers?.find(p=>p.id===attempt.paper_id);
-  const label=attempt.graded?'答对 '+attempt.correct+' / '+attempt.graded+' 道可自动判分题':'本次作答暂无可自动判分题';
-  return '<section class="prep-section"><header><h2>'+E(attempt.paper_title)+'</h2><button class="text-button" data-prep="paper-list">返回试卷与记录</button></header>'+
-   '<p>'+E(label)+' · 已答 '+attempt.answered+' / '+attempt.questions.length+' 题</p>'+attempt.questions.map((q,i)=>{
-    const status=!q.response?.length?'未作答':q.correct===true?'正确':q.correct===false?'错误':'未自动判分';
-    return '<article class="prep-result"><h3>第 '+(i+1)+' 题 · '+status+'</h3>'+markdown(q.prompt)+
-     '<div class="prep-result-line"><span>我的答案</span>'+markdown(answerText(q,q.response)||'未作答')+'</div>'+
-     (q.answer?.length?'<div class="prep-result-line"><span>参考答案</span>'+markdown(answerText(q,q.options.length?q.answer:q.answer.join('、')))+'</div>':'')+
-     (q.explanation?markdown(q.explanation):'')+'</article>';
-   }).join('')+(paper?'<button class="outline-button" data-prep="start-paper" data-id="'+E(paper.id)+'">重新作答</button>':'')+'</section>';
+  const paper=workspace.mock_papers?.find(p=>p.id===attempt.paper_id),q=attempt.questions[questionIndex];
+  const status=!questionState(q.response)?'未答':q.correct===true?'正确':q.correct===false?'错误':'未判分';
+  const retry=paper?'<button type="button" class="outline-button" data-prep="start-paper" data-id="'+E(paper.id)+'">重新作答</button>':'';
+  const body='<section class="prep-quiz-main"><article class="prep-question">'+questionHeading(q,'<span class="prep-result-status">'+status+'</span>')+markdown(q.prompt)+
+   '<dl class="prep-result-answers"><div class="prep-result-line"><dt>我的答案</dt><dd>'+markdown(answerText(q,q.response)||'—')+'</dd></div>'+
+   (q.answer?.length?'<div class="prep-result-line"><dt>参考答案</dt><dd>'+markdown(answerText(q,q.options.length?q.answer:q.answer.join('、')))+'</dd></div>':'')+
+   '</dl>'+(q.explanation?markdown(q.explanation):'')+'</article>'+questionFooter(attempt.questions.length,retry)+'</section>';
+  return '<section class="prep-section">'+paperHeader(attempt.paper_title,attemptScore(attempt))+
+   questionLayout(attempt.questions,q=>q.response,body)+'</section>';
+ }
+ function showHistory(paper,attempts){
+  const rows=attempts.filter(attempt=>attempt.paper_id===paper.id).slice().reverse();
+  const body=rows.length?'<ul class="prep-files prep-history">'+rows.map(a=>
+   '<li><div><time>'+E(a.submitted_at?.replace('T',' ').slice(0,16)||'')+'</time><small>'+E(attemptScore(a))+'</small></div>'+
+   '<button type="button" class="text-button" data-prep="result" data-id="'+E(a.id)+'">查看结果</button></li>').join('')+'</ul>':
+   '<p class="muted prep-picker-empty">暂无记录</p>';
+  modalContent(E(paper.title)+' · 作答记录',body);
  }
  function mockPanel(workspace){
   const papers=workspace.mock_papers||[],attempts=workspace.attempts||[],paper=papers.find(p=>p.id===paperSession?.paperId);
   const attempt=attempts.find(a=>a.id===viewedAttempt);
   if(attempt)return resultPanel(attempt,workspace);
-  if(paper&&paper.version===paperSession.version){
-   return '<section class="prep-section"><header><h2>'+E(paper.title)+'</h2><button class="text-button" data-prep="paper-list">返回试卷与记录</button></header>'+
-    '<form id="prep-quiz">'+paper.questions.map(practiceQuestion).join('')+'<button class="primary" type="submit" '+disabled()+'>'+(saving?'正在提交…':'提交作答')+'</button></form></section>';
-  }
-  return '<section class="prep-section"><header><h2>试卷</h2>'+generateButton('mock',workspace.mock_scan?'重新识别模拟题':'识别模拟题',workspace.materials?.length)+'</header>'+
-   (!workspace.materials?.length?'<p class="muted">先在原始材料中添加模拟题或样题文件。</p>':workspace.mock_scan?.found===0?'<p class="muted">本次识别未发现可作答的模拟题。</p>':!papers.length?'<p class="muted">从外部材料识别原题后，可以在这里选择试卷。</p>':'')+
-   '<ul class="prep-files">'+papers.map(p=>'<li><div><strong>'+E(p.title)+'</strong><small>'+E(p.source)+' · '+p.questions.length+' 题</small></div><button class="outline-button" data-prep="start-paper" data-id="'+E(p.id)+'">开始作答</button></li>').join('')+'</ul></section>'+
-   '<section class="prep-section"><header><h2>作答记录</h2></header>'+
-   (attempts.length?'<ul class="prep-files">'+attempts.slice().reverse().map(a=>'<li><div><strong>'+E(a.paper_title)+'</strong><small>'+E(a.submitted_at?.replace('T',' ').slice(0,16)||'')+' · '+(a.graded?'答对 '+a.correct+' / '+a.graded+' 道':'未自动判分')+'</small></div><button class="text-button" data-prep="result" data-id="'+E(a.id)+'">查看结果</button></li>').join('')+'</ul>':'<p class="muted">提交试卷后在这里查看记录。</p>')+
-   (workspace.practice||[]).map(r=>'<details class="prep-result"><summary>'+E(r.question)+'</summary>'+markdown(r.answer||'')+(r.feedback?markdown(r.feedback):'')+(r.next?markdown(r.next):'')+'</details>').join('')+'</section>';
+  if(paper&&paper.version===paperSession.version)return quizPanel(paper);
+  const rows=papers.map(p=>{
+   const count=attempts.filter(a=>a.paper_id===p.id).length;
+   return '<li><div><strong>'+E(p.title)+'</strong><small>'+p.questions.length+' 题</small></div><div class="prep-actions">'+
+    '<button type="button" class="outline-button" data-prep="paper-history" data-id="'+E(p.id)+'" aria-haspopup="dialog">'+I('history')+'作答记录'+(count?' <span>'+count+'</span>':'')+'</button>'+
+    '<button type="button" class="primary" data-prep="start-paper" data-id="'+E(p.id)+'">开始作答</button></div></li>';
+  }).join('');
+  const previous=(workspace.practice||[]).map(r=>'<details class="prep-result"><summary>'+E(r.question)+'</summary>'+markdown(r.answer||'')+(r.feedback?markdown(r.feedback):'')+(r.next?markdown(r.next):'')+'</details>').join('');
+  return '<section class="prep-section"><header><h2>试卷</h2>'+generateButton('mock',workspace.mock_scan?'重新识别':'识别试卷',workspace.materials?.length)+'</header>'+
+   (rows?'<ul class="prep-files prep-paper-list">'+rows+'</ul>':'<p class="muted">暂无试卷</p>')+
+   (previous?'<details class="prep-legacy"><summary>手动练习记录</summary>'+previous+'</details>':'')+'</section>';
  }
  function summaryPanel(workspace){
   const summary=workspace.summary?.markdown,available=workspace.notes?.length||workspace.materials?.length;
   return '<section class="prep-section"><header><h2>复习笔记</h2><div class="prep-actions">'+
    (summary?'<button class="outline-button" data-prep="download-summary">下载笔记</button>':'')+
    generateButton('summary',summary?'重新生成笔记':'生成复习笔记',available)+'</div></header>'+
-   (summary?markdown(summary):'<p class="muted">'+(available?'根据已选复习笔记和外部材料整理课程知识点。':'先选择本课程的复习笔记或添加外部材料。')+'</p>')+'</section>';
+   (summary?markdown(summary):'')+'</section>';
  }
  function markup(){
   if(!D&&!loading&&!error)queueMicrotask(load);
@@ -160,7 +208,7 @@
    '</nav><div class="prep-content">'+panel+'</div></section>';
  }
  function openExam(id){
-  examId=id;tab='materials';paperSession=null;viewedAttempt='';render();
+  examId=id;tab='materials';paperSession=null;viewedAttempt='';questionIndex=0;render();
   if(id)document.querySelector('.prep-page')?.scrollTo(0,0);
   else requestAnimationFrame(focusCalendar);
  }
@@ -189,12 +237,30 @@
    await update(()=>api('/api/preparation/generate',{exam_id:exam.id,etag:D.etag,mode}),()=>toast('已保存整理结果'));
    return true;
   }
-  if(action==='start-paper'){
+  if(action==='paper-history'){
    const paper=workspace.mock_papers?.find(p=>p.id===id);
-   if(paper){paperSession={paperId:id,version:paper.version,attemptId:crypto.randomUUID(),answers:{}};viewedAttempt='';render();}
+   if(paper)showHistory(paper,workspace.attempts||[]);
    return true;
   }
-  if(action==='paper-list'||action==='result'){paperSession=null;viewedAttempt=id||'';render();return true;}
+  if(action==='start-paper'){
+   const paper=workspace.mock_papers?.find(p=>p.id===id);
+   if(paper){paperSession={paperId:id,version:paper.version,attemptId:crypto.randomUUID(),answers:{}};viewedAttempt='';questionIndex=0;render();}
+   return true;
+  }
+  if(action==='paper-list'||action==='result'){
+   if(action==='result')document.querySelector('#modal').close();
+   paperSession=null;viewedAttempt=id||'';questionIndex=0;render();
+   return true;
+  }
+  if(action==='question'){
+   const index=Number(button.dataset.index);
+   const entry=viewedAttempt?workspace.attempts?.find(a=>a.id===viewedAttempt):workspace.mock_papers?.find(p=>p.id===paperSession?.paperId);
+   if(!saving&&Number.isInteger(index)&&index>=0&&index<(entry?.questions.length||0)&&index!==questionIndex){
+    questionIndex=index;render();
+    document.querySelector('.prep-question-heading')?.focus({preventScroll:true});
+   }
+   return true;
+  }
   if(action==='download-summary'){
    const text=workspace.summary?.markdown;
    if(text)downloadNote(new Blob([text],{type:'text/markdown;charset=utf-8'}),code(exam.course)+' '+exam.title+' 知识点总结','md');
@@ -262,6 +328,7 @@
     if(el.checked)choices.add(value);else choices.delete(value);
     answers[question]=[...choices];
    }else answers[question]=el.value;
+   updateQuestionProgress(question,answers);
   }
   if(!dialog||dialog.busy)return;
   if(el.id==='prep-instructions'||el.id==='prep-material-text')dialog.text=el.value;
@@ -286,13 +353,16 @@
  });
  document.querySelector('#modal').addEventListener('close',()=>{dialog=null;});
  document.addEventListener('click',async event=>{const button=event.target.closest('[data-exam-detail]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();await load();await act('edit',{dataset:{id:button.dataset.examDetail}});},true);
+ document.addEventListener('keydown',event=>{
+  if(event.key==='Enter'&&event.target.matches('#prep-quiz input[type=text]'))event.preventDefault();
+ });
  document.addEventListener('submit',async event=>{
   if(event.target.id!=='prep-quiz')return;
   event.preventDefault();
   if(!paperSession)return;
   const session=paperSession;
   await update(()=>workspaceUpdate('attempt',{paper_id:session.paperId,paper_version:session.version,attempt_id:session.attemptId,answers:session.answers}),()=>{
-   if(paperSession===session){paperSession=null;viewedAttempt=session.attemptId;}
+   if(paperSession===session){paperSession=null;viewedAttempt=session.attemptId;questionIndex=0;}
   });
  });
  root.addEventListener('resize',()=>root.ExamCalendar.updateCurrentLine());
