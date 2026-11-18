@@ -1164,6 +1164,7 @@ def route_post(path, data):
     if path == '/api/preparation/workspace':return preparation.Preparation(globals()).save_workspace(data)
     if path == '/api/preparation/feedback':return preparation.Preparation(globals()).feedback(data)
     if path == '/api/preparation/analyze':return preparation.Preparation(globals()).analyze(data)
+    if path == '/api/preparation/generate':return preparation.Preparation(globals()).generate(data)
     if path == '/api/preparation/context':return preparation.Preparation(globals()).context(data.get('exam_id'))
     if path == '/api/preparation/exams':return preparation.Preparation(globals()).save_exams(data)
     if path == '/api/preparation/materials':return preparation.Preparation(globals()).save_materials(data)

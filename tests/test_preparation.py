@@ -85,3 +85,52 @@ class PreparationTest(unittest.TestCase):
         self.assertEqual(len(data['workspaces'][a['id']]['practice']),1)
         self.assertEqual(data['workspaces'][a['id']]['practice'][0]['next'],'Define the empty set')
         self.assertNotIn(b['id'],data['workspaces'])
+
+    def test_exam_extraction_only_sends_external_materials(self):
+        exam, other = self.workspace_fixture()
+        request = {'exam_id': exam['id']}
+        note = {'id': 'review', 'kind': 'notes', 'available': True, 'tags': {'course': 'ISA 104'},
+                'relative_path': 'review.md', 'filename': 'review.md'}
+        app.write_text(app.VAULT / 'review.md', '# Review note')
+        with patch.object(app, 'library_items', return_value=[note]):
+            state = self.store.save_workspace({**request, 'etag': self.store.document()['etag'],
+                                               'action': 'notes', 'notes': ['review']})
+            state = self.store.save_workspace({**request, 'etag': state['etag'], 'action': 'materials',
+                                               'attachments': [{'filename': 'mail.txt', 'file': 'QnJpbmcgSUQu'}]})
+            result = {'time': '', 'location': '', 'requirements': 'Bring ID',
+                      'weight': '35%', 'total': '80 marks', 'scores': []}
+            with patch.object(app, 'ask', return_value=result) as ask:
+                state = self.store.generate({**request, 'etag': state['etag'], 'mode': 'exam'})
+                self.assertEqual(ask.call_args.kwargs['originals'], [{'filename': 'mail.txt', 'raw': b'Bring ID.'}])
+            self.assertEqual(state['workspaces'][exam['id']]['analysis']['total'], '80 marks')
+            self.assertNotIn(other['id'], state['workspaces'])
+            with patch.object(app, 'ask', return_value={'markdown': '# Review'}) as ask:
+                state = self.store.generate({**request, 'etag': state['etag'], 'mode': 'summary'})
+                self.assertEqual([r['filename'] for r in ask.call_args.kwargs['originals']], ['mail.txt', 'review.md'])
+            self.assertEqual(state['workspaces'][exam['id']]['summary']['markdown'], '# Review')
+
+    def test_repeated_quiz_attempts_do_not_reveal_answers_before_submission(self):
+        exam, other = self.workspace_fixture()
+        request = {'exam_id': exam['id']}
+        state = self.store.save_workspace({**request, 'etag': self.store.document()['etag'], 'action': 'materials',
+                                           'attachments': [{'filename': 'paper.txt', 'file': 'cGFwZXI='}]})
+        result = {'mock_papers': [{'title': 'Practice', 'source': 'paper.txt', 'questions': [
+            {'type': 'single', 'prompt': 'Choose A', 'options': ['A', 'B'], 'answer': [0]},
+            {'type': 'blank', 'prompt': 'Enter zero', 'answer': ['0']},
+            {'type': 'written', 'prompt': 'Explain your choice', 'answer': []},
+        ]}]}
+        with patch.object(app, 'ask', return_value=result):
+            state = self.store.generate({**request, 'etag': state['etag'], 'mode': 'mock'})
+        paper = state['workspaces'][exam['id']]['mock_papers'][0]
+        self.assertTrue(all('answer' not in q for q in paper['questions']))
+        first, second, written = [q['id'] for q in paper['questions']]
+        submit = {**request, 'action': 'attempt', 'paper_id': paper['id'], 'paper_version': paper['version']}
+        state = self.store.save_workspace({**submit, 'etag': state['etag'], 'attempt_id': 'first',
+                                           'answers': {first: [0], second: '０', written: 'Explanation'}})
+        state = self.store.save_workspace({**submit, 'etag': state['etag'], 'attempt_id': 'second',
+                                           'answers': {first: [1]}})
+        attempts = state['workspaces'][exam['id']]['attempts']
+        self.assertEqual([(a['id'], a['correct'], a['graded']) for a in attempts],
+                         [('first', 2, 2), ('second', 0, 2)])
+        self.assertIsNone(attempts[0]['questions'][2]['correct'])
+        self.assertNotIn(other['id'], state['workspaces'])

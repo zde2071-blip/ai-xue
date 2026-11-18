@@ -1,11 +1,22 @@
-.prep-page{width:min(1120px,100%);margin:0 auto;padding:32px;box-sizing:border-box;overflow:auto;height:100%}.prep-header,.prep-section>header,.prep-exam-heading,.prep-note{display:flex;align-items:center;justify-content:space-between;gap:16px}.prep-header{margin-bottom:28px}.prep-header h1{font-size:26px;margin:8px 0}.prep-header button,.prep-section button{white-space:nowrap}.prep-course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}.prep-course{display:flex;flex-direction:column;align-items:flex-start;gap:12px;background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:24px;text-align:left}.prep-course strong{font-size:20px}.prep-course small,.prep-course span{color:#707070}.prep-empty{grid-column:1/-1;padding:64px 16px;text-align:center;color:#777}.prep-section{padding:24px 0;border-top:1px solid #eee}.prep-section h2{font-size:18px;margin:0}.prep-section>header{margin-bottom:20px}.prep-weeks{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px}.prep-weeks label,.prep-note label{display:flex;align-items:center;gap:9px}.prep-note{padding:13px 0}.prep-note label{flex:1;min-width:0}.prep-note small{display:block;color:#888;margin-top:4px}.prep-note>div{display:flex;align-items:center;gap:12px}.prep-exam{padding:18px;border:1px solid #e7e7e7;border-radius:10px;margin:12px 0}.prep-exam-heading strong,.prep-exam-heading span{display:block}.prep-exam-heading span{color:#666;font-size:14px;margin-top:7px}.prep-exam dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.prep-exam dl>div{display:flex;gap:16px}.prep-exam dt{color:#888;flex:none}.prep-exam dd{margin:0;overflow-wrap:anywhere}.prep-originals{display:flex;flex-wrap:wrap;gap:10px;font-size:13px;margin:12px 0}.prep-exam details{font-size:13px;color:#777}.prep-papers{padding:0;list-style:none}.prep-papers li{display:flex;gap:18px;padding:12px 0}.prep-papers span{color:#888}.prep-dialog{max-height:74vh;overflow:auto;padding:2px}.prep-dialog footer{display:flex;justify-content:flex-end;gap:12px;padding-top:18px}.prep-methods{display:flex;gap:16px;padding:20px 0}.prep-upload{display:flex;align-items:center;gap:12px;padding:18px;border:1px dashed #ccc;border-radius:8px;margin:16px 0;flex-wrap:wrap}.prep-dialog textarea{width:100%;box-sizing:border-box}.prep-draft fieldset{border:1px solid #ddd;border-radius:8px;padding:16px;margin:12px 0 24px;min-width:0}.prep-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.prep-fields label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#666}.prep-fields input{min-width:0;width:100%;box-sizing:border-box}.prep-draft legend{max-width:100%;overflow-wrap:anywhere}.prep-draft details{margin:12px 0}.prep-draft details p{white-space:pre-wrap}.prep-page a,.prep-dialog a{color:inherit;text-decoration:underline;text-underline-offset:3px}@media(max-width:700px){.prep-page{padding:18px}.prep-header,.prep-section>header{align-items:flex-start;flex-wrap:wrap}.prep-fields,.prep-exam dl{grid-template-columns:1fr}.prep-note{align-items:flex-start;flex-wrap:wrap}.prep-note>div{margin-left:24px}.prep-methods{flex-wrap:wrap}}
+.prep-page{width:min(1120px,100%);height:100%;margin:0 auto;padding:32px;box-sizing:border-box;overflow:auto}
+.prep-empty{padding:64px 16px;text-align:center;color:#777}
+.prep-originals{display:flex;flex-wrap:wrap;gap:10px;font-size:13px;margin:12px 0}
+.prep-dialog{max-height:74vh;overflow:auto;padding:2px}
+.prep-dialog footer{display:flex;justify-content:flex-end;gap:12px;padding-top:18px}
+.prep-upload{display:flex;align-items:center;gap:12px;padding:18px;border:1px dashed #ccc;border-radius:8px;margin:16px 0;flex-wrap:wrap}
+.prep-dialog textarea{width:100%;box-sizing:border-box}
+.prep-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.prep-fields label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#666}
+.prep-fields input{min-width:0;width:100%;box-sizing:border-box}
+.prep-draft details p{white-space:pre-wrap}
+.prep-page a,.prep-dialog a{color:inherit;text-decoration:underline;text-underline-offset:3px}
 
 .prep-draft-item{border-bottom:1px solid #eee;padding:12px 0}.prep-draft-item>summary{cursor:pointer;font-weight:500;line-height:1.6}.prep-draft-item>summary small{display:block;color:#777;font-weight:normal;margin-left:16px}.prep-draft-item fieldset{border:0;padding:12px 0;margin:0}.prep-dialog footer{position:sticky;bottom:-2px;background:#fff;padding-bottom:4px}
 
 .prep-fields input,.prep-dialog select,.prep-dialog textarea{font:inherit;border:1px solid #ddd;border-radius:6px;padding:8px 10px;background:#fff;color:#222;min-height:36px}.prep-dialog select{margin-left:12px}.prep-fields input:focus,.prep-dialog textarea:focus{outline:2px solid #c8c8c8;outline-offset:1px}
 
-.prep-note>div{flex-wrap:wrap}.prep-originals a{overflow-wrap:anywhere;max-width:100%}
-.exam-grid-scroll{overflow:auto;max-height:65vh;border:1px solid #e4e4e4;border-radius:8px;margin:0 0 28px}.exam-date-grid{border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;min-width:850px;font-size:13px}.exam-date-grid th,.exam-date-grid td{border-right:1px solid #e5e5e5;border-bottom:1px solid #e5e5e5;padding:8px;vertical-align:top}.exam-date-grid thead th{position:sticky;top:0;background:#f5f5f4;z-index:2;padding:14px 8px;text-align:center}.exam-date-grid th:first-child{width:115px;background:#f8f8f7}.exam-date-grid tbody th{font-weight:normal;text-align:left}.exam-date-grid tbody th strong,.exam-date-grid tbody th small{display:block;line-height:1.7}.exam-date-grid tbody th small{color:#777}.exam-date-grid td{height:110px;padding:3px}.exam-grid-cell{display:grid;grid-auto-rows:1fr;gap:6px;height:100%}.exam-grid-event{display:flex;flex-direction:column;align-items:flex-start;width:100%;gap:6px;background:var(--schedule-event-bg);border:0;border-radius:6px;padding:12px;text-align:left;font-size:12px;white-space:normal;overflow-wrap:anywhere;color:var(--schedule-event-ink);margin:0;box-sizing:border-box;justify-content:center;min-height:110px}.exam-grid-event small{line-height:1.5;color:inherit}.exam-grid-event:focus-visible{outline:2px solid #555;outline-offset:-3px}.prep-course-grid{margin-top:28px}.prep-semester{display:flex;align-items:center;gap:10px}.prep-semester select,.academic-period-control select{font:inherit;border:1px solid #ddd;border-radius:6px;padding:9px 12px;background:#fff;max-width:100%}.exam-undated{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}.exam-undated .exam-grid-event{width:180px}.prep-page .calendar-originals{margin:12px 0}.calendar-canvas>.exam-grid-scroll{max-height:none;margin:0}.prep-header:has(.prep-semester){margin-bottom:20px}@media(max-width:700px){.prep-semester{max-width:100%}.prep-semester select{max-width:245px;font-size:13px}.exam-grid-scroll{max-height:60vh}}
+.prep-originals a{overflow-wrap:anywhere;max-width:100%}
+.exam-grid-scroll{overflow:auto;max-height:65vh;border:1px solid #e4e4e4;border-radius:8px;margin:0 0 28px}.exam-date-grid{border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;min-width:850px;font-size:13px}.exam-date-grid th,.exam-date-grid td{border-right:1px solid #e5e5e5;border-bottom:1px solid #e5e5e5;padding:8px;vertical-align:top}.exam-date-grid thead th{position:sticky;top:0;background:#f5f5f4;z-index:2;padding:14px 8px;text-align:center}.exam-date-grid th:first-child{width:115px;background:#f8f8f7}.exam-date-grid tbody th{font-weight:normal;text-align:left}.exam-date-grid tbody th strong,.exam-date-grid tbody th small{display:block;line-height:1.7}.exam-date-grid tbody th small{color:#777}.exam-date-grid td{height:110px;padding:3px}.exam-grid-cell{display:grid;grid-auto-rows:1fr;gap:6px;height:100%}.exam-grid-event{display:flex;flex-direction:column;align-items:flex-start;width:100%;gap:6px;background:var(--schedule-event-bg);border:0;border-radius:6px;padding:12px;text-align:left;font-size:12px;white-space:normal;overflow-wrap:anywhere;color:var(--schedule-event-ink);margin:0;box-sizing:border-box;justify-content:center;min-height:110px}.exam-grid-event small{line-height:1.5;color:inherit}.exam-grid-event:focus-visible{outline:2px solid #555;outline-offset:-3px}.prep-semester{display:flex;align-items:center;gap:10px}.prep-semester select,.academic-period-control select{font:inherit;border:1px solid #ddd;border-radius:6px;padding:9px 12px;background:#fff;max-width:100%}.exam-undated{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}.exam-undated .exam-grid-event{width:180px}.prep-page .calendar-originals{margin:12px 0}.calendar-canvas>.exam-grid-scroll{max-height:none;margin:0}@media(max-width:700px){.prep-semester{max-width:100%}.prep-semester select{max-width:245px;font-size:13px}.exam-grid-scroll{max-height:60vh}}
 
 .calendar-canvas>.exam-grid-scroll{margin:0 28px 28px;max-height:calc(100vh -140px)}@media(max-width:700px){.calendar-canvas>.exam-grid-scroll{margin:0 16px 16px}}
 
@@ -20,4 +31,62 @@
 .prep-overview .exam-date-grid thead th{z-index:4}
 .prep-overview .exam-date-grid thead th:first-child{z-index:5}
 
-.prep-material-box{border:1px solid #e1e5e3;border-radius:10px;padding:22px;margin-bottom:28px}.prep-material-box>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.prep-material-box h2{font-size:18px;margin:0}.prep-material-box summary{cursor:pointer;margin:18px 0}.prep-info-columns{display:grid;grid-template-columns:1fr 1fr;gap:32px}.prep-basic>div{display:grid;grid-template-columns:80px 1fr;gap:12px;margin:16px 0}.prep-basic dt{color:#888}.prep-basic dd{margin:0;white-space:pre-wrap}.prep-score{margin-left:calc(var(--depth)*18px);padding:12px 0;border-bottom:1px solid #eee}.prep-score>div{display:flex;justify-content:space-between;gap:12px}.prep-score small{display:block;color:#888;white-space:pre-wrap;margin-top:8px}.prep-score p,.prep-strategy{white-space:pre-wrap;line-height:1.7}.prep-workspace textarea{width:100%;box-sizing:border-box;font:inherit;border:1px solid #ddd;border-radius:6px;padding:10px}.prep-workspace form label{display:block;margin:16px 0;color:#666;font-size:13px}.prep-attempt{padding:20px 0;border-top:1px solid #eee;white-space:pre-wrap}.prep-attempt h3{font-size:14px}.prep-practice-actions{display:flex;justify-content:flex-end}.prep-analysis-preview{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.8 inherit}@media(max-width:700px){.prep-info-columns{grid-template-columns:1fr;gap:0}.prep-material-box{padding:16px}}
+
+.prep-workspace .prep-header,.prep-tabs,.prep-content{width:min(880px,100%);margin-inline:auto}
+.prep-workspace .prep-header h1{font-size:24px;line-height:1.35;margin:12px 0 16px;overflow-wrap:anywhere}
+.prep-tabs{display:flex;gap:16px;overflow-x:auto;border-bottom:1px solid #e5e5e5}
+.prep-tabs button{font:inherit;font-size:14px;white-space:nowrap;padding:12px 4px 11px;border:0;border-bottom:2px solid transparent;background:transparent;color:#666}
+.prep-tabs button[aria-current]{border-bottom-color:currentColor;color:#282828;font-weight:600}
+.prep-tabs button:hover{color:#222}
+.prep-tabs button:focus-visible{outline-offset:-3px}
+.prep-content{padding:4px 0 24px}
+.prep-section{padding:24px 0}
+.prep-section+.prep-section{border-top:1px solid #eee}
+.prep-section>header,.prep-note,.prep-files>li,.prep-scores li>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.prep-section>header{flex-wrap:wrap;margin-bottom:14px}
+.prep-section h2{font-size:17px;margin:0;overflow-wrap:anywhere}
+.prep-section>p:last-child{margin-bottom:0}
+.prep-weeks,.prep-actions{display:flex;flex-wrap:wrap;gap:8px 16px}
+.prep-weeks{margin-bottom:10px}
+.prep-weeks label,.prep-note label{display:flex;align-items:center;gap:9px;cursor:pointer}
+.prep-note{padding:12px 0;border-bottom:1px solid #f0f0ef}
+.prep-workspace input[type=checkbox],.prep-workspace input[type=radio]{accent-color:#444}
+.prep-note label,.prep-files li>*{min-width:0;overflow-wrap:anywhere}
+.prep-note small,.prep-files small,.prep-scores small{display:block;color:#666;margin-top:4px}
+.prep-note button,.prep-files button{flex-shrink:0}
+.prep-files,.prep-scores{list-style:none;padding:0;margin:0}
+.prep-files li,.prep-scores li{padding:12px 0;border-bottom:1px solid #f0f0ef}
+.prep-files li>small{margin:0;text-align:right}
+.prep-scores li>div{align-items:baseline}
+.prep-scores li>div span{flex-shrink:0;max-width:50%;overflow-wrap:anywhere;text-align:right}
+.prep-scores li small,.prep-evidence p{white-space:pre-wrap;overflow-wrap:anywhere}
+.prep-scores .prep-scores{margin:8px 0 0 6px;padding-left:14px;border-left:1px solid #e2e2e2}
+.prep-scores .prep-scores li:last-child{border-bottom:0;padding-bottom:2px}
+.prep-basic{margin:0}
+.prep-basic>div,.prep-result-line{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;margin:12px 0}
+.prep-basic dt,.prep-result-line>span{color:#666}
+.prep-basic dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.prep-evidence{margin-top:18px}
+.prep-evidence summary,.prep-result summary{cursor:pointer}
+.prep-paste{display:grid;gap:6px;margin:12px 0}
+.prep-paste input,.prep-answer{box-sizing:border-box;max-width:100%;font:inherit;padding:8px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;color:#222}
+.prep-workspace textarea.prep-answer{width:100%;resize:vertical}
+.prep-answer{margin:8px 0 0}
+.prep-question{border:1px solid #e5e5e5;border-radius:8px;margin:0 0 18px;padding:12px 16px 16px;min-width:0}
+.prep-question legend,.prep-result h3{font-size:14px;font-weight:600}
+.prep-question legend{padding:0 5px}
+.prep-question .markdown,.prep-result .markdown{max-width:100%;min-width:0;overflow-wrap:anywhere}
+.prep-question .markdown p,.prep-result-line .markdown p{margin:0}
+.prep-question>.markdown{margin:0 0 10px}
+.prep-option{display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:6px;cursor:pointer}
+.prep-option:hover,.prep-option:has(input:checked){background:#f4f4f3}
+.prep-option input{flex-shrink:0;margin-top:4px}
+.prep-result{padding:12px 0;border-top:1px solid #eee}
+.prep-result h3{margin:6px 0}
+@media(max-width:700px){
+  .prep-page{padding:18px}
+  .prep-fields{grid-template-columns:1fr}
+  .prep-tabs{gap:12px}
+  .prep-tabs button{font-size:13px}
+  .prep-basic>div,.prep-result-line{grid-template-columns:80px minmax(0,1fr)}
+}
