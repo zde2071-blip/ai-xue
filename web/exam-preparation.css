@@ -44,12 +44,18 @@
 .prep-section+.prep-section{border-top:1px solid #eee}
 .prep-section>header,.prep-note,.prep-files>li,.prep-scores li>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .prep-section>header{flex-wrap:wrap;margin-bottom:14px}
+.prep-material-section>header:last-child{margin-bottom:0}
 .prep-section h2{font-size:17px;margin:0;overflow-wrap:anywhere}
 .prep-section>p:last-child{margin-bottom:0}
 .prep-weeks,.prep-actions{display:flex;flex-wrap:wrap;gap:8px 16px}
 .prep-weeks{margin-bottom:10px}
 .prep-weeks label,.prep-note label{display:flex;align-items:center;gap:9px;cursor:pointer}
-.prep-note{padding:12px 0;border-bottom:1px solid #f0f0ef}
+.prep-note{border-bottom:1px solid #f0f0ef}
+.prep-note label{flex:1;padding:12px 0}
+.prep-note-picker input[type=checkbox]{accent-color:#444}
+.prep-note-picker .prep-picker-footer{align-items:center}
+.prep-picker-footer>[data-prep-picked]{margin-right:auto}
+.prep-picker-empty{margin:12px 0}
 .prep-workspace input[type=checkbox],.prep-workspace input[type=radio]{accent-color:#444}
 .prep-note label,.prep-files li>*{min-width:0;overflow-wrap:anywhere}
 .prep-note small,.prep-files small,.prep-scores small{display:block;color:#666;margin-top:4px}

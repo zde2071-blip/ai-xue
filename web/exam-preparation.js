@@ -38,17 +38,40 @@
    toast(e.message);
   }finally{saving=false;repaint(examId===activeId&&tab===activeTab&&previousAttempt===viewedAttempt);}
  }
+ const noteWeeks=note=>note.weeks.length?'第 '+note.weeks.join('、')+' 周':'';
  function materialsPanel(exam,workspace){
-  const choices=new Set(workspace.notes||[]),list=noteList(exam),files=workspace.materials||[];
-  const weeks=[...new Set(list.filter(r=>r.available!==false).flatMap(r=>r.weeks))].sort((a,b)=>a-b);
-  return '<section class="prep-section"><header><h2>复习笔记</h2><span class="muted">已选 '+choices.size+' 篇</span></header>'+
-   (weeks.length?'<div class="prep-weeks" aria-label="按周选择">'+weeks.map(week=>{
-    const checked=list.filter(r=>r.available!==false&&r.weeks.includes(week)).every(r=>choices.has(r.id));
-    return '<label><input type="checkbox" data-prep-week="'+week+'" '+(checked?'checked':'')+' '+disabled()+'>第 '+week+' 周</label>';
-   }).join('')+'</div>':'')+
-   (list.length?'<div class="prep-notes">'+list.map(r=>'<div class="prep-note"><label><input type="checkbox" data-prep-note="'+E(r.id)+'" '+(choices.has(r.id)?'checked':'')+' '+(saving||r.available===false?'disabled':'')+'><span>'+E(r.title)+'<small>'+E((r.weeks.length?'第 '+r.weeks.join('、')+' 周':'未分周')+(r.available===false?' · 文件已移走':''))+'</small></span></label>'+(r.available===false?'':'<button class="text-button" data-prep="note" data-id="'+E(r.id)+'">查看笔记</button>')+'</div>').join('')+'</div>':'<p class="muted">这门课还没有复习笔记。</p>')+
-   '</section><section class="prep-section"><header><h2>外部材料</h2><button class="outline-button" data-prep="materials" '+disabled()+'>'+I('plus')+'添加材料</button></header>'+
-   (files.length?'<ul class="prep-files">'+files.map(r=>'<li><a href="/api/preparation/files/'+encodeURIComponent(r.id)+'" target="_blank" rel="noopener">'+E(r.filename)+'</a><small>'+E(formatOf(r.filename))+'</small></li>').join('')+'</ul>':'<p class="muted">可以添加老师的通知、邮件、例题或试卷。</p>')+'</section>';
+  const choices=new Set(workspace.notes||[]),list=noteList(exam).filter(r=>choices.has(r.id)),files=workspace.materials||[];
+  return '<section class="prep-section prep-material-section"><header><h2>复习笔记</h2><button class="outline-button" data-prep="choose-notes" aria-haspopup="dialog" '+disabled()+'>'+I('list-checks')+'选择笔记</button></header>'+
+   (list.length?'<ul class="prep-files">'+list.map(r=>'<li><div>'+E(r.title)+(r.available===false?'<small>文件已移走</small>':r.weeks.length?'<small>'+E(noteWeeks(r))+'</small>':'')+'</div>'+
+    (r.available===false?'':'<button class="text-button" data-prep="note" data-id="'+E(r.id)+'">查看笔记</button>')+'</li>').join('')+'</ul>':'')+
+   '</section><section class="prep-section prep-material-section"><header><h2>外部材料</h2><button class="outline-button" data-prep="materials" '+disabled()+'>'+I('plus')+'添加材料</button></header>'+
+   (files.length?'<ul class="prep-files">'+files.map(r=>'<li><a href="/api/preparation/files/'+encodeURIComponent(r.id)+'" target="_blank" rel="noopener">'+E(r.filename)+'</a><small>'+E(formatOf(r.filename))+'</small></li>').join('')+'</ul>':'')+'</section>';
+ }
+ function syncNotePicker(d){
+  const picker=document.querySelector('.prep-note-picker');
+  for(const checkbox of picker.querySelectorAll('[data-prep-note]'))checkbox.checked=d.chosen.has(checkbox.dataset.prepNote);
+  for(const checkbox of picker.querySelectorAll('[data-prep-week]')){
+   const rows=d.notes.filter(note=>note.weeks.includes(Number(checkbox.dataset.prepWeek)));
+   const count=rows.filter(note=>d.chosen.has(note.id)).length;
+   checkbox.checked=count===rows.length;
+   checkbox.indeterminate=count>0&&count<rows.length;
+  }
+  const counter=picker.querySelector('[data-prep-picked]');
+  if(counter)counter.textContent='已选 '+d.chosen.size+' 篇';
+ }
+ function drawNotePicker(d){
+  if(!d.notes.length){
+   modalContent('选择笔记','<p class="muted prep-picker-empty">暂无可选笔记</p>');
+   return;
+  }
+  const weeks=[...new Set(d.notes.flatMap(r=>r.weeks))].sort((a,b)=>a-b);
+  const blocked=d.busy?'disabled':'';
+  modalContent('选择笔记','<div class="prep-dialog prep-note-picker">'+
+   (weeks.length?'<div class="prep-weeks" aria-label="按周选择">'+weeks.map(week=>'<label><input type="checkbox" data-prep-week="'+week+'" '+blocked+'>第 '+week+' 周</label>').join('')+'</div>':'')+
+   '<div class="prep-notes">'+d.notes.map(r=>'<div class="prep-note"><label><input type="checkbox" data-prep-note="'+E(r.id)+'" '+blocked+'><span>'+E(r.title)+(r.weeks.length?'<small>'+E(noteWeeks(r))+'</small>':'')+'</span></label></div>').join('')+'</div>'+
+   (d.error?'<p role="alert" class="error-message">'+E(d.error)+'</p>':'')+
+   '<footer class="prep-picker-footer"><span class="muted" data-prep-picked aria-live="polite"></span><button class="outline-button" data-prep="cancel" '+blocked+'>取消</button><button class="primary" data-prep="save-notes" '+blocked+'>'+(d.busy?'正在保存…':'完成')+'</button></footer></div>');
+  syncNotePicker(d);
  }
  function scoreRows(rows){
   return rows.length?'<ul class="prep-scores">'+rows.map(row=>'<li><div><strong>'+E(row.title)+'</strong><span>'+E(row.points||'分值未注明')+'</span></div>'+
@@ -148,6 +171,13 @@
   if(!exam)return false;
   const id=button.dataset.id;
   if(action==='tab'){tab=button.dataset.tab;render();return true;}
+  if(action==='choose-notes'){
+   const notes=noteList(exam).filter(r=>r.available!==false);
+   const chosen=new Set(notes.filter(r=>workspace.notes?.includes(r.id)).map(r=>r.id));
+   dialog={mode:'notes',notes,chosen,examId,etag:D.etag};
+   drawDialog();
+   return true;
+  }
   if(action==='note'){
    const note=noteList(exam).find(r=>r.id===id);
    if(note){const result=await api('/api/library/'+encodeURIComponent(id));if(currentExam()?.id===exam.id)modalContent(E(note.title),'<div class="markdown">'+(result.text===null?'<a href="/api/library/'+encodeURIComponent(id)+'/file" target="_blank" rel="noopener">打开笔记</a>':md(result.text,result.relative_path))+'</div>');}
@@ -174,6 +204,7 @@
  }
  function input(key,label,value,type='text'){return `<label><span>${label}</span><input data-exam-field="${key}" type="${type}" value="${E(value||'')}"></label>`;}
  function drawDialog(){const d=dialog;if(!d)return;
+ if(d.mode==='notes'){drawNotePicker(d);return;}
  const files=`<label class="prep-upload">${I('upload')}选择多个文件<input type="file" data-prep-files multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.docx,.pptx,.md,.txt" ${d.busy?'disabled':''}></label><ul class="reference-file-list">${d.files.map((f,i)=>`<li><span>${i+1}. ${E(f.filename)}</span><button type="button" data-prep="remove-file" data-index="${i}" ${d.busy?'disabled':''}>移除</button></li>`).join('')}</ul>`;
  let body='';
  if(d.mode==='materials')body=`${files}<label class="prep-paste">粘贴文字<textarea id="prep-material-text" rows="4" placeholder="老师通知、邮件或例题正文" ${d.busy?'disabled':''}>${E(d.text||'')}</textarea></label><label class="prep-paste">文字材料名称<input id="prep-material-name" value="${E(d.textName||'')}" placeholder="选填" maxlength="120" ${d.busy?'disabled':''}></label>`;
@@ -205,6 +236,8 @@
    for(const r of rows)if(r.date&&!r.date_end)doc.events.push({id:r.id,title:r.course+' · '+r.title,kind:'exam',date:r.date,start:r.start&&r.end?r.start:'',end:r.start&&r.end?r.end:'',location:r.location||'',source_id:id});
    await api('/api/calendar',doc);await root.StudySchedule.prepare({keepView:true});
   }else D=await api('/api/preparation/exams',{etag:d.etag,assessments:d.rows,source_id:d.source_id,semester:d.rows?.[0]?.semester||d.semester||semester,attachments:d.files});
+ }else if(action==='save-notes'){
+  D=await api('/api/preparation/workspace',{exam_id:d.examId,etag:d.etag,action:'notes',notes:[...d.chosen]});
  }else if(action==='save-materials'){
   const attachments=[...d.files],text=d.text?.trim();
   if(text){
@@ -240,11 +273,11 @@
  document.addEventListener('change',async event=>{
   const el=event.target;
   if(el.hasAttribute('data-prep-files')){await choose([...el.files]);return;}
-  if(saving||!currentExam()||!el.hasAttribute('data-prep-week')&&!el.hasAttribute('data-prep-note'))return;
-  const chosen=new Set(currentWorkspace().notes||[]),list=noteList(currentExam()).filter(r=>r.available!==false);
-  const ids=el.dataset.prepNote?[el.dataset.prepNote]:list.filter(r=>r.weeks.includes(Number(el.dataset.prepWeek))).map(r=>r.id);
-  for(const id of ids){if(el.checked)chosen.add(id);else chosen.delete(id);}
-  await update(()=>workspaceUpdate('notes',{notes:[...chosen].filter(id=>list.some(r=>r.id===id))}));
+  const d=dialog;
+  if(d?.mode!=='notes'||d.busy||!el.matches('[data-prep-week],[data-prep-note]'))return;
+  const ids=el.dataset.prepNote?[el.dataset.prepNote]:d.notes.filter(r=>r.weeks.includes(Number(el.dataset.prepWeek))).map(r=>r.id);
+  for(const id of ids){if(el.checked)d.chosen.add(id);else d.chosen.delete(id);}
+  syncNotePicker(d);
  });
  document.addEventListener('paste',event=>{
   if(!dialog||!['materials','ai'].includes(dialog.mode)||dialog.rows||dialog.busy||!event.target.closest('#modal'))return;
