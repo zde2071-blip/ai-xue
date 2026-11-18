@@ -1,0 +1,6 @@
+.reading-mark-host{position:relative;isolation:isolate}
+.reading-mark-layer,.reading-mark-fragment{position:absolute;pointer-events:none}
+.reading-mark-layer{inset:0}
+.reading-mark-highlights{z-index:1;mix-blend-mode:multiply}
+.reading-mark-highlights .reading-mark-fragment{border-radius:2px}
+.reading-mark-ink{z-index:2}

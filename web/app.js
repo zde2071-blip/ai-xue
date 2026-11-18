@@ -479,37 +479,36 @@ function markBounds(root,mark,map){
   return a&&b?{start:a.start+start-first.start,end:b.start+end-last.start}:null;
 }
 function applyMarks(){
-  const root=markRoot(),target=S.view==='learn'?S.course?.active:S.note?.id;if(!root||!target||S.editing)return;
-  for(const mark of S.course.highlights||[]){
-    if(mark.target!==target)continue;const map=textMap(root),bounds=markBounds(root,mark,map);if(!bounds)continue;const {start,end}=bounds;
-    const wholeMath=new Set(),wrappedMath=new Set();
-    if(mark.style==='highlight'){
-      for(const formula of root.querySelectorAll('.katex')){
-        const parts=map.nodes.filter(n=>formula.contains(n.node));
-        if(parts.length&&parts[0].start>=start&&parts.at(-1).end<=end)wholeMath.add(formula);
-      }
-    }
+  const root=markRoot(),target=S.view==='learn'?S.course?.active:S.note?.id;
+  if(!root||!target||S.editing){StudyReadingMarks.mount(null);return;}
+  const marks=(S.course.highlights||[]).filter(mark=>mark.target===target);
+  for(const mark of marks.filter(mark=>mark.style==='comment')){
+    const map=textMap(root),bounds=markBounds(root,mark,map);
+    if(!bounds)continue;
+    const {start,end}=bounds;
     for(const item of map.nodes.filter(n=>n.end>start&&n.start<end).reverse()){
-      const formula=item.node.parentElement.closest('.katex'),range=document.createRange();
-      if(wholeMath.has(formula)){
-        if(wrappedMath.has(formula))continue;
-        wrappedMath.add(formula);range.selectNode(formula);
-      }else{
-        range.setStart(item.node,Math.max(0,start-item.start));range.setEnd(item.node,Math.min(item.node.length,end-item.start));
-      }
-      const span=document.createElement('span');span.className=mark.style==='underline'?'study-underline underline-'+(mark.color||'black'):mark.style==='strike'?'study-strike':mark.style==='comment'?'study-comment':'study-mark color-'+(markColors[mark.color]?mark.color:'yellow');span.dataset.markId=mark.id;if(mark.style==='comment'){span.dataset.action='read-comment';span.dataset.id=mark.id;span.title=mark.comment;span.setAttribute('role','button');span.tabIndex=0;}range.surroundContents(span);
-    }
-    // One painted span across adjacent text and complete formulas, without altering math spacing.
-    if(mark.style==='highlight')for(const span of root.querySelectorAll('.study-mark')){
-      if(span.dataset.markId!==mark.id)continue;
-      while(span.nextSibling){
-        const next=span.nextSibling;
-        if(next.nodeType===Node.TEXT_NODE&&!next.textContent){next.remove();continue;}
-        if(next.nodeType!==Node.ELEMENT_NODE||next.dataset.markId!==mark.id||next.className!==span.className)break;
-        span.append(...next.childNodes);next.remove();
-      }
+      const range=document.createRange();
+      range.setStart(item.node,Math.max(0,start-item.start));
+      range.setEnd(item.node,Math.min(item.node.length,end-item.start));
+      const span=document.createElement('span');
+      span.className='study-comment';
+      span.dataset.markId=mark.id;
+      span.dataset.action='read-comment';
+      span.dataset.id=mark.id;
+      span.title=mark.comment;
+      span.setAttribute('role','button');
+      span.tabIndex=0;
+      range.surroundContents(span);
     }
   }
+  const map=textMap(root);
+  const drawn=[];
+  for(const mark of marks){
+    if(mark.style==='comment')continue;
+    const bounds=markBounds(root,mark,map);
+    if(bounds)drawn.push({...mark,...bounds,style:mark.style||'highlight'});
+  }
+  StudyReadingMarks.mount(root,map.nodes,drawn);
 }
 function captureAnchor(range,root){
   const map=textMap(root),selected=map.nodes.filter(n=>range.intersectsNode(n.node));if(!selected.length)return null;
