@@ -15,4 +15,9 @@
 
 .exam-grid-surface{position:relative;min-width:850px;width:100%}.exam-grid-surface:has(.is-empty){min-width:0}.exam-grid-surface>.exam-date-grid{width:100%}.exam-now-line{position:absolute;left:0;height:2px;background:#c35c3f;z-index:1;pointer-events:none}.exam-now-line[hidden]{display:none}
 
+.prep-overview .exam-grid-event{position:relative;z-index:2}
+.prep-overview .exam-date-grid th:first-child{position:sticky;left:0;z-index:3}
+.prep-overview .exam-date-grid thead th{z-index:4}
+.prep-overview .exam-date-grid thead th:first-child{z-index:5}
+
 .prep-material-box{border:1px solid #e1e5e3;border-radius:10px;padding:22px;margin-bottom:28px}.prep-material-box>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.prep-material-box h2{font-size:18px;margin:0}.prep-material-box summary{cursor:pointer;margin:18px 0}.prep-info-columns{display:grid;grid-template-columns:1fr 1fr;gap:32px}.prep-basic>div{display:grid;grid-template-columns:80px 1fr;gap:12px;margin:16px 0}.prep-basic dt{color:#888}.prep-basic dd{margin:0;white-space:pre-wrap}.prep-score{margin-left:calc(var(--depth)*18px);padding:12px 0;border-bottom:1px solid #eee}.prep-score>div{display:flex;justify-content:space-between;gap:12px}.prep-score small{display:block;color:#888;white-space:pre-wrap;margin-top:8px}.prep-score p,.prep-strategy{white-space:pre-wrap;line-height:1.7}.prep-workspace textarea{width:100%;box-sizing:border-box;font:inherit;border:1px solid #ddd;border-radius:6px;padding:10px}.prep-workspace form label{display:block;margin:16px 0;color:#666;font-size:13px}.prep-attempt{padding:20px 0;border-top:1px solid #eee;white-space:pre-wrap}.prep-attempt h3{font-size:14px}.prep-practice-actions{display:flex;justify-content:flex-end}.prep-analysis-preview{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.8 inherit}@media(max-width:700px){.prep-info-columns{grid-template-columns:1fr;gap:0}.prep-material-box{padding:16px}}

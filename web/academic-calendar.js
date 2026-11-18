@@ -260,7 +260,7 @@
   const last=Math.max(fitHours?0:20,...timed.map(entry=>Math.ceil(entry.range.end/60)));
   const minimumMinutes=minimumHeight*60/hourHeight;
   const durationHeight=(last-first)*hourHeight;
-  const gridHeight=fitHours?Math.max(durationHeight,...timed.map(entry=>((entry.range.start-first*60)/60)*hourHeight+24)):durationHeight;
+  const gridHeight=fitHours?Math.max(durationHeight,...timed.map(entry=>((entry.range.start-first*60)/60)*hourHeight+minimumHeight)):durationHeight;
   const ticks=(last-first)*60/tickMinutes,stepHeight=hourHeight*tickMinutes/60;
   const hourLabels=Array.from({length:ticks+1},(_,i)=>`<span style="top:${i*stepHeight}px">${clock(first*60+i*tickMinutes)}</span>`).join('');
   const hourLines=Array.from({length:ticks+1},(_,i)=>`<div class="calendar-hour-line" style="top:${i*stepHeight}px"></div>`).join('');
@@ -281,7 +281,7 @@
    ...lesson,index,title:lesson.course,subtitle:lesson.classType,range:clockRange(lesson.time)
   })));
   const grid=weekGrid(dates,entries,{
-   currentDate,hourHeight:36,fitHours:true,
+   currentDate,hourHeight:30,minimumHeight:28,fitHours:true,
    renderDay:day=>`<time datetime="${day}" ${day===currentDate?'aria-current="date"':''}>${Number(day.slice(8))}</time>`,
    renderEntry:(entry,layout)=>{
     const label=courseCode(entry.title);

@@ -5,6 +5,29 @@
   const base={header,readingToolbar,selectionToolbar,notePage,render,renderDrawer,openThread,showReadingComment};
   const R={key:'',tools:false,left:false,selected:'',draft:null,error:''};
   const prefs={left:260,right:340};let layoutUser='',drag=null;
+  let readingPane=null;
+  const readingKey=()=>`study-review-position-${S.user?.id||'guest'}`;
+  function rememberReading(){
+   if(!readingPane)return;
+   const {content,courseId,noteId,key}=readingPane,top=content.scrollTop;
+   if(top===readingPane.top)return;
+   readingPane.top=top;
+   try{localStorage.setItem(key,JSON.stringify({courseId,noteId,top}));}catch{}
+  }
+  root.StudyReview.lastPosition=()=>{
+   try{
+    const saved=JSON.parse(localStorage.getItem(readingKey()));
+    if(typeof saved?.courseId==='string'&&typeof saved.noteId==='string'&&Number.isFinite(saved.top)&&saved.top>=0)return saved;
+   }catch{}
+   return null;
+  };
+  root.StudyReview.restorePosition=position=>{
+   requestAnimationFrame(()=>{
+    if(readingPane?.courseId!==position.courseId||readingPane.noteId!==position.noteId)return;
+    readingPane.content.scrollTo({top:position.top,behavior:'instant'});
+   });
+  };
+  window.addEventListener('pagehide',rememberReading);
   const reviewing=()=>['note','unit-review'].includes(S.view);
   function touch(){loadPrefs();const key=S.course?.id+'/'+(S.note?.id||'empty');if(R.key!==key){R.key=key;R.tools=true;R.left=false;R.selected='';R.draft=null;R.error='';}}
   function loadPrefs(){const user=S.user?.id||'local';if(layoutUser===user)return;layoutUser=user;Object.assign(prefs,{left:260,right:340});try{const saved=JSON.parse(localStorage.getItem('study-review-layout-'+user)||'{}');for(const [key,min,max] of [['left',200,600],['right',240,640]]){if(Number.isFinite(saved[key]))prefs[key]=Math.min(max,Math.max(min,saved[key]));}}catch{}readingSize=16;}
@@ -53,12 +76,22 @@
    touch();R.left=true;R.draft=draft;R.error='';document.querySelector('#selection-tools').hidden=true;window.getSelection()?.removeAllRanges();render();document.querySelector('#review-comment-form textarea')?.focus();
   }
   render=function(){
+   rememberReading();
+   const previousReading=readingPane;
+   readingPane=null;
    const drawerRoot=document.querySelector('#drawer-root');if(drawerRoot&&document.querySelector('#app')?.contains(drawerRoot))document.body.append(drawerRoot);
    document.body.classList.toggle('review-active',S.view==='note');
    base.render();
    if(S.view!=='note')return;applyPrefs();
    const content=document.querySelector('.main>.content-scroll');if(!content)return;
    const layout=document.createElement('div');layout.className='review-reading-layout';content.before(layout);layout.innerHTML=root.StudyNavigation.reviewTreeMarkup?.()||'';const pane=document.createElement('section');pane.className='review-document-pane';const heading=document.querySelector('.main>.review-focus-header');if(heading)pane.append(heading);const tools=document.querySelector('.main>.reading-toolbar');if(tools)pane.append(tools);const body=document.createElement('div');body.className='review-document-body';body.innerHTML=!S.editing&&R.left?panel():'';body.append(content);pane.append(body);layout.append(pane);mountDrawer();icons();
+   if(!S.editing&&S.note&&S.course){
+    const courseId=S.course.id,noteId=S.note.id,key=readingKey();
+    if(previousReading?.key===key&&previousReading.courseId===courseId&&previousReading.noteId===noteId){
+     content.scrollTo({top:previousReading.top,behavior:'instant'});
+    }
+    readingPane={content,courseId,noteId,key,top:undefined};
+   }
   };
   renderDrawer=function(){base.renderDrawer();if(S.view!=='note')return;
    const drawer=document.querySelector('.discussion-drawer');if(!drawer)return;

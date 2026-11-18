@@ -110,7 +110,23 @@
   loadCourse=async function(cid){if(!canLeave()||S.busy)return;ensure();const course=S.courses.find(c=>c.id===cid);if(course?.status==='completed'&&course.notes?.length){const latest=[...course.notes].reverse().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0];await openNote(cid,latest.id);return;}mode='learning';save();await base.loadCourse(cid);};
   openNote=async function(cid,nid){if(!canLeave()||S.busy)return;ensure();mode='review';save();await base.openNote(cid,nid);};
   returnToBrowser=async function(){ensure();mode=activeMode();if(!canLeave()||S.busy)return;await base.returnToBrowser();S.search='';save();render();};
-  async function navigate(next){if(!canLeave()||S.busy)return;ensure();mode=next;S.search='';await base.returnToBrowser();save();render();if(next==='preparation')await root.ExamPreparation?.enter();}
+  async function navigate(next){
+   if(next==='review'&&S.view==='note')return;
+   if(!canLeave()||S.busy)return;
+   ensure();mode=next;S.search='';
+   await base.returnToBrowser();
+   save();render();
+   if(mode!==next||S.view!=='library')return;
+   if(next==='preparation')await root.ExamPreparation?.enter();
+   if(next==='review'){
+    const position=root.StudyReview?.lastPosition();
+    if(!position||!S.courses.some(course=>course.id===position.courseId))return;
+    const available=entries('review').some(row=>row.course_id===position.courseId&&row.note_id===position.noteId&&row.available!==false);
+    if(!available)return;
+    await openNote(position.courseId,position.noteId);
+    root.StudyReview.restorePosition(position);
+   }
+  }
   let openingEntry=false;
   async function openEntry(id){if(openingEntry)return;openingEntry=true;try{const row=entries().find(r=>r.id===id);if(!row||row.available===false)return;if(!canLeave()||S.busy)return;if(activeMode()==='review'){await openResource(row.id);return;}if(row.unit_id){await loadCourse(row.unit_id);return;}if(S.demonstration){await openResource(row.id);return;}if(!S.settings.connected){await showSettings();return;}await root.StudyUnits.importMaterial(row.id);}finally{openingEntry=false;}}
   async function refreshFiles(){const data=await api('/api/state');Object.assign(S,{courses:data.courses,resources:data.resources,units:data.units,tag_catalog:data.tag_catalog});if(S.course)S.course=S.courses.find(c=>c.id===S.course.id)||null;render();}
