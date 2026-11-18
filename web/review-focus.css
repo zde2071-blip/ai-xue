@@ -14,7 +14,24 @@
 .review-menu-content>button:hover,.review-menu-content>button:focus-visible{background:#f0f2f3;color:#303940;outline:none}
 .review-menu-content>button:disabled{color:#b9bec1;background:none;cursor:default}
 .review-menu-content>button:disabled svg{color:#c5cace}
-.review-menu-divider{height:1px;background:#eceeef;margin:4px 7px}
+.review-color-tool{position:relative}
+.review-color-tool>button{min-width:34px;gap:3px}
+.review-color-tool>button[aria-expanded="true"]{background:#eef0f1}
+.review-color-tool>button svg:last-child{width:10px;height:10px;color:#7a8185}
+.review-color-palette{position:absolute;top:calc(100% + 5px);left:0;z-index:1;display:flex;align-items:center;gap:10px;padding:12px;background:#fff;border:1px solid #e5e7e8;border-radius:7px;box-shadow:0 6px 20px #00000014}
+.review-color-palette[hidden]{display:none}
+.review-color-palette>button{flex-shrink:0}
+.review-document-pane>.reading-find{flex:none;width:auto;min-width:0;padding:8px var(--ui-gutter);border-bottom:1px solid #eceeef}
+.review-document-pane>.reading-find input{min-width:0;max-width:100%;flex:0 1 230px}
+.review-document-pane>.reading-find button{display:grid;place-items:center;width:27px;height:27px}
+.review-document-pane>.reading-find button:hover{background:#f1f3f4;border-radius:5px}
+.review-document-pane>.reading-find svg{width:15px;height:15px}
+#modal:has(.note-export){width:min(350px,calc(100% - 32px))}
+.note-export-choices{display:grid;gap:6px}
+.note-export-choices button{display:flex;align-items:center;gap:10px;width:100%;border-radius:6px;padding:10px 12px;text-align:left}
+.note-export-choices button:hover,.note-export-choices button:focus-visible{background:#f3f5f5}
+.note-export-choices button svg{width:16px;height:16px;color:#69737a}
+.note-export-choices small{margin-left:auto;color:#74797b}
 .view-note .note-page{padding-top:43px}
 #selection-tools.review-selection-tools{background:white;color:#555;border:1px solid #e5e7e8;padding:3px;box-shadow:0 5px 24px #00000015}
 #selection-tools.review-selection-tools .reading-toolbar{border:0;padding:5px 6px;gap:9px;flex-wrap:wrap;border-radius:7px}

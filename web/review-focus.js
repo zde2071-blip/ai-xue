@@ -40,14 +40,26 @@
   header=function(){
    if(!reviewing()){R.key='';R.tools=false;R.left=false;R.draft=null;return base.header();}
    touch();const c=S.course,waiting=S.busy||S.threadBusy,hasNote=!!S.note,editing=!!S.editing,aiOpen=!!document.body?.classList?.contains('discussion-open');
-   const items=[menuItem('find','查找正文','search',!hasNote||editing),'<div class="review-menu-divider" role="separator"></div>',menuItem('source','原始材料','file-text',!S.resources.some(r=>r.id==='source-'+c.id)),menuItem('tags','标签与详细信息','tag',editing||waiting),menuItem('export','导出 Markdown','download',!hasNote||editing)].join('');
+   const items=[menuItem('find','查找正文','search',!hasNote||editing),menuItem('tags','标签与详细信息','tag',editing||waiting),menuItem('export','导出…','download',!hasNote||editing)].join('');
    return `<header class="review-focus-header"><span class="review-document-title">${esc([c.tags?.course||c.course_label,S.note?.title||c.title].filter(Boolean).join(' / '))}</span><div class="review-header-actions"><button class="icon-button ${R.left?'selected':''}" data-action="review-panel" aria-label="批注" aria-expanded="${R.left}" title="批注" ${!hasNote||editing?'disabled':''}>${icon('message-square-text')}</button><button class="icon-button ${aiOpen?'selected':''}" data-action="review-ai" aria-label="AI 对话" aria-expanded="${aiOpen}" title="${aiOpen?'收起 AI 对话':'AI 对话'}" ${waiting||!hasNote||editing?'disabled':''}>${icon('sparkles')}</button><button type="button" class="icon-button" data-action="review-mode" data-mode="${editing?'read':'edit'}" aria-label="${editing?'编辑':'阅读'}" title="${editing?'编辑 · 点击切换到阅读':'阅读 · 点击切换到编辑'}" ${!hasNote||waiting?'disabled':''}>${icon(editing?'square-pen':'book-open')}</button><details class="review-menu"><summary class="icon-button" role="button" aria-label="更多工具" aria-haspopup="menu" aria-expanded="false" title="更多">${icon('ellipsis')}</summary><div class="review-menu-content" role="menu" aria-label="笔记工具">${items}</div></details></div></header>`;
   };
-  function reviewToolbar(){return base.readingToolbar().replace(/<button data-action="(?:reading-comment|ask-selection)"[\s\S]*?<\/button>/g,'');}
-  readingToolbar=function(){if(reviewing()){touch();if(S.editing||!R.tools)return '';}return S.view==='note'?reviewToolbar().replace(/<button data-action="reading-(?:smaller|larger)"[\s\S]*?<\/button>/g,''):base.readingToolbar();};
+  const inks={black:'黑色',blue:'蓝色',red:'红色'};
+  function colorTool(tool,label,glyph,key){
+   const highlight=tool==='highlight';
+   const palette=highlight?markColors:inks;
+   const swatch=highlight?'color-swatch color-':'ink-swatch ink-';
+   const current=highlight?readingColor:underlineColor;
+   const id=`review-${tool}-colors-${key}`;
+   return `<div class="review-color-tool" data-review-tool="${tool}"><button type="button" data-review-palette aria-label="${label}" aria-expanded="false" aria-controls="${id}" title="${label}">${icon(glyph)}${icon('chevron-down')}</button><div class="review-color-palette" id="${id}" role="group" aria-label="${label}颜色" hidden>${Object.entries(palette).map(([color,name])=>`<button type="button" data-review-color="${color}" class="${swatch+color}${color===current?' chosen':''}" aria-label="${name}${label}" aria-pressed="${color===current}" title="${name}${label}"></button>`).join('')}</div></div>`;
+  }
+  function reviewToolbar(key='bar'){
+   const tool=(action,glyph,label,showLabel=false)=>`<button type="button" data-action="${action}" data-requires-selection aria-label="${label}" title="${label}" disabled>${icon(glyph)}${showLabel?label:''}</button>`;
+   return `<div class="reading-toolbar review-reading-toolbar" role="toolbar" aria-label="阅读工具"><div class="reading-tool-group">${colorTool('highlight','荧光笔','highlighter',key)}${colorTool('underline','下划线','underline',key)}${tool('strike','strikethrough','删除线')}${tool('clear-mark','eraser','清除标记')}</div><div class="reading-tool-group">${tool('pronounce','volume-2','发音',true)}${tool('translate','languages','翻译',true)}</div></div>`;
+  }
+  readingToolbar=function(){if(reviewing()){touch();if(S.editing||!R.tools)return '';}return S.view==='note'?reviewToolbar():base.readingToolbar();};
   selectionToolbar=function(){
    if(S.view!=='note')return base.selectionToolbar();
-   return reviewToolbar().replace(/<div class="reading-tool-group reading-display">[\s\S]*?<\/div>/,'').replace(/<div class="reading-find"[\s\S]*?<\/div>/,'');
+   return reviewToolbar('selection');
   };
   notePage=function(){return base.notePage().replace(/<div class="note-metadata">[\s\S]*?<\/div>/,'');};
   root.StudyReview.toolsVisible=()=>R.tools;
@@ -84,7 +96,9 @@
    base.render();
    if(S.view!=='note')return;applyPrefs();
    const content=document.querySelector('.main>.content-scroll');if(!content)return;
-   const layout=document.createElement('div');layout.className='review-reading-layout';content.before(layout);layout.innerHTML=root.StudyNavigation.reviewTreeMarkup?.()||'';const pane=document.createElement('section');pane.className='review-document-pane';const heading=document.querySelector('.main>.review-focus-header');if(heading)pane.append(heading);const tools=document.querySelector('.main>.reading-toolbar');if(tools)pane.append(tools);const body=document.createElement('div');body.className='review-document-body';body.innerHTML=!S.editing&&R.left?panel():'';body.append(content);pane.append(body);layout.append(pane);mountDrawer();icons();
+   const layout=document.createElement('div');layout.className='review-reading-layout';content.before(layout);layout.innerHTML=root.StudyNavigation.reviewTreeMarkup?.()||'';const pane=document.createElement('section');pane.className='review-document-pane';const heading=document.querySelector('.main>.review-focus-header');if(heading)pane.append(heading);const tools=document.querySelector('.main>.reading-toolbar');if(tools)pane.append(tools);
+   if(!S.editing)pane.insertAdjacentHTML('beforeend',readingFindMarkup());
+   const body=document.createElement('div');body.className='review-document-body';body.innerHTML=!S.editing&&R.left?panel():'';body.append(content);pane.append(body);layout.append(pane);mountDrawer();icons();
    if(!S.editing&&S.note&&S.course){
     const courseId=S.course.id,noteId=S.note.id,key=readingKey();
     if(previousReading?.key===key&&previousReading.courseId===courseId&&previousReading.noteId===noteId){
@@ -154,22 +168,55 @@
 
   window.addEventListener('resize',()=>{if(S.view==='note'){if(R.left)resize('left',prefs.left);if(document.body.classList.contains('discussion-open'))resize('right',prefs.right);}});
 
-  function showFind(){R.tools=true;render();const find=document.querySelector('.reading-find');if(find)find.hidden=false;document.querySelector('#reading-find-input')?.focus();}
+  function showFind(){const find=document.querySelector('.review-document-pane .reading-find');if(find){find.hidden=false;find.querySelector('input').focus();}}
+  function setPalette(tool,open){
+   tool.querySelector('[data-review-palette]').setAttribute('aria-expanded',String(open));
+   tool.querySelector('.review-color-palette').hidden=!open;
+  }
+  function closePalettes(except){
+   document.querySelectorAll('.review-color-tool:has([aria-expanded="true"])').forEach(tool=>{if(tool!==except)setPalette(tool,false);});
+  }
+  document.addEventListener('click',async event=>{
+   const button=event.target.closest('[data-review-palette],[data-review-color]');
+   if(!button||S.view!=='note'||S.editing)return;
+   const tool=button.closest('.review-color-tool');
+   if(button.hasAttribute('data-review-palette')){
+    closePalettes(tool);
+    setPalette(tool,button.getAttribute('aria-expanded')!=='true');
+    return;
+   }
+   const style=tool.dataset.reviewTool,color=button.dataset.reviewColor;
+   if(style==='highlight')readingColor=color;else underlineColor=color;
+   for(const swatch of document.querySelectorAll(`[data-review-tool="${style}"] [data-review-color]`)){
+    const chosen=swatch.dataset.reviewColor===color;
+    swatch.classList.toggle('chosen',chosen);
+    swatch.setAttribute('aria-pressed',String(chosen));
+   }
+   closePalettes();
+   try{if(selectionAnchor)await addMark(style,color);}catch(error){toast(error.message);}
+   if(event.detail===0)document.querySelector(`[data-review-tool="${style}"] [data-review-palette]`)?.focus();
+  },true);
   document.addEventListener('click',async event=>{
    const button=event.target.closest('[data-action="review-command"]');if(!button)return;
    event.preventDefault();event.stopImmediatePropagation();closeMenu();
    if(button.disabled)return;
    try{switch(button.dataset.command){
     case 'find':showFind();break;
-    case 'source':await root.StudyUnits.showSource();break;
     case 'tags':await root.StudyUnits.showTags();break;
-    case 'export':{const blob=new Blob([S.note.content],{type:'text/markdown;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=S.note.title.replace(/[\\/:*?"<>|]/g,'-')+'.md';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break;}
+    case 'export':showNoteExport();break;
    }}catch(error){toast(error.message);}
   },true);
-  document.addEventListener('pointerdown',event=>{if(!event.target.closest('.review-menu'))closeMenu();},true);
+  document.addEventListener('pointerdown',event=>{
+   if(!event.target.closest('.review-menu'))closeMenu();
+   if(!event.target.closest('.review-color-tool'))closePalettes();
+  },true);
   document.addEventListener('toggle',event=>{if(event.target.matches?.('.review-menu'))event.target.querySelector('summary')?.setAttribute('aria-expanded',String(event.target.open));},true);
   document.addEventListener('keydown',event=>{
    if(S.view==='note'&&!S.editing&&(event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='f'){event.preventDefault();event.stopImmediatePropagation();showFind();return;}
+   const palette=document.querySelector('[data-review-palette][aria-expanded="true"]');
+   if(palette&&event.key==='Escape'){
+    event.preventDefault();event.stopImmediatePropagation();closePalettes();palette.focus();return;
+   }
    const menu=document.querySelector('.review-menu[open]');if(!menu)return;
    if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeMenu(true);return;}
    if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();event.stopImmediatePropagation();const items=[...menu.querySelectorAll('[role="menuitem"]:not(:disabled)')],i=items.indexOf(document.activeElement),next=event.key==='Home'?0:event.key==='End'?items.length-1:(i+(event.key==='ArrowDown'?1:-1)+items.length)%items.length;items[next]?.focus();}

@@ -350,6 +350,52 @@ async function openNote(cid,nid){
 }
 
 function modalContent(title,body){modal.classList.remove('ai-service-dialog');modal.setAttribute('aria-label',title);modal.classList.toggle('account-dialog',body.includes('class="account-settings"'));modal.innerHTML=`<div class="modal-head"><h2>${title}</h2><button class="icon-button" data-action="close-modal" aria-label="关闭">${icon('x')}</button></div><div class="modal-body">${body}</div>`;if(!modal.open)modal.showModal();icons();StudyMarkdown.mount(modal);}
+const noteExportFormats=[['md','Markdown'],['pdf','PDF'],['docx','Word']];
+function downloadNote(blob,title,format){
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;
+  link.download=(title.replace(/[\\/:*?"<>|]/g,'-').replace(/[ .]+$/,'')||'笔记')+'.'+format;
+  link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function showNoteExport(){
+  if(!S.note||S.editing)return;
+  const {title,content,id}=S.note,courseId=S.course.id;
+  const choices=noteExportFormats.map(([format,label])=>`<button type="button" data-export-format="${format}">${icon('file-text')}<span>${label}</span><small>.${format}</small></button>`).join('');
+  modalContent('导出笔记',`<div class="note-export"><div class="note-export-choices">${choices}</div><p class="muted" role="status" hidden></p><p class="error-message" role="alert" hidden></p></div>`);
+  const dialog=$('.note-export',modal);
+  dialog.addEventListener('click',async event=>{
+    const choice=event.target.closest('[data-export-format]');
+    if(!choice||choice.disabled)return;
+    const format=choice.dataset.exportFormat;
+    const status=$('[role="status"]',dialog),error=$('[role="alert"]',dialog);
+    const buttons=$$('button',dialog);
+    error.hidden=true;
+    status.hidden=false;status.textContent='正在导出…';
+    buttons.forEach(button=>button.disabled=true);
+    try{
+      let blob;
+      if(format==='md')blob=new Blob([content],{type:'text/markdown;charset=utf-8'});
+      else{
+        const route=`/api/courses/${encodeURIComponent(courseId)}/notes/${encodeURIComponent(id)}/export/${format}`;
+        const response=await fetch(route,{headers:{'X-Study-App':'1'}});
+        if(!response.ok){
+          const problem=await response.json().catch(()=>null);
+          throw new Error(problem?.error||'导出未完成，请重试。');
+        }
+        blob=await response.blob();
+      }
+      downloadNote(blob,title,format);
+      if(dialog.isConnected)modal.close();
+    }catch(problem){
+      error.textContent=problem.message||'导出未完成，请重试。';
+      error.hidden=false;
+    }finally{
+      status.hidden=true;
+      buttons.forEach(button=>button.disabled=false);
+    }
+  });
+}
 function showImport(){
   if(S.busy)return;currentFile=null;
   modalContent('导入课件',`<p class="modal-description">导入后生成课程总览和学习分块。</p><form id="import-form"><label class="dropzone" id="dropzone">${icon('file-up')}<strong id="file-name">选择或拖入一份课件</strong><span>PDF / PPTX / Markdown / TXT · 最大 15 MB</span><input type="file" id="course-file" accept=".pdf,.pptx,.md,.txt" aria-label="选择课件"></label><details class="or-paste"><summary>粘贴文字</summary><label class="field"><textarea name="text" placeholder="粘贴学习资料…" aria-label="粘贴学习资料"></textarea></label></details><label class="field"><span class="field-label">资料标题 <span class="muted">（可选）</span></span><input name="title" placeholder="例如：离散数学 · 第三章"></label>${classificationFields()}<details class="or-paste" open><summary>课程位置</summary>${academicFields({stage:B.stage,year:B.year,semester:B.semester})}</details><details class="or-paste"><summary>学习方式</summary><label class="field"><textarea name="method" aria-label="学习方式">${esc(S.method)}</textarea></label></details>${!S.settings.connected?'<div class="inline-notice">请先连接 AI。<button class="text-button" type="button" data-action="settings">打开 AI 设置 →</button></div>':''}<p class="small muted">仅在使用 AI 时，将提取的文字发送至你配置的模型接口。暂不识别扫描件和图片内容。</p><div id="modal-error" class="error-message" role="alert"></div><div class="modal-actions"><button type="button" class="text-button" data-action="demo">示例课程</button><button type="submit" class="primary" ${!S.settings.connected?'disabled':''}>${icon('sparkles')}生成学习分块</button></div></form>`);
@@ -530,7 +576,8 @@ async function addMark(style,color='yellow'){
   updateCourse(c);selectionAnchor=null;$('#selection-tools').hidden=true;window.getSelection()?.removeAllRanges();render();
 }
 let underlineColor='black',readingColor='yellow',readingSize=16,readingFindIndex=-1,readingComment=null;
-function readingToolbar(){return `<div class="reading-toolbar" role="toolbar" aria-label="阅读工具"><div class="reading-tool-group"><button data-action="highlight" data-requires-selection title="高亮" aria-label="高亮" disabled>${icon('highlighter')}<span class="tool-color color-${readingColor}"></span></button><div class="reading-palette">${Object.entries(markColors).map(([key,label])=>`<button class="color-swatch color-${key} ${readingColor===key?'chosen':''}" data-action="choose-highlight" data-color="${key}" title="${label}高亮" aria-label="${label}高亮"></button>`).join('')}</div></div><div class="reading-tool-group"><button data-action="underline" data-requires-selection title="下划线" aria-label="下划线" disabled>${icon('underline')}</button>${Object.entries({black:'黑色',blue:'蓝色',red:'红色'}).map(([key,label])=>`<button class="ink-swatch ink-${key} ${underlineColor===key?'chosen':''}" data-action="choose-underline" data-color="${key}" title="${label}下划线" aria-label="${label}下划线"></button>`).join('')}<button data-action="strike" data-requires-selection title="删除线" aria-label="删除线" disabled>${icon('strikethrough')}</button><button data-action="clear-mark" data-requires-selection title="清除标记" aria-label="清除标记" disabled>${icon('eraser')}</button></div><div class="reading-tool-group"><button data-action="reading-comment" data-requires-selection disabled>${icon('message-square')}批注</button><button data-action="pronounce" title="Kokoro · 开源中英语音" data-requires-selection disabled>${icon('volume-2')}发音</button><button data-action="translate" data-requires-selection disabled>${icon('languages')}翻译</button><button data-action="ask-selection" data-requires-selection disabled>${icon('message-circle')}追问</button></div><div class="reading-tool-group reading-display"><button data-action="reading-find" title="查找正文 · ⌘F" aria-label="查找正文">${icon('search')}</button><button data-action="reading-smaller" title="缩小字号" aria-label="缩小字号">A−</button><button data-action="reading-larger" title="放大字号" aria-label="放大字号">A＋</button></div><div class="reading-find" hidden><input id="reading-find-input" aria-label="查找正文内容" placeholder="查找正文"><span id="reading-find-count"></span><button data-action="reading-find-prev" aria-label="上一个结果">${icon('chevron-up')}</button><button data-action="reading-find-next" aria-label="下一个结果">${icon('chevron-down')}</button><button data-action="reading-find-close" aria-label="关闭查找">${icon('x')}</button></div></div>`;}
+function readingFindMarkup(){return `<div class="reading-find" hidden><input id="reading-find-input" aria-label="查找正文内容" placeholder="查找正文"><span id="reading-find-count"></span><button data-action="reading-find-prev" aria-label="上一个结果">${icon('chevron-up')}</button><button data-action="reading-find-next" aria-label="下一个结果">${icon('chevron-down')}</button><button data-action="reading-find-close" aria-label="关闭查找">${icon('x')}</button></div>`;}
+function readingToolbar(){return `<div class="reading-toolbar" role="toolbar" aria-label="阅读工具"><div class="reading-tool-group"><button data-action="highlight" data-requires-selection title="高亮" aria-label="高亮" disabled>${icon('highlighter')}<span class="tool-color color-${readingColor}"></span></button><div class="reading-palette">${Object.entries(markColors).map(([key,label])=>`<button class="color-swatch color-${key} ${readingColor===key?'chosen':''}" data-action="choose-highlight" data-color="${key}" title="${label}高亮" aria-label="${label}高亮"></button>`).join('')}</div></div><div class="reading-tool-group"><button data-action="underline" data-requires-selection title="下划线" aria-label="下划线" disabled>${icon('underline')}</button>${Object.entries({black:'黑色',blue:'蓝色',red:'红色'}).map(([key,label])=>`<button class="ink-swatch ink-${key} ${underlineColor===key?'chosen':''}" data-action="choose-underline" data-color="${key}" title="${label}下划线" aria-label="${label}下划线"></button>`).join('')}<button data-action="strike" data-requires-selection title="删除线" aria-label="删除线" disabled>${icon('strikethrough')}</button><button data-action="clear-mark" data-requires-selection title="清除标记" aria-label="清除标记" disabled>${icon('eraser')}</button></div><div class="reading-tool-group"><button data-action="reading-comment" data-requires-selection disabled>${icon('message-square')}批注</button><button data-action="pronounce" title="Kokoro · 开源中英语音" data-requires-selection disabled>${icon('volume-2')}发音</button><button data-action="translate" data-requires-selection disabled>${icon('languages')}翻译</button><button data-action="ask-selection" data-requires-selection disabled>${icon('message-circle')}追问</button></div><div class="reading-tool-group reading-display"><button data-action="reading-find" title="查找正文 · ⌘F" aria-label="查找正文">${icon('search')}</button><button data-action="reading-smaller" title="缩小字号" aria-label="缩小字号">A−</button><button data-action="reading-larger" title="放大字号" aria-label="放大字号">A＋</button></div>${readingFindMarkup()}</div>`;}
 function syncReadingTools(){ $$('.reading-toolbar [data-requires-selection]').forEach(b=>b.disabled=!selectionAnchor&&!(b.dataset.action==='pronounce'&&(readingSpeechBusy||readingAudio&&!readingAudio.paused))); }
 function showReadingComment(mark){
   readingComment=mark?{...mark}:{...selectionAnchor,target:S.view==='learn'?S.course.active:S.note.id};if(!readingComment.quote)return;
@@ -648,9 +695,7 @@ document.addEventListener('click',async e=>{
     else if(action==='editor-mode'){editorSource=!editorSource;noteEditor?.setSource(editorSource);button.innerHTML=(editorSource?'源码':'实时预览')+' '+icon('chevrons-up-down');icons();}
     else if(action==='copy-draft'){await navigator.clipboard.writeText(S.editDraft);toast('已复制你的编辑。');}
     else if(action==='reload-note'){if(canLeave()){S.note=await api(`/api/courses/${S.course.id}/notes/${S.note.id}`);render();}}
-    else if(action==='export'){
-      const blob=new Blob([S.note.content],{type:'text/markdown;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=S.note.title.replace(/[\\/:*?"<>|]/g,'-')+'.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    }
+    else if(action==='export')showNoteExport();
     else if(action==='ask-selection'){if(S.view==='learn'){S.studyQuote=savedSelection;S.studyQuoteBlock=S.selectedNoteBlock||S.course.active;$('#selection-tools').hidden=true;window.getSelection()?.removeAllRanges();render();$('#main-question textarea')?.focus();}else openDiscussion(savedSelection);}
     else if(action==='translate'){await translateSelection();}
     else if(action==='highlight'||action==='underline'||action==='strike')await addMark(action,button.dataset.color||(action==='highlight'?readingColor:underlineColor));
@@ -663,8 +708,8 @@ document.addEventListener('click',async e=>{
     else if(action==='read-comment'){if(window.getSelection()?.toString())return;showReadingComment(S.course.highlights.find(m=>m.id===button.dataset.id));}
     else if(action==='remove-reading-comment'){updateCourse(await api(courseUrl('highlight'),{...readingComment,style:'remove',remove_ids:[readingComment.id]}));modal.close();render();}
     else if(action==='pronounce'){pronounceSelection();}
-    else if(action==='reading-find'){$('.reading-find').hidden=false;$('#reading-find-input').focus();}
-    else if(action==='reading-find-close'){$('.reading-find').hidden=true;}
+    else if(action==='reading-find'){const find=$('.reading-find');if(find){find.hidden=false;$('#reading-find-input').focus();}}
+    else if(action==='reading-find-close'){$('.reading-find').hidden=true;$('.review-menu summary')?.focus();}
     else if(action==='reading-find-next'||action==='reading-find-prev'){findReading(action==='reading-find-next'?1:-1);}
     else if(action==='reading-smaller'||action==='reading-larger'){readingSize=Math.min(24,Math.max(14,readingSize+(action==='reading-larger'?1:-1)));$('#note-body').style.setProperty('--reading-size',readingSize+'px');}
 

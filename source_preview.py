@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import html
+import os
 import shutil
 import subprocess
 import tempfile
@@ -14,6 +15,14 @@ _lock = threading.Lock()
 _MAX_CACHE = 32 * 1024 * 1024
 
 
+def office_executable():
+    candidates = [Path('/Applications/LibreOffice.app/Contents/MacOS/soffice')]
+    candidates.extend(Path(location) / 'LibreOffice' / 'program' / 'soffice.exe'
+                      for variable in ('ProgramFiles', 'ProgramFiles(x86)')
+                      if (location := os.environ.get(variable)))
+    return next((str(path) for path in candidates if path.is_file()), None) or shutil.which('soffice')
+
+
 def preview_bytes(name, raw):
     suffix = Path(name).suffix.lower()
     if suffix == '.pdf':
@@ -24,9 +33,7 @@ def preview_bytes(name, raw):
             if key in _cache:
                 _cache.move_to_end(key)
                 return _cache[key], 'application/pdf'
-            executable = shutil.which('soffice')
-            if not executable and Path('/Applications/LibreOffice.app/Contents/MacOS/soffice').is_file():
-                executable = '/Applications/LibreOffice.app/Contents/MacOS/soffice'
+            executable = office_executable()
             if not executable:
                 raise ValueError('此电脑尚未安装 LibreOffice，暂时无法预览 Office 文件。可通过右上角打开原文件。')
             with tempfile.TemporaryDirectory(prefix='ai-xue-preview-') as directory:

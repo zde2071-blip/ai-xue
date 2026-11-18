@@ -16,3 +16,5 @@
 Python 依赖的许可文件由其发行包附带。重新打包分发时应一并保留依赖、模型及词典的许可证和作者说明。前端既有依赖的许可证位于 `web/vendor/licenses/`。本清单不替代项目自身的授权条款。
 
 Markdown 的代码高亮使用 [PrismJS 1.30.0](https://github.com/PrismJS/prism/tree/v1.30.0)，脚注使用 [marked-footnote 1.4.0](https://github.com/bent10/marked-extensions/tree/main/packages/footnote)，图表使用 [Mermaid 12.3.0](https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4012.3.0)。三个项目均采用 MIT 许可。Mermaid 由安装器下载并保存在本机，渲染时在浏览器内运行。
+
+Word 笔记由 [Pandoc 3.14](https://github.com/jgm/pandoc/releases/tag/3.14)（GPL-2.0-or-later）生成，安装器使用官方发行文件。PDF 由本机的 [LibreOffice](https://www.libreoffice.org/)（MPL-2.0）转换。

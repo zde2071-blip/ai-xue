@@ -15,6 +15,7 @@ import calendar_subscription
 import academic_organization
 import file_operations
 import markdown_files
+import note_export
 import base64
 import hashlib
 import io
@@ -1441,6 +1442,16 @@ class Handler(BaseHTTPRequestHandler):
                     return self.respond(resource.read_bytes(), content_type=mimetypes.guess_type(resource.name)[0] or 'application/octet-stream', filename=item['filename'])
                 text = resource.read_text(encoding='utf-8-sig') if resource.suffix.lower() in ('.md', '.txt') and item['size'] <= 1000000 else None
                 return self.respond({**item, 'text': text, 'version':file_store().snapshot(item)})
+            export_match = re.fullmatch(r'/api/courses/([\w-]+)/notes/([\w-]+)/export/(docx|pdf)', path)
+            if export_match:
+                cid, nid, output_format = export_match.groups()
+                note = get_note(cid, nid)
+                try:
+                    body = note_export.export(note, VAULT, output_format)
+                except ValueError as error:
+                    raise Problem(str(error), 422) from None
+                return self.respond(body, content_type=note_export.MIME_TYPES[output_format],
+                                    filename=note['title'] + '.' + output_format)
             m = re.fullmatch(r'/api/courses/([\w-]+)/notes/([\w-]+)', path)
             if m:
                 return self.respond(get_note(*m.groups()))

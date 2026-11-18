@@ -24,3 +24,4 @@ __pycache__/
 /tools/ocr-runtime
 /web/vendor/mermaid-runtime.js
 /web/vendor/mermaid-runtime.version
+/tools/note-export-runtime/
