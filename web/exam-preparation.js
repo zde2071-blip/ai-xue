@@ -134,9 +134,9 @@
  }
  function summaryPanel(workspace){
   const summary=workspace.summary?.markdown,available=workspace.notes?.length||workspace.materials?.length;
-  return '<section class="prep-section"><header><h2>复习文档</h2><div class="prep-actions">'+
-   (summary?'<button class="outline-button" data-prep="download-summary">下载 Markdown</button>':'')+
-   generateButton('summary',summary?'重新整理':'生成 Markdown',available)+'</div></header>'+
+  return '<section class="prep-section"><header><h2>复习笔记</h2><div class="prep-actions">'+
+   (summary?'<button class="outline-button" data-prep="download-summary">下载笔记</button>':'')+
+   generateButton('summary',summary?'重新生成笔记':'生成复习笔记',available)+'</div></header>'+
    (summary?markdown(summary):'<p class="muted">'+(available?'根据已选复习笔记和外部材料整理课程知识点。':'先选择本课程的复习笔记或添加外部材料。')+'</p>')+'</section>';
  }
  function markup(){
