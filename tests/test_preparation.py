@@ -125,12 +125,21 @@ class PreparationTest(unittest.TestCase):
         self.assertTrue(all('answer' not in q for q in paper['questions']))
         first, second, written = [q['id'] for q in paper['questions']]
         submit = {**request, 'action': 'attempt', 'paper_id': paper['id'], 'paper_version': paper['version']}
+        review = {first: {'starred': True, 'note': 'Check this reasoning.\nReview the example.'},
+                  written: {'note': 'An open question'}}
         state = self.store.save_workspace({**submit, 'etag': state['etag'], 'attempt_id': 'first',
-                                           'answers': {first: [0], second: '０', written: 'Explanation'}})
+                                           'answers': {first: [0], second: '０', written: 'Explanation'},
+                                           'review': review})
+        with self.assertRaises(app.Problem):
+            self.store.save_workspace({**submit, 'etag': state['etag'], 'attempt_id': 'invalid',
+                                       'answers': {}, 'review': {'unrelated': {'starred': True}}})
         state = self.store.save_workspace({**submit, 'etag': state['etag'], 'attempt_id': 'second',
                                            'answers': {first: [1]}})
         attempts = state['workspaces'][exam['id']]['attempts']
         self.assertEqual([(a['id'], a['correct'], a['graded']) for a in attempts],
                          [('first', 2, 2), ('second', 0, 2)])
         self.assertIsNone(attempts[0]['questions'][2]['correct'])
+        self.assertEqual(attempts[0]['review'], {first: review[first],
+                                                written: {'note': 'An open question', 'starred': False}})
+        self.assertEqual(attempts[1]['review'], {})
         self.assertNotIn(other['id'], state['workspaces'])

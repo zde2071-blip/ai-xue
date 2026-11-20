@@ -75,8 +75,26 @@ def normalize_answer(text):
     return ' '.join(unicodedata.normalize('NFKC', text).casefold().split())
 
 
-def grade(paper, answers):
-    if not isinstance(answers, dict) or not answers.keys() <= {q['id'] for q in paper['questions']}:
+def clean_review(review, question_ids):
+    if review is None:
+        return {}
+    if not isinstance(review, dict) or not review.keys() <= question_ids:
+        raise ValueError('备注与当前试卷不符，请重新打开试卷。')
+    result = {}
+    for question_id, entry in review.items():
+        if not isinstance(entry, dict):
+            raise ValueError('题目备注格式无效。')
+        note, starred = entry.get('note', ''), entry.get('starred', False)
+        if not isinstance(note, str) or type(starred) is not bool or len(note) > 4000:
+            raise ValueError('请检查题目备注，最多可写 4000 字。')
+        if note.strip() or starred:
+            result[question_id] = {'note': note, 'starred': starred}
+    return result
+
+
+def grade(paper, answers, review=None):
+    question_ids = {q['id'] for q in paper['questions']}
+    if not isinstance(answers, dict) or not answers.keys() <= question_ids:
         raise ValueError('作答与当前试卷不符，请重新打开试卷。')
     rows = []
     for q in paper['questions']:
@@ -97,6 +115,7 @@ def grade(paper, answers):
         rows.append({**q, 'response': value, 'correct': correct})
     return {
         'questions': rows,
+        'review': clean_review(review, question_ids),
         'correct': sum(row['correct'] is True for row in rows),
         'graded': sum(row['correct'] is not None for row in rows),
         'answered': sum(bool(row['response']) for row in rows),

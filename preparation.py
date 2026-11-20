@@ -203,7 +203,7 @@ class Preparation:
                 if previous:
                     if previous['paper_id']!=paper['id']:self.fail('作答编号冲突，请重新开始。',409)
                     return self.view()
-                try:result=exam_practice.grade(paper,data.get('answers'))
+                try:result=exam_practice.grade(paper,data.get('answers'),data.get('review'))
                 except ValueError as error:self.fail(str(error))
                 attempts.append({**result,'id':attempt_id,'paper_id':paper['id'],
                                  'paper_title':paper['title'],'submitted_at':self.h['now']()})

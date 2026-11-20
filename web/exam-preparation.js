@@ -4,7 +4,7 @@
  const code=value=>String(value||'').trim().replace(/^([a-z]{2,6})\s*(\d{2,4})(?![a-z0-9]).*$/i,(_,a,b)=>(a+b).toUpperCase());
  const when=r=>r.date?(r.date_end?`${r.date} 至 ${r.date_end}`:[r.date,r.start].filter(Boolean).join(' ')):(r.timing||'日期待确认');
  if(typeof module!=='undefined'&&module.exports){module.exports={code,when};return;}
- let D=null,loading=false,error='',examId='',semester='',dialog=null,saving=false,tab='materials',paperSession=null,viewedAttempt='',questionIndex=0;
+ let D=null,loading=false,error='',examId='',semester='',dialog=null,saving=false,tab='materials',paperSession=null,viewedAttempt='',questionIndex=0,starredOnly=false,reportedDraftError=false;
  const E=v=>esc(v),I=v=>icon(v);
  async function load(){if(loading)return;loading=true;try{D=await api('/api/preparation');error='';}catch(e){error=e.message;}finally{loading=false;render();requestAnimationFrame(focusCalendar);}}
  function focusCalendar(){root.ExamCalendar.updateCurrentLine();const box=document.querySelector('.prep-page .exam-grid-scroll');if(!box)return;const day=root.AcademicCalendar.today(),row=[...box.querySelectorAll('[data-exam-week-start]')].find(r=>r.dataset.examWeekStart<=day&&r.dataset.examWeekEnd>=day);if(row)box.scrollTop+=row.getBoundingClientRect().top-box.getBoundingClientRect().top-52;}
@@ -103,34 +103,71 @@
  function attemptScore(attempt){
   return attempt.graded?'答对 '+attempt.correct+' / '+attempt.graded+' 题':'未自动判分';
  }
- function questionLayout(questions,answerFor,body){
-  const numbers=questions.map((q,i)=>{
-   const answered=questionState(answerFor(q));
-   return '<button type="button" class="prep-quiz-number'+(answered?' is-answered':'')+'" data-prep="question" data-index="'+i+'" data-question-number="'+E(q.id)+'" aria-label="第 '+(i+1)+' 题，'+(answered?'已答':'未答')+'" '+(i===questionIndex?'aria-current="step"':'')+' '+disabled()+'>'+ (i+1) +'</button>';
+ const draftKey=paper=>'study-prep-quiz:'+examId+':'+paper.id+':'+paper.version;
+ function readDraft(key){
+  try{return JSON.parse(localStorage.getItem(key)||'null');}catch{return null;}
+ }
+ function availableDraft(paper,attempts){
+  const draft=readDraft(draftKey(paper));
+  return draft?.attemptId&&draft.answers&&draft.review&&!attempts.some(a=>a.id===draft.attemptId)?draft:null;
+ }
+ function saveDraft(){
+  const session=paperSession;
+  if(!session)return;
+  try{
+   localStorage.setItem(session.key,JSON.stringify({attemptId:session.attemptId,answers:session.answers,review:session.review,index:questionIndex}));
+   reportedDraftError=false;
+  }catch{
+   if(!reportedDraftError)toast('草稿未保存到浏览器，请交卷保存。');
+   reportedDraftError=true;
+  }
+ }
+ function clearDraft(session){
+  try{if(readDraft(session.key)?.attemptId===session.attemptId)localStorage.removeItem(session.key);}catch{}
+ }
+ function questionIndices(questions,review={},onlyStarred=false){
+  return questions.flatMap((q,i)=>!onlyStarred||review[q.id]?.starred?[i]:[]);
+ }
+ function questionLabel(index,answered,starred){
+  return '第 '+(index+1)+' 题，'+(answered?'已答':'未答')+(starred?'，已标星':'');
+ }
+ function questionLayout(questions,answerFor,review,indices,body,filter=''){
+  const numbers=indices.map(i=>{
+   const q=questions[i],answered=questionState(answerFor(q)),starred=!!review[q.id]?.starred;
+   return '<button type="button" class="prep-quiz-number'+(answered?' is-answered':'')+(starred?' is-starred':'')+'" data-prep="question" data-index="'+i+'" data-question-number="'+E(q.id)+'" aria-label="'+questionLabel(i,answered,starred)+'" '+(i===questionIndex?'aria-current="step"':'')+' '+disabled()+'>'+ (i+1) +'</button>';
   }).join('');
   const answered=questions.filter(q=>questionState(answerFor(q))).length;
-  return '<div class="prep-quiz-layout"><aside class="prep-quiz-side" aria-label="题目导航"><p class="prep-quiz-progress" data-quiz-progress>已答 '+answered+' / '+questions.length+'</p>'+
+  return '<div class="prep-quiz-layout"><aside class="prep-quiz-side" aria-label="题目导航"><p class="prep-quiz-progress" data-quiz-progress>已答 '+answered+' / '+questions.length+'</p>'+filter+
    '<div class="prep-quiz-numbers">'+numbers+'</div></aside>'+body+'</div>';
  }
- function updateQuestionProgress(question,answers){
+ function syncQuestionNumber(question){
   const control=document.querySelector('[data-question-number="'+CSS.escape(question)+'"]');
   if(!control)return;
-  const answered=questionState(answers[question]),controls=document.querySelectorAll('[data-question-number]');
+  const {answers,review}=paperSession;
+  const answered=questionState(answers[question]),starred=!!review[question]?.starred;
   control.classList.toggle('is-answered',answered);
-  control.setAttribute('aria-label','第 '+control.textContent+' 题，'+(answered?'已答':'未答'));
-  const count=[...controls].filter(button=>button.classList.contains('is-answered')).length;
+  control.classList.toggle('is-starred',starred);
+  control.setAttribute('aria-label',questionLabel(Number(control.dataset.index),answered,starred));
+  const controls=document.querySelectorAll('[data-question-number]');
+  const count=document.querySelectorAll('.prep-quiz-number.is-answered').length;
   document.querySelector('[data-quiz-progress]').textContent='已答 '+count+' / '+controls.length;
  }
- function questionFooter(count,action=''){
-  return '<footer class="prep-quiz-footer"><div class="prep-actions">'+
-   '<button type="button" class="outline-button" data-prep="question" data-index="'+(questionIndex-1)+'" '+(questionIndex===0||saving?'disabled':'')+'>上一题</button>'+
-   '<button type="button" class="outline-button" data-prep="question" data-index="'+(questionIndex+1)+'" '+(questionIndex===count-1||saving?'disabled':'')+'>下一题</button></div>'+action+'</footer>';
+ function questionFooter(indices,action=''){
+  const position=indices.indexOf(questionIndex);
+  const step=(label,target)=>'<button type="button" class="outline-button" data-prep="question" data-index="'+(target??'')+'" '+(target===undefined||saving?'disabled':'')+'>'+label+'</button>';
+  return '<footer class="prep-quiz-footer"><div class="prep-actions">'+step('上一题',indices[position-1])+step('下一题',indices[position+1])+'</div>'+action+'</footer>';
  }
  function paperHeader(title,score=''){
   return '<header class="prep-paper-header"><div><h2>'+E(title)+'</h2>'+(score?'<small class="prep-quiz-score">'+E(score)+'</small>':'')+'</div><button type="button" class="text-button" data-prep="paper-list" '+disabled()+'>返回试卷</button></header>';
  }
- function questionHeading(q,status=''){
-  return '<h3 class="prep-question-heading" tabindex="-1">第 '+(questionIndex+1)+' 题 <span>'+E(questionKinds[q.type])+'</span>'+status+'</h3>';
+ function questionHeading(q,action=''){
+  return '<header class="prep-question-bar"><h3 class="prep-question-heading" tabindex="-1">第 '+(questionIndex+1)+' 题 <span>'+E(questionKinds[q.type])+'</span></h3>'+action+'</header>';
+ }
+ function starControl(question,starred){
+  return '<button type="button" class="prep-star-button" data-prep="star-question" data-id="'+E(question)+'" aria-label="星标题目" aria-pressed="'+starred+'" '+disabled()+'>'+I('star')+'</button>';
+ }
+ function thinkingEditor(q,review){
+  return '<label class="prep-thinking"><span>思考备注</span><textarea rows="2" maxlength="4000" data-prep-thinking="'+E(q.id)+'" '+disabled()+'>'+E(review.note||'')+'</textarea></label>';
  }
  function practiceQuestion(q){
   const value=paperSession.answers[q.id],label='第 '+(questionIndex+1)+' 题答案';
@@ -138,23 +175,29 @@
    '<label class="prep-option"><input type="'+(q.type==='single'?'radio':'checkbox')+'" name="'+E(q.id)+'" data-question="'+E(q.id)+'" value="'+i+'" '+(value?.includes(i)?'checked':'')+' '+disabled()+'><span>'+String.fromCharCode(65+i)+'.</span>'+markdown(option)+'</label>').join('')+'</div>':
    q.type==='blank'?'<input type="text" class="prep-answer" data-question="'+E(q.id)+'" aria-label="'+label+'" value="'+E(value||'')+'" maxlength="12000" '+disabled()+'>':
    '<textarea class="prep-answer" rows="5" data-question="'+E(q.id)+'" aria-label="'+label+'" maxlength="12000" '+disabled()+'>'+E(value||'')+'</textarea>';
-  return '<section class="prep-question">'+questionHeading(q)+markdown(q.prompt)+response+'</section>';
+  const review=paperSession.review[q.id]||{};
+  return '<section class="prep-question">'+questionHeading(q,starControl(q.id,!!review.starred))+markdown(q.prompt)+response+thinkingEditor(q,review)+'</section>';
  }
  function quizPanel(paper){
+  const {answers,review}=paperSession,indices=questionIndices(paper.questions);
   const q=paper.questions[questionIndex],submit='<button class="primary" type="submit" '+disabled()+'>'+(saving?'正在提交…':'提交试卷')+'</button>';
-  const body='<form id="prep-quiz" class="prep-quiz-main">'+practiceQuestion(q)+questionFooter(paper.questions.length,submit)+'</form>';
-  return '<section class="prep-section">'+paperHeader(paper.title)+questionLayout(paper.questions,q=>paperSession.answers[q.id],body)+'</section>';
+  const body='<form id="prep-quiz" class="prep-quiz-main">'+practiceQuestion(q)+questionFooter(indices,submit)+'</form>';
+  return '<section class="prep-section">'+paperHeader(paper.title)+questionLayout(paper.questions,q=>answers[q.id],review,indices,body)+'</section>';
  }
  function resultPanel(attempt,workspace){
-  const paper=workspace.mock_papers?.find(p=>p.id===attempt.paper_id),q=attempt.questions[questionIndex];
+  const paper=workspace.mock_papers?.find(p=>p.id===attempt.paper_id),q=attempt.questions[questionIndex],review=attempt.review||{};
+  const {note,starred}=review[q.id]||{};
+  const indices=questionIndices(attempt.questions,review,starredOnly),starredCount=questionIndices(attempt.questions,review,true).length;
+  const filter=starredCount?'<button type="button" class="prep-star-filter" data-prep="filter-stars" aria-pressed="'+starredOnly+'" aria-label="只看星标题">'+I('star')+'星标 '+starredCount+'</button>':'';
   const status=!questionState(q.response)?'未答':q.correct===true?'正确':q.correct===false?'错误':'未判分';
-  const retry=paper?'<button type="button" class="outline-button" data-prep="start-paper" data-id="'+E(paper.id)+'">重新作答</button>':'';
-  const body='<section class="prep-quiz-main"><article class="prep-question">'+questionHeading(q,'<span class="prep-result-status">'+status+'</span>')+markdown(q.prompt)+
+  const retry=paper?'<button type="button" class="outline-button" data-prep="start-paper" data-id="'+E(paper.id)+'">'+(availableDraft(paper,workspace.attempts||[])?'继续作答':'重新作答')+'</button>':'';
+  const resultStatus='<span class="prep-result-status">'+(starred?'<span aria-label="已标星" class="prep-review-star">'+I('star')+'</span>':'')+status+'</span>';
+  const body='<section class="prep-quiz-main"><article class="prep-question">'+questionHeading(q,resultStatus)+markdown(q.prompt)+
    '<dl class="prep-result-answers"><div class="prep-result-line"><dt>我的答案</dt><dd>'+markdown(answerText(q,q.response)||'—')+'</dd></div>'+
    (q.answer?.length?'<div class="prep-result-line"><dt>参考答案</dt><dd>'+markdown(answerText(q,q.options.length?q.answer:q.answer.join('、')))+'</dd></div>':'')+
-   '</dl>'+(q.explanation?markdown(q.explanation):'')+'</article>'+questionFooter(attempt.questions.length,retry)+'</section>';
+   '</dl>'+(q.explanation?markdown(q.explanation):'')+(note?'<div class="prep-thinking prep-thinking-result"><h4>思考备注</h4><p>'+E(note)+'</p></div>':'')+'</article>'+questionFooter(indices,retry)+'</section>';
   return '<section class="prep-section">'+paperHeader(attempt.paper_title,attemptScore(attempt))+
-   questionLayout(attempt.questions,q=>q.response,body)+'</section>';
+   questionLayout(attempt.questions,q=>q.response,review,indices,body,filter)+'</section>';
  }
  function showHistory(paper,attempts){
   const rows=attempts.filter(attempt=>attempt.paper_id===paper.id).slice().reverse();
@@ -173,7 +216,7 @@
    const count=attempts.filter(a=>a.paper_id===p.id).length;
    return '<li><div><strong>'+E(p.title)+'</strong><small>'+p.questions.length+' 题</small></div><div class="prep-actions">'+
     '<button type="button" class="outline-button" data-prep="paper-history" data-id="'+E(p.id)+'" aria-haspopup="dialog">'+I('history')+'作答记录'+(count?' <span>'+count+'</span>':'')+'</button>'+
-    '<button type="button" class="primary" data-prep="start-paper" data-id="'+E(p.id)+'">开始作答</button></div></li>';
+    '<button type="button" class="primary" data-prep="start-paper" data-id="'+E(p.id)+'">'+(availableDraft(p,attempts)?'继续作答':'开始作答')+'</button></div></li>';
   }).join('');
   const previous=(workspace.practice||[]).map(r=>'<details class="prep-result"><summary>'+E(r.question)+'</summary>'+markdown(r.answer||'')+(r.feedback?markdown(r.feedback):'')+(r.next?markdown(r.next):'')+'</details>').join('');
   return '<section class="prep-section"><header><h2>试卷</h2>'+generateButton('mock',workspace.mock_scan?'重新识别':'识别试卷',workspace.materials?.length)+'</header>'+
@@ -208,7 +251,7 @@
    '</nav><div class="prep-content">'+panel+'</div></section>';
  }
  function openExam(id){
-  examId=id;tab='materials';paperSession=null;viewedAttempt='';questionIndex=0;render();
+  examId=id;tab='materials';paperSession=null;viewedAttempt='';questionIndex=0;starredOnly=false;render();
   if(id)document.querySelector('.prep-page')?.scrollTo(0,0);
   else requestAnimationFrame(focusCalendar);
  }
@@ -244,19 +287,44 @@
   }
   if(action==='start-paper'){
    const paper=workspace.mock_papers?.find(p=>p.id===id);
-   if(paper){paperSession={paperId:id,version:paper.version,attemptId:crypto.randomUUID(),answers:{}};viewedAttempt='';questionIndex=0;render();}
+   if(paper){
+    const draft=availableDraft(paper,workspace.attempts||[]);
+    paperSession={paperId:id,version:paper.version,key:draftKey(paper),attemptId:draft?.attemptId||crypto.randomUUID(),answers:draft?.answers||{},review:draft?.review||{}};
+    const remembered=draft?.index;
+    questionIndex=Number.isInteger(remembered)&&remembered>=0&&remembered<paper.questions.length?remembered:0;
+    viewedAttempt='';starredOnly=false;render();
+   }
+   return true;
+  }
+  if(action==='star-question'&&paperSession){
+   const review=paperSession.review[id]??={};
+   review.starred=!review.starred;
+   button.setAttribute('aria-pressed',String(review.starred));
+   syncQuestionNumber(id);
+   saveDraft();
    return true;
   }
   if(action==='paper-list'||action==='result'){
    if(action==='result')document.querySelector('#modal').close();
-   paperSession=null;viewedAttempt=id||'';questionIndex=0;render();
+   paperSession=null;viewedAttempt=id||'';questionIndex=0;starredOnly=false;render();
+   return true;
+  }
+  if(action==='filter-stars'){
+   const attempt=workspace.attempts?.find(a=>a.id===viewedAttempt);
+   if(attempt){
+    starredOnly=!starredOnly;
+    const indices=questionIndices(attempt.questions,attempt.review||{},starredOnly);
+    if(!indices.includes(questionIndex))questionIndex=indices[0];
+    render();
+    document.querySelector('.prep-star-filter')?.focus({preventScroll:true});
+   }
    return true;
   }
   if(action==='question'){
    const index=Number(button.dataset.index);
    const entry=viewedAttempt?workspace.attempts?.find(a=>a.id===viewedAttempt):workspace.mock_papers?.find(p=>p.id===paperSession?.paperId);
    if(!saving&&Number.isInteger(index)&&index>=0&&index<(entry?.questions.length||0)&&index!==questionIndex){
-    questionIndex=index;render();
+    questionIndex=index;saveDraft();render();
     document.querySelector('.prep-question-heading')?.focus({preventScroll:true});
    }
    return true;
@@ -328,7 +396,14 @@
     if(el.checked)choices.add(value);else choices.delete(value);
     answers[question]=[...choices];
    }else answers[question]=el.value;
-   updateQuestionProgress(question,answers);
+   syncQuestionNumber(question);
+   saveDraft();
+  }
+  const thinking=el.dataset.prepThinking;
+  if(thinking&&paperSession){
+   const review=paperSession.review[thinking]??={};
+   review.note=el.value;
+   saveDraft();
   }
   if(!dialog||dialog.busy)return;
   if(el.id==='prep-instructions'||el.id==='prep-material-text')dialog.text=el.value;
@@ -361,8 +436,9 @@
   event.preventDefault();
   if(!paperSession)return;
   const session=paperSession;
-  await update(()=>workspaceUpdate('attempt',{paper_id:session.paperId,paper_version:session.version,attempt_id:session.attemptId,answers:session.answers}),()=>{
-   if(paperSession===session){paperSession=null;viewedAttempt=session.attemptId;questionIndex=0;}
+  await update(()=>workspaceUpdate('attempt',{paper_id:session.paperId,paper_version:session.version,attempt_id:session.attemptId,answers:session.answers,review:session.review}),()=>{
+   clearDraft(session);
+   if(paperSession===session){paperSession=null;viewedAttempt=session.attemptId;questionIndex=0;starredOnly=false;}
   });
  });
  root.addEventListener('resize',()=>root.ExamCalendar.updateCurrentLine());
